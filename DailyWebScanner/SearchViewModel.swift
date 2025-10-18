@@ -58,6 +58,68 @@ final class SearchViewModel: ObservableObject {
         }
     }
     
+    private func fetchLinkContents(for results: [SearchResult]) async {
+        let fetcher = LinkContentFetcher()
+        var linkContents: [LinkContent] = []
+        var totalImages = 0
+        var totalSize = 0
+        
+        // Limit to first 5 links to avoid overwhelming the system
+        let linksToFetch = Array(results.prefix(5))
+        
+        for result in linksToFetch {
+            do {
+                DebugLogger.shared.logWebViewAction("Fetching content for: \(result.link)")
+                let content = try await fetcher.fetchCompleteArticle(from: result.link)
+                linkContents.append(content)
+                totalImages += content.images.count
+                totalSize += content.html.utf8.count
+                
+                // Add image sizes
+                for image in content.images {
+                    if let data = image.data {
+                        totalSize += data.count
+                    }
+                }
+                
+            } catch {
+                DebugLogger.shared.logWebViewAction("Failed to fetch content for \(result.link): \(error)")
+            }
+        }
+        
+        // Update the search record with link contents
+        await updateSearchRecordWithLinkContents(linkContents, totalImages: totalImages, totalSize: totalSize)
+    }
+    
+    private func updateSearchRecordWithLinkContents(_ linkContents: [LinkContent], totalImages: Int, totalSize: Int) async {
+        guard let modelContext = modelContext else { return }
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(linkContents)
+            let linkContentsJSON = String(data: data, encoding: .utf8) ?? ""
+            
+            // Find the most recent search record
+            let descriptor = FetchDescriptor<SearchRecord>(
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            )
+            let records = try modelContext.fetch(descriptor)
+            
+            if let latestRecord = records.first {
+                latestRecord.linkContents = linkContentsJSON
+                latestRecord.hasLinkContents = !linkContents.isEmpty
+                latestRecord.totalImagesDownloaded = totalImages
+                latestRecord.totalContentSize = totalSize
+                
+                try modelContext.save()
+                DebugLogger.shared.logWebViewAction("Updated search record with \(linkContents.count) link contents")
+            }
+        } catch {
+            DebugLogger.shared.logWebViewAction("Failed to update search record with link contents: \(error)")
+        }
+    }
+    
     func runSearch(query: String) async throws -> SearchRecord {
         DebugLogger.shared.logSearchStart(query: query)
         cancelCurrentSearch()
@@ -151,6 +213,11 @@ final class SearchViewModel: ObservableObject {
         // Perform content analysis
         let contentAnalysis = HTMLContentParser.parseContent(from: html)
         let analysisJSON = encodeContentAnalysis(contentAnalysis)
+        
+        // Fetch link contents (async, don't block search)
+        Task {
+            await fetchLinkContents(for: results)
+        }
         
         let record = SearchRecord(
             query: query,

@@ -158,21 +158,33 @@ struct ContentView: View {
                         .onAppear {
                             DebugLogger.shared.logWebViewAction("Showing search progress view")
                         }
-                } else if let record = selectedRecord ?? records.first {
-                    VStack(spacing: 0) {
-                        // Search Parameters Display
-                        SearchParametersHeaderView()
-                        
-                        // Search Results
-                        WebView(html: record.htmlSummary)
-                            .id(record.id) // force reload when switching records
+        } else if let record = selectedRecord ?? records.first {
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Search Parameters Display
+                    SearchParametersHeaderView()
+                    
+                    // Search Results
+                    WebView(html: record.htmlSummary)
+                        .id(record.id) // force reload when switching records
+                        .frame(minHeight: 400)
+                    
+                    // Link Contents (if available)
+                    if record.hasLinkContents, let linkContents = decodeLinkContents(from: record.linkContents) {
+                        LinkContentView(linkContents: linkContents)
                     }
-                    .navigationTitle(record.query)
-                    .onAppear {
-                        DebugLogger.shared.logWebViewAction("Displaying WebView for record: \(record.query)")
-                        DebugLogger.shared.logWebViewAction("HTML content length: \(record.htmlSummary.count)")
-                    }
-                } else {
+                }
+                .padding()
+            }
+            .navigationTitle(record.query)
+            .onAppear {
+                DebugLogger.shared.logWebViewAction("Displaying WebView for record: \(record.query)")
+                DebugLogger.shared.logWebViewAction("HTML content length: \(record.htmlSummary.count)")
+                if record.hasLinkContents {
+                    DebugLogger.shared.logWebViewAction("Link contents available: \(record.totalImagesDownloaded) images, \(record.totalContentSize) bytes")
+                }
+            }
+        } else {
                     ContentPlaceholderView()
                         .onAppear {
                             DebugLogger.shared.logWebViewAction("Showing placeholder view - no records available")
@@ -289,6 +301,22 @@ struct ContentView: View {
             if selectedRecord?.id == record.id {
                 selectedRecord = nil
             }
+        }
+    }
+    
+    private func decodeLinkContents(from jsonString: String) -> [LinkContent]? {
+        guard !jsonString.isEmpty,
+              let data = jsonString.data(using: .utf8) else {
+            return nil
+        }
+        
+        do {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode([LinkContent].self, from: data)
+        } catch {
+            DebugLogger.shared.logWebViewAction("Failed to decode link contents: \(error)")
+            return nil
         }
     }
     

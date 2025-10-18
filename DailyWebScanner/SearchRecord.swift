@@ -28,6 +28,12 @@ final class SearchRecord: Identifiable {
     var contentBlocksCount: Int = 0
     var tagsCount: Int = 0
     var hasContentAnalysis: Bool = false
+    
+    // Link Content Storage
+    var linkContents: String = ""  // JSON string of [LinkContent]
+    var hasLinkContents: Bool = false
+    var totalImagesDownloaded: Int = 0
+    var totalContentSize: Int = 0  // in bytes
 
     @Relationship(deleteRule: .cascade)
     var results: [SearchResult]
@@ -37,7 +43,9 @@ final class SearchRecord: Identifiable {
          searchType: String = "", timeRange: String = "", numberOfResults: Int = 20,
          searchDuration: TimeInterval = 0.0, resultCount: Int = 0, results: [SearchResult] = [],
          contentAnalysis: String = "", headlinesCount: Int = 0, linksCount: Int = 0, 
-         contentBlocksCount: Int = 0, tagsCount: Int = 0, hasContentAnalysis: Bool = false) {
+         contentBlocksCount: Int = 0, tagsCount: Int = 0, hasContentAnalysis: Bool = false,
+         linkContents: String = "", hasLinkContents: Bool = false, totalImagesDownloaded: Int = 0,
+         totalContentSize: Int = 0) {
         self.id = id
         self.query = query
         self.createdAt = createdAt
@@ -57,6 +65,10 @@ final class SearchRecord: Identifiable {
         self.contentBlocksCount = contentBlocksCount
         self.tagsCount = tagsCount
         self.hasContentAnalysis = hasContentAnalysis
+        self.linkContents = linkContents
+        self.hasLinkContents = hasLinkContents
+        self.totalImagesDownloaded = totalImagesDownloaded
+        self.totalContentSize = totalContentSize
         self.results = results
     }
 }
