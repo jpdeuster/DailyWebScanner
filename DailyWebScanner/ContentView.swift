@@ -7,53 +7,185 @@
 
 import SwiftUI
 import SwiftData
+import WebKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Environment(\.scenePhase) private var scenePhase
+
+    // Search history records
+    @Query(sort: \SearchRecord.createdAt, order: .reverse)
+    private var records: [SearchRecord]
+
+    @State private var selectedRecord: SearchRecord?
+    @StateObject private var viewModel = SearchViewModel()
+
+    @State private var searchText: String = ""
+    @FocusState private var isSearchFieldFocused: Bool
 
     var body: some View {
         NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+            VStack(spacing: 0) {
+                // Quick search field at top of sidebar
+                HStack {
+                    TextField("Suchbegriff eingeben …", text: $searchText, onCommit: {
+                        Task { await runSearch() }
+                    })
+                    .focused($isSearchFieldFocused)
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+
+                    Button {
+                        Task { await runSearch() }
                     } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                        Image(systemName: "magnifyingglass")
                     }
+                    .keyboardShortcut(.defaultAction)
+                    .padding(.trailing, 8)
+                    .disabled(viewModel.isSearching || searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .help("Suche starten")
                 }
-                .onDelete(perform: deleteItems)
+
+                List(selection: $selectedRecord) {
+                    ForEach(records) { record in
+                        NavigationLink(value: record) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(record.query)
+                                    .font(.headline)
+                                    .lineLimit(1)
+                                Text(record.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .onDelete(perform: deleteRecords)
+                }
+                .searchable(text: $viewModel.historySearch, placement: .sidebar)
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .navigationTitle("Verlauf")
             .toolbar {
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                ToolbarItemGroup {
+                    if viewModel.isSearching {
+                        Button(role: .cancel) {
+                            viewModel.cancelCurrentSearch()
+                        } label: {
+                            Label("Abbrechen", systemImage: "xmark.circle")
+                        }
+                        .help("Laufende Suche abbrechen")
+                    } else {
+                        Button {
+                            Task { await runSearch() }
+                        } label: {
+                            Label("Suchen", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .disabled(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .help("Manuelle Suche starten")
                     }
                 }
             }
+            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
-            Text("Select an item")
+            Group {
+                if viewModel.isSearching {
+                    ProgressView("Suche läuft …")
+                        .controlSize(.large)
+                } else if let record = selectedRecord ?? records.first {
+                    WebView(html: record.htmlSummary)
+                        .id(record.id) // force reload when switching records
+                        .navigationTitle(record.query)
+                } else {
+                    ContentPlaceholderView()
+                }
+            }
+            .toolbar {
+                ToolbarItemGroup {
+                    Button {
+                        Task { await rerenderSelectedRecord() }
+                    } label: {
+                        Label("Neu rendern", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(selectedRecord == nil)
+                    .help("HTML-Ansicht neu rendern")
+                }
+            }
+        }
+        .onAppear {
+            viewModel.inject(modelContext: modelContext)
+
+            // Menübefehle abonnieren
+            NotificationCenter.default.addObserver(forName: .focusSearchField, object: nil, queue: .main) { _ in
+                isSearchFieldFocused = true
+            }
+            NotificationCenter.default.addObserver(forName: .triggerManualSearch, object: nil, queue: .main) { _ in
+                Task { await runSearch() }
+            }
+        }
+        .onDisappear {
+            NotificationCenter.default.removeObserver(self, name: .focusSearchField, object: nil)
+            NotificationCenter.default.removeObserver(self, name: .triggerManualSearch, object: nil)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            // Cancel any running search when app goes inactive/background
+            if newPhase != .active {
+                viewModel.cancelCurrentSearch()
+            }
+        }
+        .alert(item: $viewModel.activeError) { err in
+            Alert(title: Text("Fehler"), message: Text(err.message), dismissButton: .default(Text("OK")))
         }
     }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
+    private func runSearch() async {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            // Setze den Fokus ins Suchfeld, falls leer
+            isSearchFieldFocused = true
+            return
+        }
+        do {
+            let record = try await viewModel.runSearch(query: trimmed)
+            selectedRecord = record
+            searchText = ""
+        } catch is CancellationError {
+            // User cancelled; no alert
+        } catch {
+            // Error is already surfaced via activeError
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
+    private func rerenderSelectedRecord() async {
+        guard let record = selectedRecord else { return }
+        await viewModel.rerenderHTML(for: record)
+    }
+
+    private func deleteRecords(at offsets: IndexSet) {
         withAnimation {
             for index in offsets {
-                modelContext.delete(items[index])
+                modelContext.delete(records[index])
             }
         }
     }
 }
 
+private struct ContentPlaceholderView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("Noch keine Suche durchgeführt")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            Text("Geben Sie einen Suchbegriff ein und klicken Sie auf Suchen.")
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: [SearchRecord.self, SearchResult.self], inMemory: true)
 }
