@@ -62,46 +62,33 @@ struct ContentView: View {
                 List(selection: $selectedRecord) {
                     ForEach(records) { record in
                         NavigationLink(value: record) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(record.query)
-                                    .font(.headline)
-                                    .lineLimit(1)
-                                Text(record.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(record.query)
+                                        .font(.headline)
+                                        .lineLimit(1)
+                                    Text(record.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                // Delete button for individual items
+                                Button {
+                                    deleteSelectedRecord(record)
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Delete this search result")
                             }
                         }
                     }
                     .onDelete(perform: deleteRecords)
                 }
                 
-                // Löschen-Buttons am Ende der Sidebar
-                if !records.isEmpty {
-                    VStack(spacing: 8) {
-                        Divider()
-                        
-                        HStack {
-                            Button("Delete All") {
-                                deleteAllRecords()
-                            }
-                            .buttonStyle(.bordered)
-                            .foregroundColor(.red)
-                            .help("Delete all search results")
-                            
-                            Spacer()
-                            
-                            Button("Delete Selected") {
-                                deleteSelectedRecord()
-                            }
-                            .buttonStyle(.bordered)
-                            .foregroundColor(.orange)
-                            .disabled(selectedRecord == nil)
-                            .help("Delete selected search result")
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.bottom, 8)
-                    }
-                }
             }
             .navigationTitle("Verlauf")
             .toolbar {
@@ -231,21 +218,13 @@ struct ContentView: View {
         }
     }
     
-    private func deleteAllRecords() {
-        withAnimation {
-            for record in records {
-                modelContext.delete(record)
-            }
-            selectedRecord = nil
-        }
-    }
     
-    private func deleteSelectedRecord() {
-        guard let record = selectedRecord else { return }
-        
+    private func deleteSelectedRecord(_ record: SearchRecord) {
         withAnimation {
             modelContext.delete(record)
-            selectedRecord = nil
+            if selectedRecord?.id == record.id {
+                selectedRecord = nil
+            }
         }
     }
 }

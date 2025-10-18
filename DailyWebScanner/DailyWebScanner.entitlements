@@ -14,25 +14,29 @@
 	<key>com.apple.security.network.dns</key>
 	<true/>
 	
+	<!-- Additional network permissions -->
+	<key>com.apple.security.network.server</key>
+	<false/>
+	
+	<!-- Allow network system preferences access -->
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+	<array>
+		<string>/Library/Preferences/com.apple.networkd.plist</string>
+		<string>/Library/Preferences/com.apple.dnssd.service.plist</string>
+		<string>/Library/Preferences/SystemConfiguration/preferences.plist</string>
+		<string>/Library/Preferences/SystemConfiguration/NetworkInterfaces.plist</string>
+	</array>
+	
 	<!-- File access permissions -->
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
-	
-	<!-- Allow outgoing network connections -->
-	<key>com.apple.security.network.server</key>
-	<false/>
 	
 	<!-- Temporary exceptions for network services -->
 	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
 	<array>
 		<string>com.apple.networkd</string>
 		<string>com.apple.dnssd.service</string>
-	</array>
-	
-	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
-	<array>
-		<string>/Library/Preferences/com.apple.networkd.plist</string>
-		<string>/Library/Preferences/com.apple.dnssd.service.plist</string>
+		<string>com.apple.systemconfiguration.network</string>
 	</array>
 	
 	<key>com.apple.security.temporary-exception.shared-preference.read-write</key>
