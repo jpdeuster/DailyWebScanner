@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import Combine
+import os.log
 
 @MainActor
 final class SearchViewModel: ObservableObject {
@@ -38,11 +39,13 @@ final class SearchViewModel: ObservableObject {
     }
 
     func runSearch(query: String) async throws -> SearchRecord {
+        DebugLogger.shared.logSearchStart(query: query)
         cancelCurrentSearch()
 
         guard let modelContext else {
             let err = ViewError(message: "Kein ModelContext verfügbar.")
             activeError = err
+            DebugLogger.shared.logSearchError(query: query, error: err)
             throw err
         }
 
@@ -62,6 +65,10 @@ final class SearchViewModel: ObservableObject {
         let task = Task<SearchRecord, Error> {
             try Task.checkCancellation()
 
+            // Log SerpAPI call
+            let serpKeyPresent = KeychainHelper.get(.serpAPIKey) != nil
+            DebugLogger.shared.logSerpAPICall(query: query, apiKeyPresent: serpKeyPresent)
+
             let serpResults = try await serpClient.fetchTopResults(query: query, count: count, hl: hl, gl: gl)
 
             try Task.checkCancellation()
@@ -80,14 +87,17 @@ final class SearchViewModel: ObservableObject {
                 // Versuche OpenAI-Zusammenfassung, falls Key vorhanden, sonst verwende Original-Snippet
                 let summary: String
                 if let openAIKey = KeychainHelper.get(.openAIAPIKey), !openAIKey.isEmpty {
+                    DebugLogger.shared.logOpenAICall(query: query, apiKeyPresent: true)
                     do {
                         summary = try await openAIClient.summarize(snippet: snippet, title: r.title, link: r.link)
                     } catch {
                         // Bei Fehler mit OpenAI, verwende das Original-Snippet
+                        DebugLogger.shared.logWarning(component: "SearchViewModel", message: "OpenAI summarization failed, using original snippet")
                         summary = snippet
                     }
                 } else {
                     // Kein OpenAI Key vorhanden, verwende Original-Snippet
+                    DebugLogger.shared.logOpenAICall(query: query, apiKeyPresent: false)
                     summary = snippet
                 }
                 

@@ -52,35 +52,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### v0.6 - Enhanced User Experience (Q4 2024)
+### v0.6 - Enhanced User Experience
+- [ ] **SQLite Database Integration**: Local database for search results
+- [ ] **Search History**: Complete search history with analytics
+- [ ] **Result Caching**: Intelligent caching system
+- [ ] **Data Migration**: Migration from SwiftData to SQLite
 - [ ] Search filters (date, language, region)
 - [ ] Result sorting options
 - [ ] Keyboard shortcuts
 - [ ] Complete dark mode support
 - [ ] Accessibility improvements
 
-### v0.7 - Export & Sharing (Q1 2025)
+### v0.7 - Export & Sharing
 - [ ] PDF export functionality
 - [ ] Markdown export
 - [ ] Native sharing integration
 - [ ] Print support
 - [ ] Bookmark management
 
-### v0.8 - Advanced Search (Q1 2025)
+### v0.8 - Advanced Search
 - [ ] Multiple search engines (Bing, DuckDuckGo)
 - [ ] Advanced search operators
 - [ ] Image search capabilities
 - [ ] News search mode
 - [ ] Academic search integration
 
-### v0.9 - AI Enhancement (Q2 2025)
+### v0.9 - AI Enhancement
 - [ ] Multiple AI providers (Claude, Gemini)
 - [ ] Custom AI prompts
 - [ ] AI comparison features
 - [ ] Smart categorization
 - [ ] Trend analysis
 
-### v1.0 - Production Ready (Q2 2025)
+### v1.0 - Production Ready
 - [ ] Performance optimization
 - [ ] Comprehensive error handling
 - [ ] User onboarding tutorial

@@ -5,6 +5,8 @@ struct WebView: NSViewRepresentable {
     let html: String
 
     func makeNSView(context: Context) -> WKWebView {
+        DebugLogger.shared.logWebKitStart()
+        
         let config = WKWebViewConfiguration()
         
         // Minimale Konfiguration für Stabilität
@@ -26,6 +28,8 @@ struct WebView: NSViewRepresentable {
         
         // Navigation-Delegates für bessere Fehlerbehandlung
         webView.navigationDelegate = context.coordinator
+        
+        DebugLogger.shared.logWebViewAction("WebView created successfully")
         
         return webView
     }

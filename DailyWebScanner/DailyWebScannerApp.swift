@@ -71,6 +71,26 @@ struct DailyWebScannerApp: App {
                 }
                 .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Suche auslösen
             }
+            
+            CommandMenu("Help") {
+                Button("About DailyWebScanner") {
+                    showAboutWindow()
+                }
+                
+                Divider()
+                
+                Button("Disclaimer") {
+                    showDisclaimerWindow()
+                }
+                
+                Button("Privacy & Responsibility") {
+                    showPrivacyWindow()
+                }
+                
+                Button("License") {
+                    showLicenseWindow()
+                }
+            }
         }
 
         Settings {
@@ -79,5 +99,59 @@ struct DailyWebScannerApp: App {
                        minHeight: 420, idealHeight: 520, maxHeight: .infinity,
                        alignment: .topLeading)
         }
+    }
+    
+    // MARK: - Help Menu Functions
+    
+    private func showAboutWindow() {
+        let aboutWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        aboutWindow.title = "About DailyWebScanner"
+        aboutWindow.center()
+        aboutWindow.contentView = NSHostingView(rootView: AboutView())
+        aboutWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showDisclaimerWindow() {
+        let disclaimerWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        disclaimerWindow.title = "Disclaimer & Legal Notice"
+        disclaimerWindow.center()
+        disclaimerWindow.contentView = NSHostingView(rootView: DisclaimerView())
+        disclaimerWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showPrivacyWindow() {
+        let privacyWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        privacyWindow.title = "Privacy & Data Responsibility"
+        privacyWindow.center()
+        privacyWindow.contentView = NSHostingView(rootView: PrivacyView())
+        privacyWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showLicenseWindow() {
+        let licenseWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        licenseWindow.title = "MIT License"
+        licenseWindow.center()
+        licenseWindow.contentView = NSHostingView(rootView: LicenseView())
+        licenseWindow.makeKeyAndOrderFront(nil)
     }
 }
