@@ -11,8 +11,6 @@ struct APISettingsView: View {
     @AppStorage("serpAPIKey") private var serpKey: String = ""
     @AppStorage("openAIKey") private var openAIKey: String = ""
     
-    @State private var showingTestResults = false
-    @State private var testResults = ""
     @State private var isTestingSerpAPI = false
     @State private var isTestingOpenAI = false
     @State private var serpAPIResult = ""
@@ -20,210 +18,172 @@ struct APISettingsView: View {
     @State private var accountInfo = ""
     @State private var isLoadingAccountInfo = false
     
-    @Environment(\.dismiss) private var dismiss
-    
     var body: some View {
-        VStack(spacing: 20) {
-            // Header with Close Button
-            HStack {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("API Settings")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("Configure your API keys for SerpAPI and OpenAI")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                Button("Close") {
-                    dismiss()
-                }
-                .buttonStyle(.bordered)
+        VStack(spacing: 16) {
+            // Header
+            VStack(alignment: .leading, spacing: 4) {
+                Text("API Settings")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text("Configure your API keys for SerpAPI and OpenAI")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
             }
-            .padding(.bottom, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
             
             Divider()
             
-            // SerpAPI Settings
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Image(systemName: "magnifyingglass.circle.fill")
-                        .foregroundColor(.blue)
-                        .font(.title2)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("SerpAPI")
-                            .font(.headline)
-                        Text("For Google Web Search")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                }
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("API Key")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    SecureField("Enter SerpAPI Key...", text: $serpKey)
-                        .textFieldStyle(.roundedBorder)
-                        .help("Your SerpAPI key for Google Web Search")
-                    
-                    HStack {
-                        if serpKey.isEmpty {
-                            Text("⚠️ SerpAPI key is required for search")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                        } else {
-                            Text("✅ SerpAPI key is configured")
-                                .font(.caption)
-                                .foregroundColor(.green)
+            // Content
+            ScrollView {
+                VStack(spacing: 12) {
+                    // SerpAPI
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass.circle.fill")
+                                .foregroundColor(.blue)
+                            Text("SerpAPI")
+                                .font(.headline)
+                            Spacer()
+                            statusPill(text: serpKey.isEmpty ? "Not configured" : "Configured",
+                                       color: serpKey.isEmpty ? .orange : .green)
                         }
                         
-                        Spacer()
-                        
-                        Button(action: testSerpAPI) {
-                            HStack {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("API Key")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            SecureField("Enter SerpAPI Key…", text: $serpKey)
+                                .textFieldStyle(.roundedBorder)
+                            
+                            HStack(spacing: 8) {
+                                Button(action: testSerpAPI) {
+                                    Label("Test", systemImage: isTestingSerpAPI ? "hourglass" : "play.circle.fill")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.blue)
+                                .disabled(serpKey.isEmpty || isTestingSerpAPI)
+                                
                                 if isTestingSerpAPI {
                                     ProgressView()
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: "play.circle.fill")
+                                        .controlSize(.small)
                                 }
-                                Text("Test")
+                                
+                                Spacer()
+                                
+                                if !serpAPIResult.isEmpty {
+                                    Text(serpAPIResult)
+                                        .font(.caption)
+                                        .foregroundColor(serpAPIResult.contains("✅") ? .green : .red)
+                                }
                             }
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(serpKey.isEmpty || isTestingSerpAPI)
-                        .help("Test SerpAPI connection")
                     }
+                    .padding(12)
+                    .background(Color.blue.opacity(0.07))
+                    .cornerRadius(10)
                     
-                    if !serpAPIResult.isEmpty {
-                        Text(serpAPIResult)
-                            .font(.caption)
-                            .foregroundColor(serpAPIResult.contains("✅") ? .green : .red)
-                            .padding(.top, 4)
-                    }
-                }
-            }
-            .padding()
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(12)
-            
-            // OpenAI Settings
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Image(systemName: "brain.head.profile")
-                        .foregroundColor(.purple)
-                        .font(.title2)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("OpenAI")
-                            .font(.headline)
-                        Text("For AI Summaries (optional)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                }
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("API Key")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    SecureField("Enter OpenAI Key... (optional)", text: $openAIKey)
-                        .textFieldStyle(.roundedBorder)
-                        .help("Your OpenAI key for AI summaries")
-                    
-                    HStack {
-                        if openAIKey.isEmpty {
-                            Text("ℹ️ OpenAI key is optional - Original text will be used")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                        } else {
-                            Text("✅ OpenAI key is configured")
-                                .font(.caption)
-                                .foregroundColor(.green)
+                    // OpenAI
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "brain.head.profile")
+                                .foregroundColor(.purple)
+                            Text("OpenAI")
+                                .font(.headline)
+                            Spacer()
+                            statusPill(text: openAIKey.isEmpty ? "Optional" : "Configured",
+                                       color: openAIKey.isEmpty ? .gray : .green)
                         }
                         
-                        Spacer()
-                        
-                        Button(action: testOpenAI) {
-                            HStack {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("API Key")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            SecureField("Enter OpenAI Key… (optional)", text: $openAIKey)
+                                .textFieldStyle(.roundedBorder)
+                            
+                            HStack(spacing: 8) {
+                                Button(action: testOpenAI) {
+                                    Label("Test", systemImage: isTestingOpenAI ? "hourglass" : "play.circle.fill")
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.purple)
+                                .disabled(openAIKey.isEmpty || isTestingOpenAI)
+                                
                                 if isTestingOpenAI {
                                     ProgressView()
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: "play.circle.fill")
+                                        .controlSize(.small)
                                 }
-                                Text("Test")
+                                
+                                Spacer()
+                                
+                                if !openAIResult.isEmpty {
+                                    Text(openAIResult)
+                                        .font(.caption)
+                                        .foregroundColor(openAIResult.contains("✅") ? .green : .red)
+                                }
                             }
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(openAIKey.isEmpty || isTestingOpenAI)
-                        .help("Test OpenAI connection")
                     }
+                    .padding(12)
+                    .background(Color.purple.opacity(0.07))
+                    .cornerRadius(10)
                     
-                    if !openAIResult.isEmpty {
-                        Text(openAIResult)
-                            .font(.caption)
-                            .foregroundColor(openAIResult.contains("✅") ? .green : .red)
-                            .padding(.top, 4)
+                    // Summary
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Configuration Summary")
+                            .font(.headline)
+                        
+                        HStack(spacing: 12) {
+                            HStack(spacing: 6) {
+                                Image(systemName: serpKey.isEmpty ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                    .foregroundColor(serpKey.isEmpty ? .red : .green)
+                                Text("SerpAPI: \(serpKey.isEmpty ? "Not configured" : "Configured")")
+                                    .font(.caption)
+                            }
+                            
+                            HStack(spacing: 6) {
+                                Image(systemName: openAIKey.isEmpty ? "minus.circle.fill" : "checkmark.circle.fill")
+                                    .foregroundColor(openAIKey.isEmpty ? .orange : .green)
+                                Text("OpenAI: \(openAIKey.isEmpty ? "Not configured (optional)" : "Configured")")
+                                    .font(.caption)
+                            }
+                            
+                            Spacer()
+                        }
                     }
+                    .padding(12)
+                    .background(Color.gray.opacity(0.06))
+                    .cornerRadius(10)
                 }
+                .padding(.vertical, 2)
             }
-            .padding()
-            .background(Color.purple.opacity(0.1))
-            .cornerRadius(12)
-            
-            // Summary Section
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Configuration Summary")
-                    .font(.headline)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: serpKey.isEmpty ? "xmark.circle.fill" : "checkmark.circle.fill")
-                            .foregroundColor(serpKey.isEmpty ? .red : .green)
-                        Text("SerpAPI: \(serpKey.isEmpty ? "Not configured" : "Configured")")
-                            .font(.subheadline)
-                    }
-                    
-                    HStack {
-                        Image(systemName: openAIKey.isEmpty ? "minus.circle.fill" : "checkmark.circle.fill")
-                            .foregroundColor(openAIKey.isEmpty ? .orange : .green)
-                        Text("OpenAI: \(openAIKey.isEmpty ? "Not configured (optional)" : "Configured")")
-                            .font(.subheadline)
-                    }
-                }
-                .padding()
-                .background(Color.gray.opacity(0.05))
-                .cornerRadius(8)
-            }
-            .padding()
-            .background(Color.gray.opacity(0.05))
-            .cornerRadius(12)
-            
-            Spacer()
         }
-        .padding()
-        .frame(minWidth: 500, minHeight: 400)
+        .padding(16)
+        .frame(minWidth: 480, minHeight: 380)
     }
+    
+    // MARK: - Helpers
+    
+    private func statusPill(text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption2)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(color.opacity(0.15))
+            .foregroundColor(color)
+            .cornerRadius(6)
+    }
+    
+    // MARK: - Actions
     
     private func testSerpAPI() {
         isTestingSerpAPI = true
-        serpAPIResult = "Testing SerpAPI..."
+        serpAPIResult = "Testing SerpAPI…"
         
         Task {
             do {
-                // Simple test query with minimal parameters
                 let serpClient = SerpAPIClient(apiKeyProvider: { serpKey })
                 let results = try await serpClient.fetchTopResults(query: "test", count: 1, hl: "en", gl: "us")
                 
@@ -233,18 +193,17 @@ struct APISettingsView: View {
                     serpAPIResult = "✅ SerpAPI: Connection successful"
                 }
             } catch {
-                // More detailed error reporting
                 if let serpError = error as? SerpAPIClient.SerpError {
                     switch serpError {
                     case .missingAPIKey:
                         serpAPIResult = "❌ SerpAPI: API key is missing"
                     case .http(let code):
                         if code == 401 {
-                            serpAPIResult = "❌ SerpAPI: Invalid API key (401 Unauthorized)"
+                            serpAPIResult = "❌ SerpAPI: Invalid API key (401)"
                         } else if code == 403 {
-                            serpAPIResult = "❌ SerpAPI: API key access denied (403 Forbidden)"
+                            serpAPIResult = "❌ SerpAPI: Access denied (403)"
                         } else if code == 429 {
-                            serpAPIResult = "❌ SerpAPI: Rate limit exceeded (429 Too Many Requests)"
+                            serpAPIResult = "❌ SerpAPI: Rate limit (429)"
                         } else {
                             serpAPIResult = "❌ SerpAPI: HTTP error \(code)"
                         }
@@ -264,7 +223,7 @@ struct APISettingsView: View {
     
     private func testOpenAI() {
         isTestingOpenAI = true
-        openAIResult = "Testing OpenAI..."
+        openAIResult = "Testing OpenAI…"
         
         Task {
             do {

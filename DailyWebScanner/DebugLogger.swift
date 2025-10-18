@@ -79,6 +79,72 @@ class DebugLogger {
         networkLogger.warning("🔒 networkd_settings_read_from_file - Sandbox preventing access to networkd settings")
     }
     
+    /// Detailed logging for URLSession URLError with CFNetwork details if present.
+    /// - Parameters:
+    ///   - url: The URL that failed.
+    ///   - code: URLError.Code
+    ///   - underlying: NSError cast of URLError to extract userInfo details (optional).
+    ///   - path: Value of _NSURLErrorNWPathKey (optional).
+    ///   - resolutionReport: Value of _NSURLErrorNWResolutionReportKey (optional).
+    func logNetworkURLError(url: URL, code: URLError.Code, underlying: NSError?, path: String?, resolutionReport: String?) {
+        let codeDesc = "\(code.rawValue) (\(String(describing: code)))"
+        var components: [String] = []
+        components.append("URL=\(url.absoluteString)")
+        components.append("URLError=\(codeDesc)")
+        
+        if let underlying {
+            // CFNetwork domain/code – try both public and underscored keys
+            let cfDomain = (underlying.userInfo["kCFStreamErrorDomainKey"] as? Int)
+                ?? (underlying.userInfo["_kCFStreamErrorDomainKey"] as? Int)
+            let cfCode = (underlying.userInfo["kCFStreamErrorCodeKey"] as? Int)
+                ?? (underlying.userInfo["_kCFStreamErrorCodeKey"] as? Int)
+            if let d = cfDomain, let c = cfCode {
+                components.append("CFNetwork=\(d)/\(c)")
+            }
+            // Standard domain/code
+            components.append("NSError=\(underlying.domain)(\(underlying.code))")
+            
+            // Try to pull path/resolution from userInfo if not provided by caller
+            if path == nil, let p = underlying.userInfo["_NSURLErrorNWPathKey"] as? String, !p.isEmpty {
+                components.append("Path=\(p)")
+            }
+            if resolutionReport == nil, let r = underlying.userInfo["_NSURLErrorNWResolutionReportKey"] as? String, !r.isEmpty {
+                components.append("Resolution=\(r)")
+            }
+        }
+        
+        if let path, !path.isEmpty {
+            components.append("Path=\(path)")
+        }
+        if let resolutionReport, !resolutionReport.isEmpty {
+            components.append("Resolution=\(resolutionReport)")
+        }
+        
+        networkLogger.error("❌ URLSession URLError: \(components.joined(separator: " | "))")
+    }
+    
+    /// Specialized DNS failure logging, when you can identify CFNetwork domain/code.
+    func logDNSFailure(host: String, cfDomain: Int?, cfCode: Int?, details: String?) {
+        var parts: [String] = ["Host=\(host)"]
+        if let d = cfDomain, let c = cfCode {
+            parts.append("CFNetwork=\(d)/\(c)")
+        }
+        if let details, !details.isEmpty {
+            parts.append("Details=\(details)")
+        }
+        networkLogger.error("🧩 DNS Failure: \(parts.joined(separator: " | "))")
+    }
+    
+    /// Log non-2xx HTTP status for easier correlation.
+    func logHTTPStatus(url: URL, status: Int) {
+        networkLogger.warning("📡 HTTP Status: \(status) - \(url.absoluteString)")
+    }
+    
+    /// Optional helper to log only the network path string.
+    func logNetworkPathInfo(_ path: String) {
+        networkLogger.info("🛣️ Network Path: \(path)")
+    }
+    
     // MARK: - WebKit Debug Logging
     
     func logWebKitStart() {

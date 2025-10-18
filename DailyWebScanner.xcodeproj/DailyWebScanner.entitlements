@@ -2,12 +2,27 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>com.apple.developer.applesignin</key>
-	<array/>
+	<!-- Enable App Sandbox for security -->
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	
+	<!-- Network permissions - CRITICAL for SerpAPI and OpenAI -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	
+	<!-- DNS resolution permissions -->
 	<key>com.apple.security.network.dns</key>
 	<true/>
+	
+	<!-- Disable server permissions -->
+	<key>com.apple.security.network.server</key>
+	<false/>
+	
+	<!-- File access permissions -->
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+	
+	<!-- CRITICAL: Allow network system preferences access -->
 	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
 	<array>
 		<string>/Library/Preferences/com.apple.networkd.plist</string>
@@ -15,16 +30,33 @@
 		<string>/Library/Preferences/SystemConfiguration/preferences.plist</string>
 		<string>/Library/Preferences/SystemConfiguration/NetworkInterfaces.plist</string>
 	</array>
+	
+	<!-- CRITICAL: Temporary exceptions for network services -->
 	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
 	<array>
 		<string>com.apple.networkd</string>
 		<string>com.apple.dnssd.service</string>
 		<string>com.apple.systemconfiguration.network</string>
 	</array>
+	
 	<key>com.apple.security.temporary-exception.shared-preference.read-write</key>
 	<array>
 		<string>com.apple.networkd</string>
 		<string>com.apple.dnssd.service</string>
 	</array>
+	
+	<!-- Disable other unnecessary permissions -->
+	<key>com.apple.security.device.audio-input</key>
+	<false/>
+	<key>com.apple.security.device.camera</key>
+	<false/>
+	<key>com.apple.security.personal-information.location</key>
+	<false/>
+	<key>com.apple.security.personal-information.addressbook</key>
+	<false/>
+	<key>com.apple.security.personal-information.calendars</key>
+	<false/>
+	<key>com.apple.security.personal-information.photos-library</key>
+	<false/>
 </dict>
 </plist>

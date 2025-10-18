@@ -9,9 +9,27 @@ class SQLiteDatabase {
     private let logger = Logger(subsystem: "de.deusterdevelopment.DailyWebScanner", category: "SQLite")
     
     init() {
-        // Get documents directory
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        self.dbPath = documentsPath.appendingPathComponent("DailyWebScanner.sqlite").path
+        // Store the database inside the App Sandbox container:
+        // ~/Library/Containers/<bundle id>/Data/Library/Application Support/DailyWebScanner/DailyWebScanner.sqlite
+        let fm = FileManager.default
+        let appSupportURLs = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupportBase = appSupportURLs.first!
+        
+        // Create an app-specific subdirectory to keep things tidy
+        let appFolder = appSupportBase.appendingPathComponent("DailyWebScanner", isDirectory: true)
+        
+        // Ensure the directory exists
+        do {
+            try fm.createDirectory(at: appFolder, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            // If we cannot create the directory, fall back to base Application Support
+            logger.error("❌ Failed to create Application Support subdirectory: \(error.localizedDescription)")
+        }
+        
+        // Prefer the app-specific folder if it exists, otherwise use base
+        let baseForDB = (fm.fileExists(atPath: appFolder.path) ? appFolder : appSupportBase)
+        let dbURL = baseForDB.appendingPathComponent("DailyWebScanner.sqlite", isDirectory: false)
+        self.dbPath = dbURL.path
         
         logger.info("🗄️ SQLite Database Path: \(self.dbPath)")
         openDatabase()
@@ -28,7 +46,8 @@ class SQLiteDatabase {
         if sqlite3_open(dbPath, &db) == SQLITE_OK {
             logger.info("✅ SQLite database opened successfully")
         } else {
-            logger.error("❌ Failed to open SQLite database")
+            let errMsg = db.flatMap { String(cString: sqlite3_errmsg($0)) } ?? "Unknown error"
+            logger.error("❌ Failed to open SQLite database: \(errMsg)")
         }
     }
     
@@ -36,7 +55,8 @@ class SQLiteDatabase {
         if sqlite3_close(db) == SQLITE_OK {
             logger.info("✅ SQLite database closed successfully")
         } else {
-            logger.error("❌ Failed to close SQLite database")
+            let errMsg = db.flatMap { String(cString: sqlite3_errmsg($0)) } ?? "Unknown error"
+            logger.error("❌ Failed to close SQLite database: \(errMsg)")
         }
     }
     
@@ -220,10 +240,12 @@ class SQLiteDatabase {
             if sqlite3_step(statement) == SQLITE_DONE {
                 logger.info("✅ SQL executed successfully")
             } else {
-                logger.error("❌ SQL execution failed: \(String(cString: sqlite3_errmsg(self.db)))")
+                let errMsg = String(cString: sqlite3_errmsg(self.db))
+                logger.error("❌ SQL execution failed: \(errMsg)")
             }
         } else {
-            logger.error("❌ SQL preparation failed: \(String(cString: sqlite3_errmsg(self.db)))")
+            let errMsg = String(cString: sqlite3_errmsg(self.db))
+            logger.error("❌ SQL preparation failed: \(errMsg)")
         }
         
         sqlite3_finalize(statement)

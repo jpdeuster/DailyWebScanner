@@ -96,7 +96,6 @@ struct SerpAPIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        // Mask API key in logs for security
         if #available(macOS 12.0, *) {
             request.setValue("DailyWebScanner/1.0", forHTTPHeaderField: "User-Agent")
         }
@@ -104,7 +103,10 @@ struct SerpAPIClient {
         do {
             let (data, response) = try await session.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            guard (200..<300).contains(status) else { throw SerpError.http(status) }
+            if !(200..<300).contains(status) {
+                DebugLogger.shared.logHTTPStatus(url: url, status: status)
+                throw SerpError.http(status)
+            }
 
             let decoded = try JSONDecoder().decode(SerpSearchResponse.self, from: data)
             let results = decoded.organic_results ?? []
@@ -113,7 +115,20 @@ struct SerpAPIClient {
         } catch is CancellationError {
             throw CancellationError()
         } catch let urlError as URLError {
-            // User-friendly messages
+            // Extract rich diagnostics
+            let ns = urlError as NSError
+            let path = ns.userInfo["_NSURLErrorNWPathKey"] as? String
+            let report = ns.userInfo["_NSURLErrorNWResolutionReportKey"] as? String
+            DebugLogger.shared.logNetworkURLError(url: url, code: urlError.code, underlying: ns, path: path, resolutionReport: report)
+
+            // DNS specialization
+            if urlError.code == .cannotFindHost || urlError.code == .dnsLookupFailed {
+                let cfDomain = ns.userInfo["_kCFStreamErrorDomainKey"] as? Int
+                let cfCode = ns.userInfo["_kCFStreamErrorCodeKey"] as? Int
+                DebugLogger.shared.logDNSFailure(host: url.host ?? "-", cfDomain: cfDomain, cfCode: cfCode, details: report ?? path)
+                DebugLogger.shared.logSandboxNetworkIssue()
+            }
+
             switch urlError.code {
             case .notConnectedToInternet:
                 throw SerpError.network("No internet connection. Please check your network connection.")
@@ -127,6 +142,7 @@ struct SerpAPIClient {
                 throw SerpError.network("Network error: \(urlError.localizedDescription)")
             }
         } catch {
+            DebugLogger.shared.logNetworkError(url: url.absoluteString, error: error)
             throw SerpError.network("Unerwarteter Fehler: \(error.localizedDescription)")
         }
     }
@@ -151,13 +167,28 @@ struct SerpAPIClient {
         do {
             let (data, response) = try await session.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            guard (200..<300).contains(status) else { throw SerpError.http(status) }
+            if !(200..<300).contains(status) {
+                DebugLogger.shared.logHTTPStatus(url: url, status: status)
+                throw SerpError.http(status)
+            }
 
             let accountInfo = try JSONDecoder().decode(AccountInfo.self, from: data)
             return accountInfo
         } catch is CancellationError {
             throw CancellationError()
         } catch let urlError as URLError {
+            let ns = urlError as NSError
+            let path = ns.userInfo["_NSURLErrorNWPathKey"] as? String
+            let report = ns.userInfo["_NSURLErrorNWResolutionReportKey"] as? String
+            DebugLogger.shared.logNetworkURLError(url: url, code: urlError.code, underlying: ns, path: path, resolutionReport: report)
+
+            if urlError.code == .cannotFindHost || urlError.code == .dnsLookupFailed {
+                let cfDomain = ns.userInfo["_kCFStreamErrorDomainKey"] as? Int
+                let cfCode = ns.userInfo["_kCFStreamErrorCodeKey"] as? Int
+                DebugLogger.shared.logDNSFailure(host: url.host ?? "-", cfDomain: cfDomain, cfCode: cfCode, details: report ?? path)
+                DebugLogger.shared.logSandboxNetworkIssue()
+            }
+
             switch urlError.code {
             case .notConnectedToInternet:
                 throw SerpError.network("No internet connection. Please check your network connection.")
@@ -169,6 +200,7 @@ struct SerpAPIClient {
                 throw SerpError.network("Network error: \(urlError.localizedDescription)")
             }
         } catch {
+            DebugLogger.shared.logNetworkError(url: url.absoluteString, error: error)
             throw SerpError.network("Unexpected error: \(error.localizedDescription)")
         }
     }

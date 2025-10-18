@@ -271,10 +271,13 @@ struct ContentView: View {
         }
         
         isLoadingAccountInfo = true
+        DebugLogger.shared.logWebViewAction("Loading SerpAPI account info...")
         
         do {
             let serpClient = SerpAPIClient(apiKeyProvider: { serpKey })
             let info = try await serpClient.getAccountInfo()
+            
+            DebugLogger.shared.logWebViewAction("Account info loaded: \(info)")
             
             if let remaining = info.credits_remaining, let limit = info.credits_limit {
                 accountInfo = "SerpAPI: \(remaining)/\(limit) credits remaining"
@@ -284,7 +287,27 @@ struct ContentView: View {
                 accountInfo = "SerpAPI: Account info loaded"
             }
         } catch {
-            accountInfo = "SerpAPI: Unable to load account info"
+            DebugLogger.shared.logWebViewAction("Account info error: \(error)")
+            
+            // Detaillierte Fehlermeldung für Debugging
+            if let serpError = error as? SerpAPIClient.SerpError {
+                switch serpError {
+                case .missingAPIKey:
+                    accountInfo = "SerpAPI: API key missing"
+                case .http(let code):
+                    accountInfo = "SerpAPI: HTTP error \(code)"
+                case .network(let message):
+                    accountInfo = "SerpAPI: \(message)"
+                case .badURL:
+                    accountInfo = "SerpAPI: Invalid URL"
+                case .decoding:
+                    accountInfo = "SerpAPI: Data parsing error"
+                case .empty:
+                    accountInfo = "SerpAPI: No results returned"
+                }
+            } else {
+                accountInfo = "SerpAPI: \(error.localizedDescription)"
+            }
         }
         
         isLoadingAccountInfo = false

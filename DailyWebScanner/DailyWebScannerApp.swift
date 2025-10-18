@@ -25,20 +25,9 @@ class SettingsWindowDelegate: NSObject, NSWindowDelegate {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // Prüfe, ob es noch ein Hauptfenster gibt (nicht nur Settings-Fenster)
-        let mainWindows = NSApp.windows.filter { window in
-            // Nur Hauptfenster zählen, nicht Settings-Fenster
-            return window.title != "API Settings" && 
-                   window.title != "Search Parameters" && 
-                   window.title != "App Settings" &&
-                   window.title != "About DailyWebScanner" &&
-                   window.title != "Disclaimer & Legal Notice" &&
-                   window.title != "Privacy & Data Responsibility" &&
-                   window.title != "MIT License"
-        }
-        
-        // App nur beenden, wenn alle Hauptfenster geschlossen sind
-        return mainWindows.isEmpty
+        // App NICHT beenden, wenn das letzte Fenster geschlossen wurde
+        // (Standardverhalten vieler macOS-Apps; verhindert Beenden durch Settings-Fenster)
+        return false
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

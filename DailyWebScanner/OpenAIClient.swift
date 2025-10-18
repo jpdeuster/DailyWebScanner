@@ -100,7 +100,10 @@ struct OpenAIClient {
         do {
             let (data, response) = try await session.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            guard (200..<300).contains(status) else { throw OpenAIError.http(status) }
+            if !(200..<300).contains(status) {
+                DebugLogger.shared.logHTTPStatus(url: url, status: status)
+                throw OpenAIError.http(status)
+            }
 
             let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
             guard let content = decoded.choices.first?.message.content, !content.isEmpty else {
@@ -110,6 +113,18 @@ struct OpenAIClient {
         } catch is CancellationError {
             throw CancellationError()
         } catch let urlError as URLError {
+            let ns = urlError as NSError
+            let path = ns.userInfo["_NSURLErrorNWPathKey"] as? String
+            let report = ns.userInfo["_NSURLErrorNWResolutionReportKey"] as? String
+            DebugLogger.shared.logNetworkURLError(url: url, code: urlError.code, underlying: ns, path: path, resolutionReport: report)
+
+            if urlError.code == .cannotFindHost || urlError.code == .dnsLookupFailed {
+                let cfDomain = ns.userInfo["_kCFStreamErrorDomainKey"] as? Int
+                let cfCode = ns.userInfo["_kCFStreamErrorCodeKey"] as? Int
+                DebugLogger.shared.logDNSFailure(host: url.host ?? "-", cfDomain: cfDomain, cfCode: cfCode, details: report ?? path)
+                DebugLogger.shared.logSandboxNetworkIssue()
+            }
+
             switch urlError.code {
             case .notConnectedToInternet:
                 throw OpenAIError.network("No internet connection. Please check your network connection.")
@@ -123,6 +138,7 @@ struct OpenAIClient {
                 throw OpenAIError.network("Network error: \(urlError.localizedDescription)")
             }
         } catch {
+            DebugLogger.shared.logNetworkError(url: url.absoluteString, error: error)
             throw OpenAIError.network("Unexpected error: \(error.localizedDescription)")
         }
     }
