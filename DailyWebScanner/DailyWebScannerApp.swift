@@ -129,17 +129,24 @@ struct DailyWebScannerApp: App {
                 .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Suche auslösen
             }
             
-            CommandMenu("Settings") {
-                Button("API Settings") {
-                    showAPISettingsWindow()
-                }
-                .keyboardShortcut(",", modifiers: [.command, .shift])
-                
-                Button("App Settings") {
-                    showAppSettingsWindow()
-                }
-                .keyboardShortcut("a", modifiers: [.command, .shift])
+        CommandMenu("Settings") {
+            Button("API Settings") {
+                showAPISettingsWindow()
             }
+            .keyboardShortcut(",", modifiers: [.command, .shift])
+            
+            Button("App Settings") {
+                showAppSettingsWindow()
+            }
+            .keyboardShortcut("a", modifiers: [.command, .shift])
+        }
+        
+        CommandMenu("Analysis") {
+            Button("Content Analysis") {
+                showAnalysisWindow()
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+        }
             
             // Help Menu - verwende Standard macOS Help-Menü
             CommandGroup(after: .help) {
@@ -254,6 +261,26 @@ struct DailyWebScannerApp: App {
         licenseWindow.isReleasedWhenClosed = false
         
         licenseWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showAnalysisWindow() {
+        let analysisWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 700),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        analysisWindow.title = "Content Analysis"
+        analysisWindow.center()
+        analysisWindow.contentView = NSHostingView(rootView: AnalysisView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        analysisWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        analysisWindow.isReleasedWhenClosed = false
+        
+        analysisWindow.makeKeyAndOrderFront(nil)
     }
     
     // MARK: - Settings Menu Functions

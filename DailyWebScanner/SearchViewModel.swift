@@ -46,6 +46,18 @@ final class SearchViewModel: ObservableObject {
         isSearching = false
     }
 
+    private func encodeContentAnalysis(_ analysis: ContentAnalysis) -> String {
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(analysis)
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            DebugLogger.shared.logWebViewAction("Failed to encode content analysis: \(error)")
+            return ""
+        }
+    }
+    
     func runSearch(query: String) async throws -> SearchRecord {
         DebugLogger.shared.logSearchStart(query: query)
         cancelCurrentSearch()
@@ -136,19 +148,29 @@ final class SearchViewModel: ObservableObject {
 
             let html = renderer.renderHTML(query: query, results: results)
 
-            let record = SearchRecord(
-                query: query, 
-                htmlSummary: html, 
-                language: hl,
-                region: gl,
-                location: location,
-                safeSearch: safe,
-                searchType: tbm,
-                timeRange: as_qdr,
-                numberOfResults: count,
-                resultCount: results.count,
-                results: results
-            )
+        // Perform content analysis
+        let contentAnalysis = HTMLContentParser.parseContent(from: html)
+        let analysisJSON = encodeContentAnalysis(contentAnalysis)
+        
+        let record = SearchRecord(
+            query: query,
+            htmlSummary: html,
+            language: hl,
+            region: gl,
+            location: location,
+            safeSearch: safe,
+            searchType: tbm,
+            timeRange: as_qdr,
+            numberOfResults: count,
+            resultCount: results.count,
+            results: results,
+            contentAnalysis: analysisJSON,
+            headlinesCount: contentAnalysis.headlines.count,
+            linksCount: contentAnalysis.links.count,
+            contentBlocksCount: contentAnalysis.contentBlocks.count,
+            tagsCount: contentAnalysis.tags.count,
+            hasContentAnalysis: true
+        )
             ctx.insert(record)
             try ctx.save()
 

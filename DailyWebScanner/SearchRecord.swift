@@ -20,14 +20,24 @@ final class SearchRecord: Identifiable {
     // Additional metadata
     var searchDuration: TimeInterval = 0.0
     var resultCount: Int = 0
+    
+    // Content Analysis
+    var contentAnalysis: String = ""  // JSON string of ContentAnalysis
+    var headlinesCount: Int = 0
+    var linksCount: Int = 0
+    var contentBlocksCount: Int = 0
+    var tagsCount: Int = 0
+    var hasContentAnalysis: Bool = false
 
     @Relationship(deleteRule: .cascade)
     var results: [SearchResult]
 
-    init(id: UUID = UUID(), query: String, createdAt: Date = .now, htmlSummary: String = "", 
+    init(id: UUID = UUID(), query: String, createdAt: Date = .now, htmlSummary: String = "",
          language: String = "", region: String = "", location: String = "", safeSearch: String = "",
          searchType: String = "", timeRange: String = "", numberOfResults: Int = 20,
-         searchDuration: TimeInterval = 0.0, resultCount: Int = 0, results: [SearchResult] = []) {
+         searchDuration: TimeInterval = 0.0, resultCount: Int = 0, results: [SearchResult] = [],
+         contentAnalysis: String = "", headlinesCount: Int = 0, linksCount: Int = 0, 
+         contentBlocksCount: Int = 0, tagsCount: Int = 0, hasContentAnalysis: Bool = false) {
         self.id = id
         self.query = query
         self.createdAt = createdAt
@@ -41,6 +51,12 @@ final class SearchRecord: Identifiable {
         self.numberOfResults = numberOfResults
         self.searchDuration = searchDuration
         self.resultCount = resultCount
+        self.contentAnalysis = contentAnalysis
+        self.headlinesCount = headlinesCount
+        self.linksCount = linksCount
+        self.contentBlocksCount = contentBlocksCount
+        self.tagsCount = tagsCount
+        self.hasContentAnalysis = hasContentAnalysis
         self.results = results
     }
 }

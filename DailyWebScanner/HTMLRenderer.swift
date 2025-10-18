@@ -36,7 +36,6 @@ struct HTMLRenderer {
           <title>Zusammenfassung – \(escape(query))</title>
         </head>
         <body>
-          <h1>🔍 Suchbegriff: \(escape(query))</h1>
           \(itemsHTML)
         </body>
         </html>
