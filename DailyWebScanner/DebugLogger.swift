@@ -221,6 +221,22 @@ class DebugLogger {
         searchLogger.info("🔧 Search Parameters: Query: '\(query)', Language: '\(language)', Region: '\(region)', Count: \(count)")
     }
     
+    func logAPIPayload(url: String, parameters: [URLQueryItem]) {
+        var paramString = ""
+        for param in parameters {
+            if param.name != "api_key" { // Don't log API key for security
+                paramString += "\(param.name)=\(param.value ?? ""), "
+            } else {
+                paramString += "\(param.name)=[HIDDEN], "
+            }
+        }
+        if !paramString.isEmpty {
+            paramString = String(paramString.dropLast(2)) // Remove last ", "
+        }
+        searchLogger.info("🌐 API Payload: \(url)")
+        searchLogger.info("📋 API Parameters: \(paramString)")
+    }
+    
     func logSearchParametersExtended(query: String, language: String, region: String, count: Int, 
                                     location: String?, safe: String?, tbm: String?, tbs: String?, as_qdr: String?) {
         var params = "Query: '\(query)', Language: '\(language)', Region: '\(region)', Count: \(count)"

@@ -12,8 +12,16 @@ final class SearchViewModel: ObservableObject {
     private var modelContext: ModelContext?
 
     // Handle to the current search task and a token to identify it
-    private var currentSearchTask: Task<SearchRecord, Error>?
+    private var currentSearchTask: Task<SendableSearchRecord, Error>?
     private var currentTaskToken: UUID?
+    
+    // Wrapper to make SearchRecord Sendable for Task
+    private struct SendableSearchRecord: @unchecked Sendable {
+        let record: SearchRecord
+        init(_ record: SearchRecord) {
+            self.record = record
+        }
+    }
 
     // Clients read API-Keys dynamically from Keychain
     private lazy var serpClient = SerpAPIClient(apiKeyProvider: { KeychainHelper.get(.serpAPIKey) })
@@ -51,9 +59,9 @@ final class SearchViewModel: ObservableObject {
 
         // Read Serp settings from UserDefaults (as written by SettingsView via @AppStorage)
         let defaults = UserDefaults.standard
-        let hl = defaults.string(forKey: DefaultsKey.serpHL) ?? "de"
-        let gl = defaults.string(forKey: DefaultsKey.serpGL) ?? "de"
-        let configuredNum = defaults.integer(forKey: DefaultsKey.serpNum)
+        let hl = defaults.string(forKey: "settings.serp.hl") ?? ""
+        let gl = defaults.string(forKey: "settings.serp.gl") ?? ""
+        let configuredNum = defaults.integer(forKey: "settings.serp.num")
         let count = configuredNum > 0 ? configuredNum : 20
         
         // Read additional SerpAPI parameters
@@ -72,7 +80,7 @@ final class SearchViewModel: ObservableObject {
         let token = UUID()
         currentTaskToken = token
 
-        let task = Task<SearchRecord, Error> {
+        let task = Task<SendableSearchRecord, Error> {
             try Task.checkCancellation()
 
             // Log SerpAPI call
@@ -128,11 +136,23 @@ final class SearchViewModel: ObservableObject {
 
             let html = renderer.renderHTML(query: query, results: results)
 
-            let record = SearchRecord(query: query, htmlSummary: html, results: results)
+            let record = SearchRecord(
+                query: query, 
+                htmlSummary: html, 
+                language: hl,
+                region: gl,
+                location: location,
+                safeSearch: safe,
+                searchType: tbm,
+                timeRange: as_qdr,
+                numberOfResults: count,
+                resultCount: results.count,
+                results: results
+            )
             ctx.insert(record)
             try ctx.save()
 
-            return record
+            return SendableSearchRecord(record)
         }
 
         currentSearchTask = task
@@ -146,7 +166,8 @@ final class SearchViewModel: ObservableObject {
         }
 
         do {
-            return try await task.value
+            let sendableRecord = try await task.value
+            return sendableRecord.record
         } catch is CancellationError {
             // Propagate cancellation without converting to another error type
             throw CancellationError()

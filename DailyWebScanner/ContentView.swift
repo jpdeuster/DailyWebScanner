@@ -34,7 +34,6 @@ struct ContentView: View {
                 // Quick search field at top of sidebar
                 HStack {
                     TextField("Suchbegriff eingeben …", text: $searchText, onCommit: {
-                        DebugLogger.shared.logSearchTextEntered(searchText)
                         Task { await runSearch() }
                     })
                     .focused($isSearchFieldFocused)
@@ -67,27 +66,51 @@ struct ContentView: View {
                 List(selection: $selectedRecord) {
                     ForEach(records) { record in
                         NavigationLink(value: record) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(record.query)
-                                        .font(.headline)
-                                        .lineLimit(1)
-                                    Text(record.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                // Delete button for individual items
-                                Button {
-                                    deleteSelectedRecord(record)
-                                } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(record.query)
+                                            .font(.headline)
+                                            .lineLimit(1)
+                                        Text(record.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    // Delete button for individual items
+                                    Button {
+                                        deleteSelectedRecord(record)
+                                    } label: {
                                     Image(systemName: "trash")
                                         .foregroundColor(.red)
                                 }
                                 .buttonStyle(.plain)
                                 .help("Delete this search result")
+                                }
+                                
+                                // Search Parameters Display
+                                if hasSearchParameters(record) {
+                                    HStack(spacing: 8) {
+                                        if !record.language.isEmpty {
+                                            ParameterTag(text: "Lang: \(record.language)", color: .blue)
+                                        }
+                                        if !record.region.isEmpty {
+                                            ParameterTag(text: "Region: \(record.region)", color: .green)
+                                        }
+                                        if !record.searchType.isEmpty {
+                                            ParameterTag(text: "Type: \(record.searchType)", color: .orange)
+                                        }
+                                        if !record.timeRange.isEmpty {
+                                            ParameterTag(text: "Time: \(record.timeRange)", color: .purple)
+                                        }
+                                        if record.numberOfResults != 20 {
+                                            ParameterTag(text: "Count: \(record.numberOfResults)", color: .red)
+                                        }
+                                    }
+                                    .padding(.top, 2)
+                                }
                             }
                         }
                     }
@@ -279,38 +302,63 @@ struct ContentView: View {
             
             DebugLogger.shared.logWebViewAction("Account info loaded: \(info)")
             
-            if let remaining = info.credits_remaining, let limit = info.credits_limit {
-                accountInfo = "SerpAPI: \(remaining)/\(limit) credits remaining"
-            } else if let remaining = info.credits_remaining {
-                accountInfo = "SerpAPI: \(remaining) credits remaining"
+            if let remaining = info.credits_remaining {
+                accountInfo = "✅ SerpAPI OK - \(remaining) searches available"
             } else {
-                accountInfo = "SerpAPI: Account info loaded"
+                accountInfo = "✅ SerpAPI OK"
             }
         } catch {
             DebugLogger.shared.logWebViewAction("Account info error: \(error)")
             
-            // Detaillierte Fehlermeldung für Debugging
+            // Vereinfachte Fehlermeldung
             if let serpError = error as? SerpAPIClient.SerpError {
                 switch serpError {
                 case .missingAPIKey:
-                    accountInfo = "SerpAPI: API key missing"
+                    accountInfo = "❌ SerpAPI: API key missing"
                 case .http(let code):
-                    accountInfo = "SerpAPI: HTTP error \(code)"
+                    accountInfo = "❌ SerpAPI: HTTP error \(code)"
                 case .network(let message):
-                    accountInfo = "SerpAPI: \(message)"
+                    accountInfo = "❌ SerpAPI: \(message)"
                 case .badURL:
-                    accountInfo = "SerpAPI: Invalid URL"
+                    accountInfo = "❌ SerpAPI: Invalid URL"
                 case .decoding:
-                    accountInfo = "SerpAPI: Data parsing error"
+                    accountInfo = "❌ SerpAPI: Data parsing error"
                 case .empty:
-                    accountInfo = "SerpAPI: No results returned"
+                    accountInfo = "❌ SerpAPI: No results returned"
                 }
             } else {
-                accountInfo = "SerpAPI: \(error.localizedDescription)"
+                accountInfo = "❌ SerpAPI: \(error.localizedDescription)"
             }
         }
         
         isLoadingAccountInfo = false
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func hasSearchParameters(_ record: SearchRecord) -> Bool {
+        return !record.language.isEmpty || 
+               !record.region.isEmpty || 
+               !record.searchType.isEmpty || 
+               !record.timeRange.isEmpty || 
+               record.numberOfResults != 20
+    }
+}
+
+// MARK: - ParameterTag View
+
+private struct ParameterTag: View {
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        Text(text)
+            .font(.caption2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.2))
+            .foregroundColor(color)
+            .cornerRadius(4)
     }
 }
 

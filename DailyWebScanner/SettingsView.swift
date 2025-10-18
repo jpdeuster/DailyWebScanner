@@ -313,8 +313,8 @@ struct SettingsView: View {
     }
     
     private func saveKeysToKeychain() {
-        KeychainHelper.set(serpKey, for: .serpAPIKey)
-        KeychainHelper.set(openAIKey, for: .openAIAPIKey)
+        _ = KeychainHelper.set(serpKey, for: .serpAPIKey)
+        _ = KeychainHelper.set(openAIKey, for: .openAIAPIKey)
     }
     
     private func testAPIs() async {

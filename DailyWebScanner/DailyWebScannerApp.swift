@@ -78,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 print("DailyWebScanner läuft bereits. Beende neue Instanz.")
                 
                 // Bestehende Instanz in den Vordergrund bringen
-                app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+                app.activate(options: [.activateAllWindows])
                 
                 // Neue Instanz beenden
                 NSApp.terminate(nil)
@@ -135,11 +135,6 @@ struct DailyWebScannerApp: App {
                 }
                 .keyboardShortcut(",", modifiers: [.command, .shift])
                 
-                Button("Search Parameters") {
-                    showSearchSettingsWindow()
-                }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
-                
                 Button("App Settings") {
                     showAppSettingsWindow()
                 }
@@ -190,6 +185,13 @@ struct DailyWebScannerApp: App {
         aboutWindow.title = "About DailyWebScanner"
         aboutWindow.center()
         aboutWindow.contentView = NSHostingView(rootView: AboutView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        aboutWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        aboutWindow.isReleasedWhenClosed = false
+        
         aboutWindow.makeKeyAndOrderFront(nil)
     }
     
@@ -203,6 +205,13 @@ struct DailyWebScannerApp: App {
         disclaimerWindow.title = "Disclaimer & Legal Notice"
         disclaimerWindow.center()
         disclaimerWindow.contentView = NSHostingView(rootView: DisclaimerView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        disclaimerWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        disclaimerWindow.isReleasedWhenClosed = false
+        
         disclaimerWindow.makeKeyAndOrderFront(nil)
     }
     
@@ -216,6 +225,13 @@ struct DailyWebScannerApp: App {
         privacyWindow.title = "Privacy & Data Responsibility"
         privacyWindow.center()
         privacyWindow.contentView = NSHostingView(rootView: PrivacyView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        privacyWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        privacyWindow.isReleasedWhenClosed = false
+        
         privacyWindow.makeKeyAndOrderFront(nil)
     }
     
@@ -229,6 +245,13 @@ struct DailyWebScannerApp: App {
         licenseWindow.title = "MIT License"
         licenseWindow.center()
         licenseWindow.contentView = NSHostingView(rootView: LicenseView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        licenseWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        licenseWindow.isReleasedWhenClosed = false
+        
         licenseWindow.makeKeyAndOrderFront(nil)
     }
     
@@ -254,26 +277,6 @@ struct DailyWebScannerApp: App {
         apiWindow.makeKeyAndOrderFront(nil)
     }
     
-    private func showSearchSettingsWindow() {
-        let searchWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        searchWindow.title = "Search Parameters"
-        searchWindow.center()
-        searchWindow.contentView = NSHostingView(rootView: SearchSettingsView())
-        
-        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
-        searchWindow.delegate = searchWindowDelegate
-        
-        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
-        searchWindow.isReleasedWhenClosed = false
-        
-        searchWindow.makeKeyAndOrderFront(nil)
-    }
-    
     private func showAppSettingsWindow() {
         let appWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
@@ -293,4 +296,5 @@ struct DailyWebScannerApp: App {
         
         appWindow.makeKeyAndOrderFront(nil)
     }
+    
 }

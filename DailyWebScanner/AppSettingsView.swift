@@ -8,10 +8,8 @@
 import SwiftUI
 
 struct AppSettingsView: View {
-    @AppStorage("autoSaveResults") private var autoSaveResults: Bool = true
-    @AppStorage("showDebugInfo") private var showDebugInfo: Bool = false
-    @AppStorage("maxSearchHistory") private var maxSearchHistory: Int = 100
-    @AppStorage("defaultSearchCount") private var defaultSearchCount: Int = 20
+    @AppStorage("maxSearchHistory") private var maxSearchHistory: Int = 0 // 0 = Unlimited
+    @AppStorage("appearanceMode") private var appearanceMode: String = "system" // system, light, dark
     
     var body: some View {
         VStack(spacing: 20) {
@@ -46,22 +44,32 @@ struct AppSettingsView: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 12) {
-                            Toggle("Automatically save search results", isOn: $autoSaveResults)
-                                .help("Automatically saves all search results in history")
-                            
-                            Toggle("Show debug information", isOn: $showDebugInfo)
-                                .help("Shows detailed debug information in the console")
-                            
                             HStack {
-                                Text("Maximum history entries:")
+                                Text("Appearance Mode:")
                                     .fontWeight(.medium)
                                 
-                                Picker("History", selection: $maxSearchHistory) {
-                                    Text("50").tag(50)
-                                    Text("100").tag(100)
-                                    Text("200").tag(200)
-                                    Text("500").tag(500)
+                                Picker("", selection: $appearanceMode) {
+                                    Text("System").tag("system")
+                                    Text("Light").tag("light")
+                                    Text("Dark").tag("dark")
+                                }
+                                .pickerStyle(.menu)
+                                .frame(width: 120)
+                                .onChange(of: appearanceMode) { _, newValue in
+                                    applyAppearanceMode(newValue)
+                                }
+                            }
+                            
+                            HStack {
+                                Text("History Limit:")
+                                    .fontWeight(.medium)
+                                
+                                Picker("", selection: $maxSearchHistory) {
                                     Text("Unlimited").tag(0)
+                                    Text("100").tag(100)
+                                    Text("500").tag(500)
+                                    Text("1000").tag(1000)
+                                    Text("5000").tag(5000)
                                 }
                                 .pickerStyle(.menu)
                                 .frame(width: 120)
@@ -72,38 +80,6 @@ struct AppSettingsView: View {
                     .background(Color.blue.opacity(0.1))
                     .cornerRadius(12)
                     
-                    // Search Settings
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.green)
-                                .font(.title2)
-                            
-                            Text("Search")
-                                .font(.headline)
-                            
-                            Spacer()
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("Default number of results:")
-                                    .fontWeight(.medium)
-                                
-                                Picker("Number", selection: $defaultSearchCount) {
-                                    Text("10").tag(10)
-                                    Text("20").tag(20)
-                                    Text("30").tag(30)
-                                    Text("50").tag(50)
-                                }
-                                .pickerStyle(.menu)
-                                .frame(width: 100)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color.green.opacity(0.1))
-                    .cornerRadius(12)
                     
                     // App Info
                     VStack(alignment: .leading, spacing: 12) {
@@ -182,10 +158,21 @@ struct AppSettingsView: View {
     }
     
     private func resetAllSettings() {
-        autoSaveResults = true
-        showDebugInfo = false
-        maxSearchHistory = 100
-        defaultSearchCount = 20
+        maxSearchHistory = 0 // Unlimited
+        appearanceMode = "system"
+    }
+    
+    private func applyAppearanceMode(_ mode: String) {
+        switch mode {
+        case "light":
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark":
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        case "system":
+            NSApp.appearance = nil // Follows system setting
+        default:
+            NSApp.appearance = nil
+        }
     }
 }
 

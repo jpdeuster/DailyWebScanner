@@ -92,6 +92,9 @@ struct SerpAPIClient {
         components.queryItems = queryItems
 
         guard let url = components.url else { throw SerpError.badURL }
+        
+        // Debug: Log complete API payload
+        DebugLogger.shared.logAPIPayload(url: url.absoluteString, parameters: queryItems)
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
