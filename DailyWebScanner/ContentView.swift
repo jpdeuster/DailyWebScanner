@@ -65,54 +65,64 @@ struct ContentView: View {
 
                 List(selection: $selectedRecord) {
                     ForEach(records) { record in
-                        NavigationLink(value: record) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(record.query)
-                                            .font(.headline)
-                                            .lineLimit(1)
-                                        Text(record.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    // Delete button for individual items
-                                    Button {
-                                        deleteSelectedRecord(record)
-                                    } label: {
-                                    Image(systemName: "trash")
-                                        .foregroundColor(.red)
+                    NavigationLink(value: record) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(record.query)
+                                        .font(.headline)
+                                        .lineLimit(1)
+                                    Text(record.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                // Delete button for individual items
+                                Button {
+                                    deleteSelectedRecord(record)
+                                } label: {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
                                 }
                                 .buttonStyle(.plain)
                                 .help("Delete this search result")
-                                }
-                                
-                                // Search Parameters Display
-                                if hasSearchParameters(record) {
-                                    HStack(spacing: 8) {
-                                        if !record.language.isEmpty {
-                                            ParameterTag(text: "Lang: \(record.language)", color: .blue)
-                                        }
-                                        if !record.region.isEmpty {
-                                            ParameterTag(text: "Region: \(record.region)", color: .green)
-                                        }
-                                        if !record.searchType.isEmpty {
-                                            ParameterTag(text: "Type: \(record.searchType)", color: .orange)
-                                        }
-                                        if !record.timeRange.isEmpty {
-                                            ParameterTag(text: "Time: \(record.timeRange)", color: .purple)
-                                        }
-                                        if record.numberOfResults != 20 {
-                                            ParameterTag(text: "Count: \(record.numberOfResults)", color: .red)
-                                        }
-                                    }
-                                    .padding(.top, 2)
-                                }
+                            }
+                            
+                            // Search Parameters Display - immer anzeigen
+                            HStack(spacing: 8) {
+                                ParameterTag(
+                                    text: "Lang: \(record.language.isEmpty ? "Any" : record.language)", 
+                                    color: .blue
+                                )
+                                ParameterTag(
+                                    text: "Region: \(record.region.isEmpty ? "Any" : record.region)", 
+                                    color: .green
+                                )
+                                ParameterTag(
+                                    text: "Type: \(record.searchType.isEmpty ? "All" : record.searchType)", 
+                                    color: .orange
+                                )
+                                ParameterTag(
+                                    text: "Time: \(record.timeRange.isEmpty ? "Any" : record.timeRange)", 
+                                    color: .purple
+                                )
+                                ParameterTag(
+                                    text: "Count: \(record.numberOfResults)", 
+                                    color: .red
+                                )
                             }
                         }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.5), lineWidth: 1)
+                        )
+                    }
                     }
                     .onDelete(perform: deleteRecords)
                 }
@@ -149,13 +159,19 @@ struct ContentView: View {
                             DebugLogger.shared.logWebViewAction("Showing search progress view")
                         }
                 } else if let record = selectedRecord ?? records.first {
-                    WebView(html: record.htmlSummary)
-                        .id(record.id) // force reload when switching records
-                        .navigationTitle(record.query)
-                        .onAppear {
-                            DebugLogger.shared.logWebViewAction("Displaying WebView for record: \(record.query)")
-                            DebugLogger.shared.logWebViewAction("HTML content length: \(record.htmlSummary.count)")
-                        }
+                    VStack(spacing: 0) {
+                        // Search Parameters Display
+                        SearchParametersHeaderView()
+                        
+                        // Search Results
+                        WebView(html: record.htmlSummary)
+                            .id(record.id) // force reload when switching records
+                    }
+                    .navigationTitle(record.query)
+                    .onAppear {
+                        DebugLogger.shared.logWebViewAction("Displaying WebView for record: \(record.query)")
+                        DebugLogger.shared.logWebViewAction("HTML content length: \(record.htmlSummary.count)")
+                    }
                 } else {
                     ContentPlaceholderView()
                         .onAppear {
@@ -187,17 +203,6 @@ struct ContentView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
                     .background(Color(NSColor.controlBackgroundColor))
-                }
-            }
-            .toolbar {
-                ToolbarItemGroup {
-                    Button {
-                        Task { await rerenderSelectedRecord() }
-                    } label: {
-                        Label("Neu rendern", systemImage: "arrow.clockwise")
-                    }
-                    .disabled(selectedRecord == nil)
-                    .help("HTML-Ansicht neu rendern")
                 }
             }
         }
@@ -375,6 +380,187 @@ private struct ContentPlaceholderView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Search Parameters Header View
+struct SearchParametersHeaderView: View {
+    @AppStorage("settings.serp.hl") private var serpLanguage: String = ""
+    @AppStorage("settings.serp.gl") private var serpRegion: String = ""
+    @AppStorage("settings.serp.num") private var serpCount: Int = 20
+    @AppStorage("settings.serp.location") private var serpLocation: String = ""
+    @AppStorage("settings.serp.safe") private var serpSafe: String = ""
+    @AppStorage("settings.serp.tbm") private var serpTbm: String = ""
+    @AppStorage("settings.serp.as_qdr") private var serpAsQdr: String = ""
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "gear")
+                    .foregroundColor(.blue)
+                    .font(.caption)
+                
+                Text("Search Parameters")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+            }
+            
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 8) {
+                // Language - immer anzeigen
+                ParameterDisplayItem(
+                    label: "Language",
+                    value: serpLanguage.isEmpty ? "Any" : getLanguageDisplayName(serpLanguage),
+                    color: .blue
+                )
+                
+                // Region - immer anzeigen
+                ParameterDisplayItem(
+                    label: "Region",
+                    value: serpRegion.isEmpty ? "Any" : getRegionDisplayName(serpRegion),
+                    color: .green
+                )
+                
+                // Results - immer anzeigen
+                ParameterDisplayItem(
+                    label: "Results",
+                    value: "\(serpCount)",
+                    color: .red
+                )
+                
+                // Location - immer anzeigen
+                ParameterDisplayItem(
+                    label: "Location",
+                    value: serpLocation.isEmpty ? "Any" : serpLocation,
+                    color: .orange
+                )
+                
+                // Safe Search - immer anzeigen
+                ParameterDisplayItem(
+                    label: "Safe Search",
+                    value: serpSafe.isEmpty ? "Any" : getSafeSearchDisplayName(serpSafe),
+                    color: .purple
+                )
+                
+                // Search Type - immer anzeigen
+                ParameterDisplayItem(
+                    label: "Search Type",
+                    value: serpTbm.isEmpty ? "All" : getSearchTypeDisplayName(serpTbm),
+                    color: .cyan
+                )
+                
+                // Time Range - immer anzeigen
+                ParameterDisplayItem(
+                    label: "Time Range",
+                    value: serpAsQdr.isEmpty ? "Any Time" : getTimeRangeDisplayName(serpAsQdr),
+                    color: .indigo
+                )
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+    
+    private func getLanguageDisplayName(_ code: String) -> String {
+        switch code {
+        case "de": return "Deutsch"
+        case "en": return "English"
+        case "fr": return "Français"
+        case "es": return "Español"
+        case "it": return "Italiano"
+        case "pt": return "Português"
+        case "ru": return "Русский"
+        case "ja": return "日本語"
+        case "ko": return "한국어"
+        case "zh": return "中文"
+        default: return code.uppercased()
+        }
+    }
+    
+    private func getRegionDisplayName(_ code: String) -> String {
+        switch code {
+        case "de": return "Deutschland"
+        case "us": return "United States"
+        case "gb": return "United Kingdom"
+        case "fr": return "France"
+        case "es": return "Spain"
+        case "it": return "Italy"
+        case "pt": return "Portugal"
+        case "ru": return "Russia"
+        case "jp": return "Japan"
+        case "kr": return "South Korea"
+        case "cn": return "China"
+        default: return code.uppercased()
+        }
+    }
+    
+    private func getSafeSearchDisplayName(_ code: String) -> String {
+        switch code {
+        case "active": return "Active"
+        case "off": return "Off"
+        case "moderate": return "Moderate"
+        default: return code.capitalized
+        }
+    }
+    
+    private func getSearchTypeDisplayName(_ code: String) -> String {
+        switch code {
+        case "isch": return "Images"
+        case "nws": return "News"
+        case "vid": return "Videos"
+        case "shop": return "Shopping"
+        case "bks": return "Books"
+        case "fin": return "Finance"
+        default: return code.uppercased()
+        }
+    }
+    
+    private func getTimeRangeDisplayName(_ code: String) -> String {
+        switch code {
+        case "d": return "Past 24 hours"
+        case "w": return "Past week"
+        case "m": return "Past month"
+        case "y": return "Past year"
+        case "h": return "Past hour"
+        default: return code.uppercased()
+        }
+    }
+}
+
+// MARK: - Parameter Display Item
+struct ParameterDisplayItem: View {
+    let label: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+            
+            Text(value)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(color)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(color.opacity(0.1))
+        .cornerRadius(6)
     }
 }
 

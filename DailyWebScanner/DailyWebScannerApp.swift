@@ -141,7 +141,8 @@ struct DailyWebScannerApp: App {
                 .keyboardShortcut("a", modifiers: [.command, .shift])
             }
             
-            CommandMenu("Help") {
+            // Help Menu - verwende Standard macOS Help-Menü
+            CommandGroup(after: .help) {
                 Button("About DailyWebScanner") {
                     showAboutWindow()
                 }
