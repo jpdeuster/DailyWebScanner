@@ -166,6 +166,23 @@ See [SECURITY.md](SECURITY.md) for detailed security information.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## ⚠️ Disclaimer & Data Responsibility
+
+**Important Legal Notice:**
+
+- **No Warranty**: This software is provided "as is" without any warranty or guarantee
+- **User Responsibility**: You are solely responsible for your use of this application and any data you process
+- **No Liability**: The developer assumes no responsibility for any consequences of using this software
+- **Data Usage**: You are responsible for complying with all applicable laws and regulations regarding data processing
+- **API Keys**: You are responsible for the security and proper use of your API keys
+- **Search Results**: You are responsible for how you use, store, and process search results
+- **Privacy**: You are responsible for protecting your own privacy and that of others
+- **Compliance**: Ensure your use complies with terms of service of external APIs (SerpAPI, OpenAI, etc.)
+
+**This is a hobby project for learning purposes. Use at your own risk.**
+
+See [DISCLAIMER.md](DISCLAIMER.md) for complete legal information.
+
 ## 🆘 Support
 
 - **Issues**: [GitHub Issues](https://github.com/jpdeuster/DailyWebScanner/issues)
