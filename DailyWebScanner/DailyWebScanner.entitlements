@@ -22,6 +22,29 @@
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
 	
+	<!-- CRITICAL: Allow network system preferences access -->
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+	<array>
+		<string>/Library/Preferences/com.apple.networkd.plist</string>
+		<string>/Library/Preferences/com.apple.dnssd.service.plist</string>
+		<string>/Library/Preferences/SystemConfiguration/preferences.plist</string>
+		<string>/Library/Preferences/SystemConfiguration/NetworkInterfaces.plist</string>
+	</array>
+	
+	<!-- CRITICAL: Temporary exceptions for network services -->
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.networkd</string>
+		<string>com.apple.dnssd.service</string>
+		<string>com.apple.systemconfiguration.network</string>
+	</array>
+	
+	<key>com.apple.security.temporary-exception.shared-preference.read-write</key>
+	<array>
+		<string>com.apple.networkd</string>
+		<string>com.apple.dnssd.service</string>
+	</array>
+	
 	<!-- Disable other unnecessary permissions -->
 	<key>com.apple.security.device.audio-input</key>
 	<false/>

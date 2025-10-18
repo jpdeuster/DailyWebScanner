@@ -13,21 +13,36 @@ struct APISettingsView: View {
     
     @State private var showingTestResults = false
     @State private var testResults = ""
-    @State private var isTesting = false
+    @State private var isTestingSerpAPI = false
+    @State private var isTestingOpenAI = false
+    @State private var serpAPIResult = ""
+    @State private var openAIResult = ""
+    @State private var accountInfo = ""
+    @State private var isLoadingAccountInfo = false
+    
+    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         VStack(spacing: 20) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Settings")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+            // Header with Close Button
+            HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("API Settings")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    
+                    Text("Configure your API keys for SerpAPI and OpenAI")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
                 
-                Text("Configure your API keys for SerpAPI and OpenAI")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                Spacer()
+                
+                Button("Close") {
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 10)
             
             Divider()
@@ -42,7 +57,7 @@ struct APISettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("SerpAPI")
                             .font(.headline)
-                        Text("Für Google Web Search")
+                        Text("For Google Web Search")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -51,22 +66,48 @@ struct APISettingsView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("API-Schlüssel")
+                    Text("API Key")
                         .font(.subheadline)
                         .fontWeight(.medium)
                     
-                    SecureField("SerpAPI Key eingeben...", text: $serpKey)
+                    SecureField("Enter SerpAPI Key...", text: $serpKey)
                         .textFieldStyle(.roundedBorder)
-                        .help("Ihr SerpAPI-Schlüssel für Google Web Search")
+                        .help("Your SerpAPI key for Google Web Search")
                     
-                    if serpKey.isEmpty {
-                        Text("⚠️ SerpAPI-Schlüssel ist erforderlich für die Suche")
+                    HStack {
+                        if serpKey.isEmpty {
+                            Text("⚠️ SerpAPI key is required for search")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        } else {
+                            Text("✅ SerpAPI key is configured")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: testSerpAPI) {
+                            HStack {
+                                if isTestingSerpAPI {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "play.circle.fill")
+                                }
+                                Text("Test")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(serpKey.isEmpty || isTestingSerpAPI)
+                        .help("Test SerpAPI connection")
+                    }
+                    
+                    if !serpAPIResult.isEmpty {
+                        Text(serpAPIResult)
                             .font(.caption)
-                            .foregroundColor(.orange)
-                    } else {
-                        Text("✅ SerpAPI-Schlüssel ist konfiguriert")
-                            .font(.caption)
-                            .foregroundColor(.green)
+                            .foregroundColor(serpAPIResult.contains("✅") ? .green : .red)
+                            .padding(.top, 4)
                     }
                 }
             }
@@ -84,7 +125,7 @@ struct APISettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("OpenAI")
                             .font(.headline)
-                        Text("Für KI-Zusammenfassungen (optional)")
+                        Text("For AI Summaries (optional)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -93,22 +134,48 @@ struct APISettingsView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("API-Schlüssel")
+                    Text("API Key")
                         .font(.subheadline)
                         .fontWeight(.medium)
                     
-                    SecureField("OpenAI Key eingeben... (optional)", text: $openAIKey)
+                    SecureField("Enter OpenAI Key... (optional)", text: $openAIKey)
                         .textFieldStyle(.roundedBorder)
-                        .help("Ihr OpenAI-Schlüssel für KI-Zusammenfassungen")
+                        .help("Your OpenAI key for AI summaries")
                     
-                    if openAIKey.isEmpty {
-                        Text("ℹ️ OpenAI-Schlüssel ist optional - Original-Text wird verwendet")
+                    HStack {
+                        if openAIKey.isEmpty {
+                            Text("ℹ️ OpenAI key is optional - Original text will be used")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        } else {
+                            Text("✅ OpenAI key is configured")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: testOpenAI) {
+                            HStack {
+                                if isTestingOpenAI {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "play.circle.fill")
+                                }
+                                Text("Test")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(openAIKey.isEmpty || isTestingOpenAI)
+                        .help("Test OpenAI connection")
+                    }
+                    
+                    if !openAIResult.isEmpty {
+                        Text(openAIResult)
                             .font(.caption)
-                            .foregroundColor(.blue)
-                    } else {
-                        Text("✅ OpenAI-Schlüssel ist konfiguriert")
-                            .font(.caption)
-                            .foregroundColor(.green)
+                            .foregroundColor(openAIResult.contains("✅") ? .green : .red)
+                            .padding(.top, 4)
                     }
                 }
             }
@@ -116,35 +183,29 @@ struct APISettingsView: View {
             .background(Color.purple.opacity(0.1))
             .cornerRadius(12)
             
-            // Test Section
+            // Summary Section
             VStack(alignment: .leading, spacing: 12) {
-                Text("API-Test")
+                Text("Configuration Summary")
                     .font(.headline)
                 
-                Button(action: testAPIs) {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        if isTesting {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "play.circle.fill")
-                        }
-                        Text(isTesting ? "Teste APIs..." : "APIs testen")
+                        Image(systemName: serpKey.isEmpty ? "xmark.circle.fill" : "checkmark.circle.fill")
+                            .foregroundColor(serpKey.isEmpty ? .red : .green)
+                        Text("SerpAPI: \(serpKey.isEmpty ? "Not configured" : "Configured")")
+                            .font(.subheadline)
                     }
-                    .frame(maxWidth: .infinity)
+                    
+                    HStack {
+                        Image(systemName: openAIKey.isEmpty ? "minus.circle.fill" : "checkmark.circle.fill")
+                            .foregroundColor(openAIKey.isEmpty ? .orange : .green)
+                        Text("OpenAI: \(openAIKey.isEmpty ? "Not configured (optional)" : "Configured")")
+                            .font(.subheadline)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(serpKey.isEmpty || isTesting)
-                .help("Testet die Konfiguration der API-Schlüssel")
-                
-                if showingTestResults {
-                    Text(testResults)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
-                }
+                .padding()
+                .background(Color.gray.opacity(0.05))
+                .cornerRadius(8)
             }
             .padding()
             .background(Color.gray.opacity(0.05))
@@ -156,33 +217,65 @@ struct APISettingsView: View {
         .frame(minWidth: 500, minHeight: 400)
     }
     
-    private func testAPIs() {
-        isTesting = true
-        showingTestResults = true
-        testResults = "Teste APIs..."
+    private func testSerpAPI() {
+        isTestingSerpAPI = true
+        serpAPIResult = "Testing SerpAPI..."
         
         Task {
             do {
-                // Test SerpAPI
+                // Simple test query with minimal parameters
                 let serpClient = SerpAPIClient(apiKeyProvider: { serpKey })
-                let _ = try await serpClient.fetchTopResults(query: "test", count: 1)
+                let results = try await serpClient.fetchTopResults(query: "test", count: 1, hl: "en", gl: "us")
                 
-                testResults = "✅ SerpAPI: Erfolgreich verbunden\n"
-                
-                // Test OpenAI (if configured)
-                if !openAIKey.isEmpty {
-                    let openAIClient = OpenAIClient(apiKeyProvider: { openAIKey })
-                    let _ = try await openAIClient.summarize(snippet: "Test", title: "Test", link: "https://test.com")
-                    testResults += "✅ OpenAI: Erfolgreich verbunden"
+                if results.isEmpty {
+                    serpAPIResult = "⚠️ SerpAPI: API key valid but no results returned"
                 } else {
-                    testResults += "ℹ️ OpenAI: Nicht konfiguriert (optional)"
+                    serpAPIResult = "✅ SerpAPI: Connection successful"
                 }
-                
             } catch {
-                testResults = "❌ API-Test fehlgeschlagen: \(error.localizedDescription)"
+                // More detailed error reporting
+                if let serpError = error as? SerpAPIClient.SerpError {
+                    switch serpError {
+                    case .missingAPIKey:
+                        serpAPIResult = "❌ SerpAPI: API key is missing"
+                    case .http(let code):
+                        if code == 401 {
+                            serpAPIResult = "❌ SerpAPI: Invalid API key (401 Unauthorized)"
+                        } else if code == 403 {
+                            serpAPIResult = "❌ SerpAPI: API key access denied (403 Forbidden)"
+                        } else if code == 429 {
+                            serpAPIResult = "❌ SerpAPI: Rate limit exceeded (429 Too Many Requests)"
+                        } else {
+                            serpAPIResult = "❌ SerpAPI: HTTP error \(code)"
+                        }
+                    case .network(let message):
+                        serpAPIResult = "❌ SerpAPI: \(message)"
+                    default:
+                        serpAPIResult = "❌ SerpAPI: \(serpError.localizedDescription)"
+                    }
+                } else {
+                    serpAPIResult = "❌ SerpAPI: \(error.localizedDescription)"
+                }
             }
             
-            isTesting = false
+            isTestingSerpAPI = false
+        }
+    }
+    
+    private func testOpenAI() {
+        isTestingOpenAI = true
+        openAIResult = "Testing OpenAI..."
+        
+        Task {
+            do {
+                let openAIClient = OpenAIClient(apiKeyProvider: { openAIKey })
+                let _ = try await openAIClient.summarize(snippet: "Test", title: "Test", link: "https://test.com")
+                openAIResult = "✅ OpenAI: Connection successful"
+            } catch {
+                openAIResult = "❌ OpenAI: \(error.localizedDescription)"
+            }
+            
+            isTestingOpenAI = false
         }
     }
 }

@@ -22,6 +22,11 @@ struct ContentView: View {
 
     @State private var searchText: String = ""
     @FocusState private var isSearchFieldFocused: Bool
+    
+    // SerpAPI Account Info
+    @AppStorage("serpAPIKey") private var serpKey: String = ""
+    @State private var accountInfo = ""
+    @State private var isLoadingAccountInfo = false
 
     var body: some View {
         NavigationSplitView {
@@ -135,6 +140,32 @@ struct ContentView: View {
                         }
                 }
             }
+            .overlay(alignment: .bottom) {
+                // SerpAPI Account Status at bottom of main view
+                if !accountInfo.isEmpty || isLoadingAccountInfo {
+                    VStack(spacing: 4) {
+                        Divider()
+                        
+                        if isLoadingAccountInfo {
+                            HStack {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                Text("Loading account info...")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if !accountInfo.isEmpty {
+                            Text(accountInfo)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                }
+            }
             .toolbar {
                 ToolbarItemGroup {
                     Button {
@@ -159,6 +190,11 @@ struct ContentView: View {
             }
             NotificationCenter.default.addObserver(forName: .triggerManualSearch, object: nil, queue: .main) { _ in
                 Task { await runSearch() }
+            }
+            
+            // Load SerpAPI account info
+            Task {
+                await loadAccountInfo()
             }
         }
         .onDisappear {
@@ -226,6 +262,32 @@ struct ContentView: View {
                 selectedRecord = nil
             }
         }
+    }
+    
+    private func loadAccountInfo() async {
+        guard !serpKey.isEmpty else {
+            accountInfo = ""
+            return
+        }
+        
+        isLoadingAccountInfo = true
+        
+        do {
+            let serpClient = SerpAPIClient(apiKeyProvider: { serpKey })
+            let info = try await serpClient.getAccountInfo()
+            
+            if let remaining = info.credits_remaining, let limit = info.credits_limit {
+                accountInfo = "SerpAPI: \(remaining)/\(limit) credits remaining"
+            } else if let remaining = info.credits_remaining {
+                accountInfo = "SerpAPI: \(remaining) credits remaining"
+            } else {
+                accountInfo = "SerpAPI: Account info loaded"
+            }
+        } catch {
+            accountInfo = "SerpAPI: Unable to load account info"
+        }
+        
+        isLoadingAccountInfo = false
     }
 }
 

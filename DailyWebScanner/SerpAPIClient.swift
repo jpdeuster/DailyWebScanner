@@ -30,6 +30,12 @@ struct SerpAPIClient {
             }
         }
     }
+    
+    struct AccountInfo: Decodable {
+        let credits_remaining: Int?
+        let credits_limit: Int?
+        let plan: String?
+    }
 
     var apiKeyProvider: () -> String?
     private let session: URLSession
@@ -122,6 +128,48 @@ struct SerpAPIClient {
             }
         } catch {
             throw SerpError.network("Unerwarteter Fehler: \(error.localizedDescription)")
+        }
+    }
+    
+    func getAccountInfo() async throws -> AccountInfo {
+        guard let key = apiKeyProvider(), !key.isEmpty else { throw SerpError.missingAPIKey }
+
+        guard var components = URLComponents(string: "https://serpapi.com/account.json") else {
+            throw SerpError.badURL
+        }
+        
+        components.queryItems = [
+            URLQueryItem(name: "api_key", value: key)
+        ]
+
+        guard let url = components.url else { throw SerpError.badURL }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("DailyWebScanner/1.0", forHTTPHeaderField: "User-Agent")
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200..<300).contains(status) else { throw SerpError.http(status) }
+
+            let accountInfo = try JSONDecoder().decode(AccountInfo.self, from: data)
+            return accountInfo
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let urlError as URLError {
+            switch urlError.code {
+            case .notConnectedToInternet:
+                throw SerpError.network("No internet connection. Please check your network connection.")
+            case .cannotFindHost, .dnsLookupFailed:
+                throw SerpError.network("SerpAPI server could not be reached. Please check your internet connection.")
+            case .timedOut:
+                throw SerpError.network("Connection timeout to SerpAPI. Please try again.")
+            default:
+                throw SerpError.network("Network error: \(urlError.localizedDescription)")
+            }
+        } catch {
+            throw SerpError.network("Unexpected error: \(error.localizedDescription)")
         }
     }
 }

@@ -15,10 +15,30 @@ extension Notification.Name {
     static let triggerManualSearch = Notification.Name("TriggerManualSearch")
 }
 
+// Delegate für Settings-Fenster, damit sie nur das Fenster schließen, nicht die App
+class SettingsWindowDelegate: NSObject, NSWindowDelegate {
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        // Fenster schließen, aber App nicht beenden
+        return true
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // Wenn das letzte Fenster geschlossen wurde, App beenden
-        true
+        // Prüfe, ob es noch ein Hauptfenster gibt (nicht nur Settings-Fenster)
+        let mainWindows = NSApp.windows.filter { window in
+            // Nur Hauptfenster zählen, nicht Settings-Fenster
+            return window.title != "API Settings" && 
+                   window.title != "Search Parameters" && 
+                   window.title != "App Settings" &&
+                   window.title != "About DailyWebScanner" &&
+                   window.title != "Disclaimer & Legal Notice" &&
+                   window.title != "Privacy & Data Responsibility" &&
+                   window.title != "MIT License"
+        }
+        
+        // App nur beenden, wenn alle Hauptfenster geschlossen sind
+        return mainWindows.isEmpty
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -82,6 +102,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct DailyWebScannerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    
+    // Speichere die Delegate-Instanzen, damit sie nicht freigegeben werden
+    private let apiWindowDelegate = SettingsWindowDelegate()
+    private let searchWindowDelegate = SettingsWindowDelegate()
+    private let appWindowDelegate = SettingsWindowDelegate()
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -222,7 +247,7 @@ struct DailyWebScannerApp: App {
     
     private func showAPISettingsWindow() {
         let apiWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 700),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
@@ -230,6 +255,13 @@ struct DailyWebScannerApp: App {
         apiWindow.title = "API Settings"
         apiWindow.center()
         apiWindow.contentView = NSHostingView(rootView: APISettingsView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        apiWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        apiWindow.isReleasedWhenClosed = false
+        
         apiWindow.makeKeyAndOrderFront(nil)
     }
     
@@ -243,6 +275,13 @@ struct DailyWebScannerApp: App {
         searchWindow.title = "Search Parameters"
         searchWindow.center()
         searchWindow.contentView = NSHostingView(rootView: SearchSettingsView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        searchWindow.delegate = searchWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        searchWindow.isReleasedWhenClosed = false
+        
         searchWindow.makeKeyAndOrderFront(nil)
     }
     
@@ -256,6 +295,13 @@ struct DailyWebScannerApp: App {
         appWindow.title = "App Settings"
         appWindow.center()
         appWindow.contentView = NSHostingView(rootView: AppSettingsView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        appWindow.delegate = appWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        appWindow.isReleasedWhenClosed = false
+        
         appWindow.makeKeyAndOrderFront(nil)
     }
 }
