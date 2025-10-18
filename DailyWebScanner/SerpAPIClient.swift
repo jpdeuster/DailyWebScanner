@@ -48,13 +48,16 @@ struct SerpAPIClient {
         }
     }
 
-    func fetchTopResults(query: String, count: Int = 20, hl: String = "de", gl: String = "de") async throws -> [SerpOrganicResult] {
+    func fetchTopResults(query: String, count: Int = 20, hl: String = "de", gl: String = "de", 
+                        location: String? = nil, safe: String? = nil, tbm: String? = nil, 
+                        tbs: String? = nil, as_qdr: String? = nil) async throws -> [SerpOrganicResult] {
         guard let key = apiKeyProvider(), !key.isEmpty else { throw SerpError.missingAPIKey }
 
         guard var components = URLComponents(string: "https://serpapi.com/search.json") else {
             throw SerpError.badURL
         }
-        components.queryItems = [
+        
+        var queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "engine", value: "google"),
             URLQueryItem(name: "api_key", value: key),
@@ -62,6 +65,25 @@ struct SerpAPIClient {
             URLQueryItem(name: "hl", value: hl),
             URLQueryItem(name: "gl", value: gl)
         ]
+        
+        // Add optional parameters if provided
+        if let location = location, !location.isEmpty {
+            queryItems.append(URLQueryItem(name: "location", value: location))
+        }
+        if let safe = safe, !safe.isEmpty {
+            queryItems.append(URLQueryItem(name: "safe", value: safe))
+        }
+        if let tbm = tbm, !tbm.isEmpty {
+            queryItems.append(URLQueryItem(name: "tbm", value: tbm))
+        }
+        if let tbs = tbs, !tbs.isEmpty {
+            queryItems.append(URLQueryItem(name: "tbs", value: tbs))
+        }
+        if let as_qdr = as_qdr, !as_qdr.isEmpty {
+            queryItems.append(URLQueryItem(name: "as_qdr", value: as_qdr))
+        }
+        
+        components.queryItems = queryItems
 
         guard let url = components.url else { throw SerpError.badURL }
 
@@ -85,18 +107,18 @@ struct SerpAPIClient {
         } catch is CancellationError {
             throw CancellationError()
         } catch let urlError as URLError {
-            // Benutzerfreundliche Meldungen
+            // User-friendly messages
             switch urlError.code {
             case .notConnectedToInternet:
-                throw SerpError.network("Keine Internetverbindung. Bitte prüfen Sie Ihre Netzwerkverbindung.")
+                throw SerpError.network("No internet connection. Please check your network connection.")
             case .cannotFindHost, .dnsLookupFailed:
-                throw SerpError.network("Der Servername konnte nicht aufgelöst werden. Bitte prüfen Sie Ihre Internetverbindung oder die URL.")
+                throw SerpError.network("SerpAPI server could not be reached. Please check your internet connection.")
             case .timedOut:
-                throw SerpError.network("Zeitüberschreitung bei der Verbindung zu SerpAPI. Bitte versuchen Sie es erneut.")
+                throw SerpError.network("Connection timeout to SerpAPI. Please try again.")
             case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot:
-                throw SerpError.network("Sichere Verbindung fehlgeschlagen. Bitte prüfen Sie Ihre Systemuhr und Netzwerkeinstellungen.")
+                throw SerpError.network("Secure connection failed. Please check your system clock and network settings.")
             default:
-                throw SerpError.network("Netzwerkfehler: \(urlError.localizedDescription)")
+                throw SerpError.network("Network error: \(urlError.localizedDescription)")
             }
         } catch {
             throw SerpError.network("Unerwarteter Fehler: \(error.localizedDescription)")

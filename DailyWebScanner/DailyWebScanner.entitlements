@@ -2,22 +2,46 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Enable App Sandbox for security -->
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
-	<key>com.apple.security.files.user-selected.read-only</key>
-	<true/>
+	
+	<!-- Network permissions -->
 	<key>com.apple.security.network.client</key>
 	<true/>
+	
+	<!-- DNS resolution permissions -->
+	<key>com.apple.security.network.dns</key>
+	<true/>
+	
+	<!-- File access permissions -->
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+	
+	<!-- Allow outgoing network connections -->
 	<key>com.apple.security.network.server</key>
 	<false/>
-	<key>com.apple.security.cs.allow-jit</key>
-	<true/>
-	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-	<true/>
-	<key>com.apple.security.cs.disable-library-validation</key>
-	<true/>
-	<key>com.apple.security.cs.allow-dyld-environment-variables</key>
-	<true/>
+	
+	<!-- Temporary exceptions for network services -->
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.networkd</string>
+		<string>com.apple.dnssd.service</string>
+	</array>
+	
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+	<array>
+		<string>/Library/Preferences/com.apple.networkd.plist</string>
+		<string>/Library/Preferences/com.apple.dnssd.service.plist</string>
+	</array>
+	
+	<key>com.apple.security.temporary-exception.shared-preference.read-write</key>
+	<array>
+		<string>com.apple.networkd</string>
+		<string>com.apple.dnssd.service</string>
+	</array>
+	
+	<!-- Disable other unnecessary permissions -->
 	<key>com.apple.security.device.audio-input</key>
 	<false/>
 	<key>com.apple.security.device.camera</key>
@@ -30,19 +54,5 @@
 	<false/>
 	<key>com.apple.security.personal-information.photos-library</key>
 	<false/>
-	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
-	<array>
-		<string>/Library/Preferences/com.apple.networkd.plist</string>
-		<string>/System/Library/PrivateFrameworks/IconRendering.framework/Resources/</string>
-	</array>
-	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
-	<array>
-		<string>com.apple.networkd</string>
-		<string>com.apple.iconservices</string>
-	</array>
-	<key>com.apple.security.temporary-exception.shared-preference.read-write</key>
-	<array>
-		<string>com.apple.networkd</string>
-	</array>
 </dict>
 </plist>

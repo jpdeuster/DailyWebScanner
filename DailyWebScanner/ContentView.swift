@@ -29,14 +29,26 @@ struct ContentView: View {
                 // Quick search field at top of sidebar
                 HStack {
                     TextField("Suchbegriff eingeben …", text: $searchText, onCommit: {
+                        DebugLogger.shared.logSearchTextEntered(searchText)
                         Task { await runSearch() }
                     })
                     .focused($isSearchFieldFocused)
                     .textFieldStyle(.roundedBorder)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
+                    .onChange(of: isSearchFieldFocused) { _, focused in
+                        if focused {
+                            DebugLogger.shared.logSearchFieldFocus()
+                        }
+                    }
+                    .onChange(of: searchText) { _, newValue in
+                        if !newValue.isEmpty {
+                            DebugLogger.shared.logSearchTextEntered(newValue)
+                        }
+                    }
 
                     Button {
+                        DebugLogger.shared.logSearchButtonPressed()
                         Task { await runSearch() }
                     } label: {
                         Image(systemName: "magnifyingglass")
@@ -62,7 +74,34 @@ struct ContentView: View {
                     }
                     .onDelete(perform: deleteRecords)
                 }
-                .searchable(text: $viewModel.historySearch, placement: .sidebar)
+                
+                // Löschen-Buttons am Ende der Sidebar
+                if !records.isEmpty {
+                    VStack(spacing: 8) {
+                        Divider()
+                        
+                        HStack {
+                            Button("Delete All") {
+                                deleteAllRecords()
+                            }
+                            .buttonStyle(.bordered)
+                            .foregroundColor(.red)
+                            .help("Delete all search results")
+                            
+                            Spacer()
+                            
+                            Button("Delete Selected") {
+                                deleteSelectedRecord()
+                            }
+                            .buttonStyle(.bordered)
+                            .foregroundColor(.orange)
+                            .disabled(selectedRecord == nil)
+                            .help("Delete selected search result")
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.bottom, 8)
+                    }
+                }
             }
             .navigationTitle("Verlauf")
             .toolbar {
@@ -91,12 +130,22 @@ struct ContentView: View {
                 if viewModel.isSearching {
                     ProgressView("Suche läuft …")
                         .controlSize(.large)
+                        .onAppear {
+                            DebugLogger.shared.logWebViewAction("Showing search progress view")
+                        }
                 } else if let record = selectedRecord ?? records.first {
                     WebView(html: record.htmlSummary)
                         .id(record.id) // force reload when switching records
                         .navigationTitle(record.query)
+                        .onAppear {
+                            DebugLogger.shared.logWebViewAction("Displaying WebView for record: \(record.query)")
+                            DebugLogger.shared.logWebViewAction("HTML content length: \(record.htmlSummary.count)")
+                        }
                 } else {
                     ContentPlaceholderView()
+                        .onAppear {
+                            DebugLogger.shared.logWebViewAction("Showing placeholder view - no records available")
+                        }
                 }
             }
             .toolbar {
@@ -112,6 +161,9 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            DebugLogger.shared.logUserInterfaceReady()
+            DebugLogger.shared.logSearchViewModelReady()
+            
             viewModel.inject(modelContext: modelContext)
 
             // Menübefehle abonnieren
@@ -138,19 +190,30 @@ struct ContentView: View {
     }
 
     private func runSearch() async {
+        DebugLogger.shared.logSearchInitiated(query: searchText)
+        
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
+            DebugLogger.shared.logSearchStateChange("Empty search text - focusing search field")
             // Setze den Fokus ins Suchfeld, falls leer
             isSearchFieldFocused = true
             return
         }
+        
+        DebugLogger.shared.logSearchStart(query: trimmed)
+        DebugLogger.shared.logSearchStateChange("Starting search for: '\(trimmed)'")
+        
         do {
             let record = try await viewModel.runSearch(query: trimmed)
+            DebugLogger.shared.logSearchStateChange("Search completed successfully")
             selectedRecord = record
             searchText = ""
         } catch is CancellationError {
+            DebugLogger.shared.logSearchStateChange("Search cancelled by user")
             // User cancelled; no alert
         } catch {
+            DebugLogger.shared.logSearchError(query: trimmed, error: error)
+            DebugLogger.shared.logSearchStateChange("Search failed with error: \(error.localizedDescription)")
             // Error is already surfaced via activeError
         }
     }
@@ -165,6 +228,24 @@ struct ContentView: View {
             for index in offsets {
                 modelContext.delete(records[index])
             }
+        }
+    }
+    
+    private func deleteAllRecords() {
+        withAnimation {
+            for record in records {
+                modelContext.delete(record)
+            }
+            selectedRecord = nil
+        }
+    }
+    
+    private func deleteSelectedRecord() {
+        guard let record = selectedRecord else { return }
+        
+        withAnimation {
+            modelContext.delete(record)
+            selectedRecord = nil
         }
     }
 }

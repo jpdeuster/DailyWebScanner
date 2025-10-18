@@ -55,6 +55,16 @@ final class SearchViewModel: ObservableObject {
         let gl = defaults.string(forKey: DefaultsKey.serpGL) ?? "de"
         let configuredNum = defaults.integer(forKey: DefaultsKey.serpNum)
         let count = configuredNum > 0 ? configuredNum : 20
+        
+        // Read additional SerpAPI parameters
+        let location = defaults.string(forKey: "settings.serp.location") ?? ""
+        let safe = defaults.string(forKey: "settings.serp.safe") ?? ""
+        let tbm = defaults.string(forKey: "settings.serp.tbm") ?? ""
+        let tbs = defaults.string(forKey: "settings.serp.tbs") ?? ""
+        let as_qdr = defaults.string(forKey: "settings.serp.as_qdr") ?? ""
+        
+        // Debug: Log search parameters
+        DebugLogger.shared.logSearchParameters(query: query, language: hl, region: gl, count: count)
 
         let ctx = modelContext
 
@@ -69,7 +79,17 @@ final class SearchViewModel: ObservableObject {
             let serpKeyPresent = KeychainHelper.get(.serpAPIKey) != nil
             DebugLogger.shared.logSerpAPICall(query: query, apiKeyPresent: serpKeyPresent)
 
-            let serpResults = try await serpClient.fetchTopResults(query: query, count: count, hl: hl, gl: gl)
+            let serpResults = try await serpClient.fetchTopResults(
+                query: query, 
+                count: count, 
+                hl: hl, 
+                gl: gl,
+                location: location.isEmpty ? nil : location,
+                safe: safe.isEmpty ? nil : safe,
+                tbm: tbm.isEmpty ? nil : tbm,
+                tbs: tbs.isEmpty ? nil : tbs,
+                as_qdr: as_qdr.isEmpty ? nil : as_qdr
+            )
 
             try Task.checkCancellation()
 

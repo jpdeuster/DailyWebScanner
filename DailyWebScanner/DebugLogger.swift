@@ -24,6 +24,34 @@ class DebugLogger {
         logger.info("🛑 DailyWebScanner shutting down")
     }
     
+    func logWindowCreation() {
+        logger.info("🪟 Main window created and displayed")
+    }
+    
+    func logUserInterfaceReady() {
+        logger.info("🎨 User interface ready for interaction")
+    }
+    
+    func logSearchFieldFocus() {
+        logger.info("🔍 Search field focused by user")
+    }
+    
+    func logSearchTextEntered(_ text: String) {
+        logger.info("⌨️ User entered search text: '\(text)'")
+    }
+    
+    func logSearchButtonPressed() {
+        logger.info("🔘 Search button pressed by user")
+    }
+    
+    func logSettingsOpened() {
+        logger.info("⚙️ Settings window opened by user")
+    }
+    
+    func logSettingsClosed() {
+        logger.info("⚙️ Settings window closed by user")
+    }
+    
     private func logSystemInfo() {
         let osVersion = ProcessInfo.processInfo.operatingSystemVersion
         logger.info("📱 System: macOS \(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)")
@@ -91,12 +119,63 @@ class DebugLogger {
         searchLogger.info("🔍 Search Started: '\(query)'")
     }
     
+    func logSearchInitiated(query: String) {
+        searchLogger.info("🚀 Search process initiated for: '\(query)'")
+    }
+    
+    func logSearchViewModelReady() {
+        searchLogger.info("📊 SearchViewModel initialized and ready")
+    }
+    
+    func logSearchTaskCreated() {
+        searchLogger.info("⚡ Search task created and started")
+    }
+    
+    func logSearchTaskCancelled() {
+        searchLogger.info("🛑 Search task cancelled")
+    }
+    
+    func logSearchTaskCompleted() {
+        searchLogger.info("✅ Search task completed successfully")
+    }
+    
     func logSearchComplete(query: String, resultCount: Int) {
         searchLogger.info("✅ Search Complete: '\(query)' - \(resultCount) results")
     }
     
     func logSearchError(query: String, error: Error) {
         searchLogger.error("❌ Search Error: '\(query)' - \(error.localizedDescription)")
+    }
+    
+    func logSearchStateChange(_ state: String) {
+        searchLogger.info("🔄 Search state changed: \(state)")
+    }
+    
+    func logSearchParameters(query: String, language: String, region: String, count: Int) {
+        searchLogger.info("🔧 Search Parameters: Query: '\(query)', Language: '\(language)', Region: '\(region)', Count: \(count)")
+    }
+    
+    func logSearchParametersExtended(query: String, language: String, region: String, count: Int, 
+                                    location: String?, safe: String?, tbm: String?, tbs: String?, as_qdr: String?) {
+        var params = "Query: '\(query)', Language: '\(language)', Region: '\(region)', Count: \(count)"
+        
+        if let location = location, !location.isEmpty {
+            params += ", Location: '\(location)'"
+        }
+        if let safe = safe, !safe.isEmpty {
+            params += ", Safe: '\(safe)'"
+        }
+        if let tbm = tbm, !tbm.isEmpty {
+            params += ", Type: '\(tbm)'"
+        }
+        if let tbs = tbs, !tbs.isEmpty {
+            params += ", Time: '\(tbs)'"
+        }
+        if let as_qdr = as_qdr, !as_qdr.isEmpty {
+            params += ", Date: '\(as_qdr)'"
+        }
+        
+        searchLogger.info("🔧 Extended Search Parameters: \(params)")
     }
     
     func logSerpAPICall(query: String, apiKeyPresent: Bool) {

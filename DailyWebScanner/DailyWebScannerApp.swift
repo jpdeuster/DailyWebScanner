@@ -20,17 +20,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Wenn das letzte Fenster geschlossen wurde, App beenden
         true
     }
+    
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // Wenn App bereits läuft und erneut gestartet wird, bestehende Instanz in den Vordergrund bringen
+        if flag {
+            // App hat bereits sichtbare Fenster - nichts tun
+            return false
+        } else {
+            // App hat keine sichtbaren Fenster - Fenster wieder anzeigen
+            if let window = NSApp.mainWindow ?? NSApp.keyWindow ?? NSApp.windows.first {
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            return true
+        }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DebugLogger.shared.logAppStart()
+        
+        // Prüfe, ob bereits eine Instanz läuft
+        checkForExistingInstance()
+        
         // Hauptfenster nach dem Start zentrieren
         if let window = NSApp.mainWindow ?? NSApp.keyWindow ?? NSApp.windows.first {
             window.center()
+            DebugLogger.shared.logWindowCreation()
         } else {
             // Falls das Fenster minimal verzögert erstellt wird, noch einmal asynchron probieren.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 if let window = NSApp.mainWindow ?? NSApp.keyWindow ?? NSApp.windows.first {
                     window.center()
+                    DebugLogger.shared.logWindowCreation()
                 }
+            }
+        }
+    }
+    
+    private func checkForExistingInstance() {
+        // Prüfe, ob bereits eine andere Instanz der App läuft
+        let runningApps = NSWorkspace.shared.runningApplications
+        let currentApp = NSRunningApplication.current
+        
+        for app in runningApps {
+            if app.bundleIdentifier == currentApp.bundleIdentifier && 
+               app.processIdentifier != currentApp.processIdentifier {
+                // Eine andere Instanz läuft bereits
+                print("DailyWebScanner läuft bereits. Beende neue Instanz.")
+                
+                // Bestehende Instanz in den Vordergrund bringen
+                app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+                
+                // Neue Instanz beenden
+                NSApp.terminate(nil)
+                return
             }
         }
     }
@@ -72,6 +115,23 @@ struct DailyWebScannerApp: App {
                 .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Suche auslösen
             }
             
+            CommandMenu("Settings") {
+                Button("API Settings") {
+                    showAPISettingsWindow()
+                }
+                .keyboardShortcut(",", modifiers: [.command, .shift])
+                
+                Button("Search Parameters") {
+                    showSearchSettingsWindow()
+                }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                
+                Button("App Settings") {
+                    showAppSettingsWindow()
+                }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+            }
+            
             CommandMenu("Help") {
                 Button("About DailyWebScanner") {
                     showAboutWindow()
@@ -91,14 +151,17 @@ struct DailyWebScannerApp: App {
                     showLicenseWindow()
                 }
             }
+            
+            // Quit Command hinzufügen
+            CommandGroup(replacing: .appInfo) {
+                Button("Quit DailyWebScanner") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .keyboardShortcut("q", modifiers: [.command]) // ⌘Q: App beenden
+            }
         }
 
-        Settings {
-            SettingsView()
-                .frame(minWidth: 560, idealWidth: 640, maxWidth: .infinity,
-                       minHeight: 420, idealHeight: 520, maxHeight: .infinity,
-                       alignment: .topLeading)
-        }
+        // Settings werden jetzt über separate Menüs geöffnet
     }
     
     // MARK: - Help Menu Functions
@@ -153,5 +216,46 @@ struct DailyWebScannerApp: App {
         licenseWindow.center()
         licenseWindow.contentView = NSHostingView(rootView: LicenseView())
         licenseWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    // MARK: - Settings Menu Functions
+    
+    private func showAPISettingsWindow() {
+        let apiWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        apiWindow.title = "API Settings"
+        apiWindow.center()
+        apiWindow.contentView = NSHostingView(rootView: APISettingsView())
+        apiWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showSearchSettingsWindow() {
+        let searchWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        searchWindow.title = "Search Parameters"
+        searchWindow.center()
+        searchWindow.contentView = NSHostingView(rootView: SearchSettingsView())
+        searchWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showAppSettingsWindow() {
+        let appWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        appWindow.title = "App Settings"
+        appWindow.center()
+        appWindow.contentView = NSHostingView(rootView: AppSettingsView())
+        appWindow.makeKeyAndOrderFront(nil)
     }
 }

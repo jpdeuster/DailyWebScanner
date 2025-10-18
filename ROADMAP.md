@@ -82,6 +82,13 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 - Drag and drop functionality
 - Clipboard integration
 
+#### ☁️ Cloud Synchronization
+- **iCloud Integration**: Sync search history and bookmarks across devices
+- **CloudKit Support**: Seamless data synchronization
+- **Offline Access**: Local caching with cloud sync
+- **Cross-Device Search**: Continue searches across different Mac devices
+- **Privacy-First Sync**: End-to-end encrypted synchronization
+
 ---
 
 ### **v0.8 - Advanced Search**
@@ -186,10 +193,14 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 ### **v2.0 - Cloud & Sync**
 
 #### ☁️ Cloud Features
-- **Cloud Synchronization**: iCloud sync (optional)
-- **Cross-Device**: iPhone/iPad companion app
+- **Advanced iCloud Integration**: Full CloudKit synchronization
+- **Cross-Device Sync**: iPhone/iPad companion app
 - **Web Dashboard**: Browser-based interface
 - **Team Workspaces**: Collaborative workspaces
+- **Real-time Collaboration**: Live search sharing
+- **Cloud Storage**: Unlimited search history storage
+- **Smart Sync**: Intelligent conflict resolution
+- **Offline Mode**: Full offline functionality with sync
 - **Enterprise Features**: SSO, admin controls
 
 #### 🌐 Platform Expansion

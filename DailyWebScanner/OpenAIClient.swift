@@ -112,18 +112,18 @@ struct OpenAIClient {
         } catch let urlError as URLError {
             switch urlError.code {
             case .notConnectedToInternet:
-                throw OpenAIError.network("Keine Internetverbindung. Bitte prüfen Sie Ihre Netzwerkverbindung.")
+                throw OpenAIError.network("No internet connection. Please check your network connection.")
             case .cannotFindHost, .dnsLookupFailed:
-                throw OpenAIError.network("Der OpenAI-Servername konnte nicht aufgelöst werden. Bitte prüfen Sie Ihre Internetverbindung.")
+                throw OpenAIError.network("OpenAI server could not be reached. Please check your internet connection.")
             case .timedOut:
-                throw OpenAIError.network("Zeitüberschreitung bei der Verbindung zu OpenAI. Bitte versuchen Sie es erneut.")
+                throw OpenAIError.network("Connection timeout to OpenAI. Please try again.")
             case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot:
-                throw OpenAIError.network("Sichere Verbindung fehlgeschlagen. Bitte prüfen Sie Ihre Systemuhr und Netzwerkeinstellungen.")
+                throw OpenAIError.network("Secure connection failed. Please check your system clock and network settings.")
             default:
-                throw OpenAIError.network("Netzwerkfehler: \(urlError.localizedDescription)")
+                throw OpenAIError.network("Network error: \(urlError.localizedDescription)")
             }
         } catch {
-            throw OpenAIError.network("Unerwarteter Fehler: \(error.localizedDescription)")
+            throw OpenAIError.network("Unexpected error: \(error.localizedDescription)")
         }
     }
 }
