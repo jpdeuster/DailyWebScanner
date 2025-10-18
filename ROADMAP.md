@@ -6,9 +6,14 @@ This document outlines the development roadmap for DailyWebScanner, from the cur
 
 DailyWebScanner aims to become the ultimate intelligent search companion for macOS, combining powerful web search capabilities with AI-driven insights to help users discover, organize, and understand information more effectively.
 
+**This is a hobby project for learning purposes!** I explicitly encourage everyone to:
+- ✅ **Use the code freely** - Modify, extend, and adapt it for your own needs
+- ✅ **Suggest features** - Propose new ideas and planning suggestions  
+- ✅ **Learn together** - Use this project as a learning resource
+- ✅ **Shape the roadmap** - Your input helps guide development priorities
+
 ## 📊 Current Status: Beta 0.5
 
-**Release Date**: October 2024  
 **Status**: Active Development  
 **Focus**: Core functionality and stability
 
@@ -30,8 +35,14 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 
 ## 🗓️ Release Timeline
 
-### **v0.6 - Enhanced User Experience** 
-**Target**: Q4 2024 | **Duration**: 6-8 weeks
+### **v0.6 - Enhanced User Experience**
+
+#### 🗄️ Database Integration
+- **SQLite Database**: Local SQLite integration for search results
+- **Search History**: Complete search history with analytics
+- **Result Caching**: Intelligent caching of search results
+- **Data Migration**: Migration from SwiftData to SQLite
+- **Performance Optimization**: Faster search and result loading
 
 #### 🎨 User Interface Improvements
 - **Search Filters**: Date range, language, region filters
@@ -45,17 +56,18 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 - Improved error handling and user feedback
 - Enhanced WebKit stability
 - Better memory management
+- Database query optimization
 
 #### 📱 User Experience
 - Improved onboarding flow
 - Better visual feedback for loading states
 - Enhanced search result presentation
 - Smoother animations and transitions
+- Search history visualization
 
 ---
 
 ### **v0.7 - Export & Sharing**
-**Target**: Q1 2025 | **Duration**: 8-10 weeks
 
 #### 📄 Export Capabilities
 - **PDF Export**: Export search results to PDF with custom formatting
@@ -73,7 +85,6 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 ---
 
 ### **v0.8 - Advanced Search**
-**Target**: Q1 2025 | **Duration**: 10-12 weeks
 
 #### 🔍 Multiple Search Engines
 - **Bing Integration**: Microsoft Bing search support
@@ -95,7 +106,6 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 ---
 
 ### **v0.9 - AI Enhancement**
-**Target**: Q2 2025 | **Duration**: 12-14 weeks
 
 #### 🤖 Multiple AI Providers
 - **Claude Integration**: Anthropic's Claude AI
@@ -118,7 +128,6 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 ---
 
 ### **v1.0 - Production Ready**
-**Target**: Q2 2025 | **Duration**: 8-10 weeks
 
 #### 🚀 Performance & Stability
 - **Performance Optimization**: Faster search and rendering
@@ -136,7 +145,6 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 ---
 
 ### **v1.1 - Collaboration**
-**Target**: Q3 2025 | **Duration**: 12-14 weeks
 
 #### 👥 Team Features
 - **Team Sharing**: Share search results with teams
@@ -154,7 +162,6 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 ---
 
 ### **v1.2 - Advanced Features**
-**Target**: Q3 2025 | **Duration**: 10-12 weeks
 
 #### 🤖 Automation
 - **Search Automation**: Scheduled searches
@@ -177,7 +184,6 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 ---
 
 ### **v2.0 - Cloud & Sync**
-**Target**: Q4 2025 | **Duration**: 16-20 weeks
 
 #### ☁️ Cloud Features
 - **Cloud Synchronization**: iCloud sync (optional)
@@ -194,7 +200,7 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 
 ---
 
-## 🎯 Long-term Vision (2026+)
+## 🎯 Long-term Vision
 
 ### **AI Research Assistant**
 - Advanced research capabilities
@@ -265,12 +271,20 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 
 ## 📞 Feedback & Contributions
 
-We welcome community input on our roadmap:
+**Your input shapes this project!** We welcome community input on our roadmap:
 
 - **Feature Requests**: [GitHub Discussions](https://github.com/jpdeuster/DailyWebScanner/discussions)
+- **Planning Suggestions**: Help prioritize what to build next
 - **Bug Reports**: [GitHub Issues](https://github.com/jpdeuster/DailyWebScanner/issues)
 - **Contributions**: [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Security**: [SECURITY.md](SECURITY.md)
+- **Learning Questions**: Ask about Swift, macOS development, or any concepts
+
+### **Community-Driven Development**
+- **Suggest new features** - Even wild ideas are welcome
+- **Propose alternative approaches** - Different ways to solve problems
+- **Share your experiments** - Document what you tried and learned
+- **Help prioritize** - Which features would be most valuable to you?
 
 ---
 

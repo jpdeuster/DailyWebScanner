@@ -140,7 +140,14 @@ See [SECURITY.md](SECURITY.md) for detailed security information.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please follow these steps:
+**This is a hobby project for learning purposes!** I explicitly encourage everyone to:
+
+- ✅ **Use the code freely** - Modify, extend, and adapt it for your own needs
+- ✅ **Share improvements** - Submit pull requests with your enhancements
+- ✅ **Suggest features** - Propose new ideas and planning suggestions
+- ✅ **Learn together** - Use this project as a learning resource
+
+### How to Contribute
 
 1. **Fork the repository**
 2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
@@ -153,6 +160,7 @@ We welcome contributions! Please follow these steps:
 - Add tests for new features
 - Update documentation
 - Ensure security best practices
+- **Share your learning journey** - Document what you learned while contributing
 
 ## 📄 License
 
@@ -176,63 +184,64 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### 📋 Upcoming Releases
 
-#### **v0.6 - Enhanced User Experience** (Q4 2024)
+#### **v0.6 - Enhanced User Experience**
+- [ ] **Local SQL Database**: SQLite integration for search results storage
 - [ ] **Search Filters**: Date range, language, region filters
 - [ ] **Result Sorting**: Sort by relevance, date, source
 - [ ] **Keyboard Shortcuts**: Quick access and navigation
 - [ ] **Dark Mode**: Complete dark mode support
 - [ ] **Accessibility**: VoiceOver and accessibility improvements
 
-#### **v0.7 - Export & Sharing** (Q1 2025)
+#### **v0.7 - Export & Sharing**
 - [ ] **PDF Export**: Export search results to PDF
 - [ ] **Markdown Export**: Export results in Markdown format
 - [ ] **Share Integration**: Native macOS sharing
 - [ ] **Print Support**: Print search results
 - [ ] **Bookmark Management**: Save and organize bookmarks
 
-#### **v0.8 - Advanced Search** (Q1 2025)
+#### **v0.8 - Advanced Search**
 - [ ] **Custom Search Engines**: Bing, DuckDuckGo, Yandex support
 - [ ] **Search Operators**: Advanced search syntax support
 - [ ] **Image Search**: Visual search capabilities
 - [ ] **News Search**: Dedicated news search mode
 - [ ] **Academic Search**: Scholar and academic sources
 
-#### **v0.9 - AI Enhancement** (Q2 2025)
+#### **v0.9 - AI Enhancement**
 - [ ] **Multiple AI Providers**: Claude, Gemini, local models
 - [ ] **Custom AI Prompts**: User-defined summarization prompts
 - [ ] **AI Comparison**: Compare summaries from different AI providers
 - [ ] **Smart Categorization**: AI-powered result categorization
 - [ ] **Trend Analysis**: AI-powered trend detection
 
-#### **v1.0 - Production Ready** (Q2 2025)
+#### **v1.0 - Production Ready**
 - [ ] **Performance Optimization**: Faster search and rendering
 - [ ] **Error Handling**: Comprehensive error management
 - [ ] **User Onboarding**: Interactive tutorial
 - [ ] **Settings Migration**: Import/export settings
 - [ ] **Stability**: Production-ready stability
 
-#### **v1.1 - Collaboration** (Q3 2025)
+#### **v1.1 - Collaboration**
 - [ ] **Team Sharing**: Share search results with teams
 - [ ] **Collaborative Filtering**: Shared search preferences
 - [ ] **Comments System**: Add notes to search results
 - [ ] **Search Collections**: Organize searches into collections
 - [ ] **Export Templates**: Custom export formats
 
-#### **v1.2 - Advanced Features** (Q3 2025)
+#### **v1.2 - Advanced Features**
 - [ ] **Search Automation**: Scheduled searches
 - [ ] **Alert System**: Notifications for new results
 - [ ] **API Integration**: Third-party service integration
 - [ ] **Plugin System**: Extensible architecture
 - [ ] **Advanced Analytics**: Search pattern analysis
 
-#### **v2.0 - Cloud & Sync** (Q4 2025)
+#### **v2.0 - Cloud & Sync**
 - [ ] **Cloud Synchronization**: iCloud sync (optional)
 - [ ] **Cross-Device**: iPhone/iPad companion app
 - [ ] **Web Dashboard**: Browser-based interface
 - [ ] **Team Workspaces**: Collaborative workspaces
 - [ ] **Enterprise Features**: SSO, admin controls
 
-### 🎯 Long-term Vision (2026+)
+### 🎯 Long-term Vision
 - [ ] **AI Research Assistant**: Advanced research capabilities
 - [ ] **Knowledge Graph**: Build personal knowledge networks
 - [ ] **Voice Search**: Voice-activated search
