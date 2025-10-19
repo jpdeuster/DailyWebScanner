@@ -12,6 +12,42 @@ struct LinkContent: Codable {
     let fetchedAt: Date
     let html: String
     let css: String
+    let aiOverview: AIOverview?
+}
+
+struct AIOverview: Codable {
+    let textBlocks: [AITextBlock]
+    let thumbnail: String?
+    let references: [AIReference]?
+}
+
+struct AITextBlock: Codable {
+    let type: String
+    let snippet: String?
+    let snippetHighlightedWords: [String]?
+    let referenceIndexes: [Int]?
+    let list: [AIListItem]?
+}
+
+struct AIListItem: Codable {
+    let title: String
+    let link: String
+    let snippet: String
+    let snippetLinks: [AISnippetLink]?
+    let referenceIndexes: [Int]?
+}
+
+struct AISnippetLink: Codable {
+    let text: String
+    let link: String
+}
+
+struct AIReference: Codable {
+    let title: String
+    let link: String
+    let snippet: String
+    let source: String
+    let index: Int
 }
 
 struct ImageData: Codable {
@@ -59,6 +95,9 @@ class LinkContentFetcher {
         // Extract metadata
         let metadata = extractMetadata(from: parsedContent)
         
+        // Extract AI Overview if available
+        let aiOverview = extractAIOverview(from: htmlContent)
+        
         return LinkContent(
             url: url,
             title: parsedContent.title,
@@ -67,7 +106,8 @@ class LinkContentFetcher {
             metadata: metadata,
             fetchedAt: Date(),
             html: htmlContent,
-            css: parsedContent.css
+            css: parsedContent.css,
+            aiOverview: aiOverview
         )
     }
     
@@ -114,20 +154,61 @@ class LinkContentFetcher {
     private func downloadImage(from urlString: String, baseURL: URL) async throws -> ImageData {
         let imageURL: URL
         
-        if urlString.hasPrefix("http") {
+        if urlString.hasPrefix("data:") {
+            // Data URL (data:image/svg+xml,... or data:image/gif;base64,...)
             guard let url = URL(string: urlString) else {
                 throw LinkContentError.invalidImageURL
             }
             imageURL = url
+        } else if urlString.hasPrefix("http") {
+            // Absolute URL with protocol
+            guard let url = URL(string: urlString) else {
+                throw LinkContentError.invalidImageURL
+            }
+            imageURL = url
+        } else if urlString.hasPrefix("//") {
+            // Protocol-relative URL (//example.com/image.jpg)
+            guard let url = URL(string: "https:\(urlString)") else {
+                throw LinkContentError.invalidImageURL
+            }
+            imageURL = url
         } else {
-            imageURL = baseURL.appendingPathComponent(urlString)
+            // Relative URL - construct full URL
+            if urlString.hasPrefix("/") {
+                // Absolute path from domain root
+                let scheme = baseURL.scheme ?? "https"
+                let host = baseURL.host ?? ""
+                guard let url = URL(string: "\(scheme)://\(host)\(urlString)") else {
+                    throw LinkContentError.invalidImageURL
+                }
+                imageURL = url
+            } else {
+                // Relative path from current directory
+                imageURL = baseURL.appendingPathComponent(urlString)
+            }
         }
         
-        let (data, response) = try await session.data(from: imageURL)
+        let data: Data
+        let response: URLResponse?
         
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw LinkContentError.imageDownloadFailed
+        if urlString.hasPrefix("data:") {
+            // Data URL - decode directly without network request
+            guard let dataURL = URL(string: urlString),
+                  let dataFromURL = try? Data(contentsOf: dataURL) else {
+                throw LinkContentError.imageDownloadFailed
+            }
+            data = dataFromURL
+            response = nil // No HTTP response for data URLs
+        } else {
+            // Network request for regular URLs
+            let (networkData, networkResponse) = try await session.data(from: imageURL)
+            data = networkData
+            response = networkResponse
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                throw LinkContentError.imageDownloadFailed
+            }
         }
         
         // Save image to local storage
@@ -171,6 +252,168 @@ class LinkContentFetcher {
         let height = imageProperties[kCGImagePropertyPixelHeight] as? Int
         
         return (width, height)
+    }
+    
+    // MARK: - AI Overview Extraction
+    
+    private func extractAIOverview(from html: String) -> AIOverview? {
+        // Look for AI Overview in JSON-LD structured data
+        let jsonLdPattern = "<script[^>]*type=\"application/ld\\+json\"[^>]*>(.*?)</script>"
+        let jsonLdMatches = extractAllMatches(pattern: jsonLdPattern, from: html)
+        
+        for jsonString in jsonLdMatches {
+            if let aiOverview = parseAIOverviewFromJSON(jsonString) {
+                return aiOverview
+            }
+        }
+        
+        // Look for AI Overview in inline JSON data
+        let inlinePattern = "\"ai_overview\"\\s*:\\s*\\{([^}]+(?:\\{[^}]*\\}[^}]*)*)\\}"
+        if let match = extractFirstMatch(pattern: inlinePattern, from: html) {
+            if let aiOverview = parseAIOverviewFromJSON(match) {
+                return aiOverview
+            }
+        }
+        
+        return nil
+    }
+    
+    // MARK: - Helper Methods for Pattern Matching
+    
+    private func extractFirstMatch(pattern: String, from text: String) -> String? {
+        let regex = try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators])
+        let range = NSRange(location: 0, length: text.utf16.count)
+        
+        if let match = regex.firstMatch(in: text, options: [], range: range) {
+            let matchRange = match.range(at: 1)
+            if let range = Range(matchRange, in: text) {
+                return String(text[range])
+            }
+        }
+        
+        return nil
+    }
+    
+    private func extractAllMatches(pattern: String, from text: String) -> [String] {
+        let regex = try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators])
+        let range = NSRange(location: 0, length: text.utf16.count)
+        var matches: [String] = []
+        
+        regex.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
+            if let match = match, match.numberOfRanges > 1 {
+                let matchRange = match.range(at: 1)
+                if let range = Range(matchRange, in: text) {
+                    matches.append(String(text[range]))
+                }
+            }
+        }
+        
+        return matches
+    }
+    
+            private func parseAIOverviewFromJSON(_ jsonString: String) -> AIOverview? {
+                guard let data = jsonString.data(using: .utf8) else { return nil }
+                
+                do {
+                    let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                    
+                    // Check if this JSON contains ai_overview
+                    if let aiOverviewData = json?["ai_overview"] as? [String: Any],
+                       let textBlocksData = aiOverviewData["text_blocks"] as? [[String: Any]] {
+                        
+                        var textBlocks: [AITextBlock] = []
+                        
+                        for blockData in textBlocksData {
+                            let type = blockData["type"] as? String ?? ""
+                            let snippet = blockData["snippet"] as? String
+                            let snippetHighlightedWords = blockData["snippet_highlighted_words"] as? [String]
+                            let referenceIndexes = blockData["reference_indexes"] as? [Int]
+                            
+                            var list: [AIListItem]? = nil
+                            if let listData = blockData["list"] as? [[String: Any]] {
+                                list = parseAIListItems(from: listData)
+                            }
+                            
+                            let textBlock = AITextBlock(
+                                type: type, 
+                                snippet: snippet, 
+                                snippetHighlightedWords: snippetHighlightedWords,
+                                referenceIndexes: referenceIndexes,
+                                list: list
+                            )
+                            textBlocks.append(textBlock)
+                        }
+                        
+                        // Parse thumbnail and references
+                        let thumbnail = aiOverviewData["thumbnail"] as? String
+                        var references: [AIReference]? = nil
+                        
+                        if let referencesData = aiOverviewData["references"] as? [[String: Any]] {
+                            references = parseAIReferences(from: referencesData)
+                        }
+                        
+                        return AIOverview(textBlocks: textBlocks, thumbnail: thumbnail, references: references)
+                    }
+                } catch {
+                    DebugLogger.shared.logWebViewAction("Failed to parse AI Overview JSON: \(error)")
+                }
+                
+                return nil
+            }
+    
+    private func parseAIListItems(from listData: [[String: Any]]) -> [AIListItem] {
+        var items: [AIListItem] = []
+        
+        for itemData in listData {
+            let title = itemData["title"] as? String ?? ""
+            let link = itemData["link"] as? String ?? ""
+            let snippet = itemData["snippet"] as? String ?? ""
+            
+            var snippetLinks: [AISnippetLink]? = nil
+            if let snippetLinksData = itemData["snippet_links"] as? [[String: Any]] {
+                snippetLinks = snippetLinksData.compactMap { linkData in
+                    guard let text = linkData["text"] as? String,
+                          let link = linkData["link"] as? String else { return nil }
+                    return AISnippetLink(text: text, link: link)
+                }
+            }
+            
+            let referenceIndexes = itemData["reference_indexes"] as? [Int]
+            
+            let item = AIListItem(
+                title: title,
+                link: link,
+                snippet: snippet,
+                snippetLinks: snippetLinks,
+                referenceIndexes: referenceIndexes
+            )
+            items.append(item)
+        }
+        
+        return items
+    }
+    
+    private func parseAIReferences(from referencesData: [[String: Any]]) -> [AIReference] {
+        var references: [AIReference] = []
+        
+        for refData in referencesData {
+            let title = refData["title"] as? String ?? ""
+            let link = refData["link"] as? String ?? ""
+            let snippet = refData["snippet"] as? String ?? ""
+            let source = refData["source"] as? String ?? ""
+            let index = refData["index"] as? Int ?? 0
+            
+            let reference = AIReference(
+                title: title,
+                link: link,
+                snippet: snippet,
+                source: source,
+                index: index
+            )
+            references.append(reference)
+        }
+        
+        return references
     }
     
     // MARK: - Metadata Extraction

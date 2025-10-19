@@ -103,20 +103,7 @@ struct SearchSettingsView: View {
                         }
                         
                         Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 12) {
-                            GridRow {
-                                Text("Number of Results:")
-                                    .fontWeight(.medium)
-                                
-                                Picker("", selection: $serpCount) {
-                                    Text("10").tag(10)
-                                    Text("20").tag(20)
-                                    Text("30").tag(30)
-                                    Text("50").tag(50)
-                                    Text("100").tag(100)
-                                }
-                                .pickerStyle(.menu)
-                                .frame(width: 120)
-                            }
+                            // Number of Results setting removed - system automatically fetches all available results
                             
                             GridRow {
                                 VStack(alignment: .leading, spacing: 2) {

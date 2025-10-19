@@ -1,29 +1,20 @@
-//
-//  ContentView.swift
-//  DailyWebScanner
-//
-//  Created by Jörg-Peter Deuster on 18.10.25.
-//
-
 import SwiftUI
 import SwiftData
-import WebKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
 
-    // Search history records
     @Query(sort: \SearchRecord.createdAt, order: .reverse)
-    private var records: [SearchRecord]
+    private var searchRecords: [SearchRecord]
 
-    @State private var selectedRecord: SearchRecord?
+    @State private var selectedSearchRecord: SearchRecord?
     @StateObject private var viewModel = SearchViewModel()
 
     @State private var searchText: String = ""
     @FocusState private var isSearchFieldFocused: Bool
+    @State private var searchParameters = SearchParametersView()
     
-    // SerpAPI Account Info
     @AppStorage("serpAPIKey") private var serpKey: String = ""
     @State private var accountInfo = ""
     @State private var isLoadingAccountInfo = false
@@ -31,568 +22,316 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
+                // Search Parameters
+                SearchParametersView()
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                
                 // Quick search field at top of sidebar
                 HStack {
-                    TextField("Suchbegriff eingeben …", text: $searchText, onCommit: {
-                        Task { await runSearch() }
-                    })
+                    TextField("Enter search query...", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Task {
+                                    do {
+                                        let params = searchParameters.getParameters()
+                                        let record = try await viewModel.runSearch(
+                                            query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
+                                            language: params.language,
+                                            region: params.region,
+                                            location: params.location,
+                                            safe: params.safe,
+                                            tbm: params.tbm,
+                                            tbs: params.tbs,
+                                            as_qdr: params.as_qdr
+                                        )
+                                        await MainActor.run {
+                                            selectedSearchRecord = record
+                                            searchText = "" // Clear search text after successful search
+                                            DebugLogger.shared.logWebViewAction("Search completed - searchRecords count: \(searchRecords.count)")
+                                        }
+                                    } catch {
+                                        DebugLogger.shared.logWebViewAction("Search failed: \(error)")
+                                    }
+                                }
+                            }
+                        }
                     .focused($isSearchFieldFocused)
-                    .textFieldStyle(.roundedBorder)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
-                    .onChange(of: isSearchFieldFocused) { _, focused in
-                        if focused {
-                            DebugLogger.shared.logSearchFieldFocus()
+                        .onChange(of: isSearchFieldFocused) { _, focused in
+                            if focused {
+                                DebugLogger.shared.logSearchFieldFocus()
+                            }
                         }
-                    }
-                    .onChange(of: searchText) { _, newValue in
-                        if !newValue.isEmpty {
-                            DebugLogger.shared.logSearchTextEntered(newValue)
+                        .onChange(of: searchText) { _, newValue in
+                            DebugLogger.shared.logWebViewAction("User entered search text: '\(newValue)'")
                         }
-                    }
-
-                    Button {
-                        DebugLogger.shared.logSearchButtonPressed()
-                        Task { await runSearch() }
-                    } label: {
+                    
+                    Button(action: {
+                        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Task {
+                                do {
+                                    let params = searchParameters.getParameters()
+                                    let record = try await viewModel.runSearch(
+                                        query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
+                                        language: params.language,
+                                        region: params.region,
+                                        location: params.location,
+                                        safe: params.safe,
+                                        tbm: params.tbm,
+                                        tbs: params.tbs,
+                                        as_qdr: params.as_qdr
+                                    )
+                                    await MainActor.run {
+                                        selectedSearchRecord = record
+                                        searchText = "" // Clear search text after successful search
+                                        DebugLogger.shared.logWebViewAction("Search completed - searchRecords count: \(searchRecords.count)")
+                                    }
+                                } catch {
+                                    DebugLogger.shared.logWebViewAction("Search failed: \(error)")
+                                }
+                            }
+                        }
+                    }) {
                         Image(systemName: "magnifyingglass")
+                            .foregroundColor(.blue)
                     }
-                    .keyboardShortcut(.defaultAction)
-                    .padding(.trailing, 8)
-                    .disabled(viewModel.isSearching || searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .help("Suche starten")
-                }
-
-                List(selection: $selectedRecord) {
-                    ForEach(records) { record in
-                    NavigationLink(value: record) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(record.query)
-                                        .font(.headline)
-                                        .lineLimit(1)
-                                    Text(record.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                // Delete button for individual items
-                                Button {
-                                    deleteSelectedRecord(record)
-                                } label: {
-                                Image(systemName: "trash")
-                                    .foregroundColor(.red)
-                                }
-                                .buttonStyle(.plain)
-                                .help("Delete this search result")
-                            }
-                            
-                            // Search Parameters Display - immer anzeigen
-                            HStack(spacing: 8) {
-                                ParameterTag(
-                                    text: "Lang: \(record.language.isEmpty ? "Any" : record.language)", 
-                                    color: .blue
-                                )
-                                ParameterTag(
-                                    text: "Region: \(record.region.isEmpty ? "Any" : record.region)", 
-                                    color: .green
-                                )
-                                ParameterTag(
-                                    text: "Type: \(record.searchType.isEmpty ? "All" : record.searchType)", 
-                                    color: .orange
-                                )
-                                ParameterTag(
-                                    text: "Time: \(record.timeRange.isEmpty ? "Any" : record.timeRange)", 
-                                    color: .purple
-                                )
-                                ParameterTag(
-                                    text: "Count: \(record.numberOfResults)", 
-                                    color: .red
-                                )
-                            }
-                        }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.5), lineWidth: 1)
-                        )
-                    }
-                    }
-                    .onDelete(perform: deleteRecords)
+                    .buttonStyle(.bordered)
                 }
                 
-            }
-            .navigationTitle("Verlauf")
-            .toolbar {
-                ToolbarItemGroup {
-                    if viewModel.isSearching {
-                        Button(role: .cancel) {
-                            viewModel.cancelCurrentSearch()
-                        } label: {
-                            Label("Abbrechen", systemImage: "xmark.circle")
+                Divider()
+                
+                // Search Records List
+                List(selection: $selectedSearchRecord) {
+                    ForEach(searchRecords) { record in
+                        NavigationLink(value: record) {
+                            SearchQueryRow(record: record)
                         }
-                        .help("Laufende Suche abbrechen")
-                    } else {
-                        Button {
-                            Task { await runSearch() }
-                        } label: {
-                            Label("Suchen", systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        .disabled(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        .help("Manuelle Suche starten")
-                    }
-                }
-            }
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-        } detail: {
-            Group {
-                if viewModel.isSearching {
-                    ProgressView("Suche läuft …")
-                        .controlSize(.large)
-                        .onAppear {
-                            DebugLogger.shared.logWebViewAction("Showing search progress view")
-                        }
-        } else if let record = selectedRecord ?? records.first {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Search Parameters Display
-                    SearchParametersHeaderView()
-                    
-                    // Search Results
-                    WebView(html: record.htmlSummary)
-                        .id(record.id) // force reload when switching records
-                        .frame(minHeight: 400)
-                    
-                    // Link Contents (if available)
-                    if record.hasLinkContents, let linkContents = decodeLinkContents(from: record.linkContents) {
-                        LinkContentView(linkContents: linkContents)
-                    }
-                }
-                .padding()
-            }
-            .navigationTitle(record.query)
-            .onAppear {
-                DebugLogger.shared.logWebViewAction("Displaying WebView for record: \(record.query)")
-                DebugLogger.shared.logWebViewAction("HTML content length: \(record.htmlSummary.count)")
-                if record.hasLinkContents {
-                    DebugLogger.shared.logWebViewAction("Link contents available: \(record.totalImagesDownloaded) images, \(record.totalContentSize) bytes")
-                }
-            }
-        } else {
-                    ContentPlaceholderView()
-                        .onAppear {
-                            DebugLogger.shared.logWebViewAction("Showing placeholder view - no records available")
-                        }
-                }
-            }
-            .overlay(alignment: .bottom) {
-                // SerpAPI Account Status at bottom of main view
-                if !accountInfo.isEmpty || isLoadingAccountInfo {
-                    VStack(spacing: 4) {
-                        Divider()
-                        
-                        if isLoadingAccountInfo {
-                            HStack {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                                Text("Loading account info...")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                deleteSearchRecord(record)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
-                        } else if !accountInfo.isEmpty {
-                            Text(accountInfo)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-                    .background(Color(NSColor.controlBackgroundColor))
                 }
+                .listStyle(.sidebar)
+            }
+            .frame(minWidth: 300)
+        } detail: {
+            if let searchRecord = selectedSearchRecord {
+                SearchQueryDetailView(searchRecord: searchRecord)
+                } else {
+                Text("Select a search from the sidebar")
+                    .font(.title)
+                    .foregroundColor(.secondary)
             }
         }
         .onAppear {
-            DebugLogger.shared.logUserInterfaceReady()
-            DebugLogger.shared.logSearchViewModelReady()
-            
-            viewModel.inject(modelContext: modelContext)
-
-            // Menübefehle abonnieren
-            NotificationCenter.default.addObserver(forName: .focusSearchField, object: nil, queue: .main) { _ in
-                isSearchFieldFocused = true
-            }
-            NotificationCenter.default.addObserver(forName: .triggerManualSearch, object: nil, queue: .main) { _ in
-                Task { await runSearch() }
-            }
-            
-            // Load SerpAPI account info
-            Task {
-                await loadAccountInfo()
-            }
-        }
-        .onDisappear {
-            NotificationCenter.default.removeObserver(self, name: .focusSearchField, object: nil)
-            NotificationCenter.default.removeObserver(self, name: .triggerManualSearch, object: nil)
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            // Cancel any running search when app goes inactive/background
-            if newPhase != .active {
-                viewModel.cancelCurrentSearch()
-            }
-        }
-        .alert(item: $viewModel.activeError) { err in
-            Alert(title: Text("Fehler"), message: Text(err.message), dismissButton: .default(Text("OK")))
+            viewModel.modelContext = modelContext
+            loadAccountInfo()
+            DebugLogger.shared.logWebViewAction("ContentView appeared - searchRecords count: \(searchRecords.count)")
         }
     }
-
-    private func runSearch() async {
-        DebugLogger.shared.logSearchInitiated(query: searchText)
-        
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            DebugLogger.shared.logSearchStateChange("Empty search text - focusing search field")
-            // Setze den Fokus ins Suchfeld, falls leer
-            isSearchFieldFocused = true
-            return
-        }
-        
-        DebugLogger.shared.logSearchStart(query: trimmed)
-        DebugLogger.shared.logSearchStateChange("Starting search for: '\(trimmed)'")
-        
+    
+    private func deleteSearchRecord(_ record: SearchRecord) {
+        modelContext.delete(record)
         do {
-            let record = try await viewModel.runSearch(query: trimmed)
-            DebugLogger.shared.logSearchStateChange("Search completed successfully")
-            selectedRecord = record
-            searchText = ""
-        } catch is CancellationError {
-            DebugLogger.shared.logSearchStateChange("Search cancelled by user")
-            // User cancelled; no alert
+            try modelContext.save()
+            DebugLogger.shared.logWebViewAction("SearchRecord deleted: \(record.query)")
         } catch {
-            DebugLogger.shared.logSearchError(query: trimmed, error: error)
-            DebugLogger.shared.logSearchStateChange("Search failed with error: \(error.localizedDescription)")
-            // Error is already surfaced via activeError
-        }
-    }
-
-    private func rerenderSelectedRecord() async {
-        guard let record = selectedRecord else { return }
-        await viewModel.rerenderHTML(for: record)
-    }
-
-    private func deleteRecords(at offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(records[index])
-            }
+            DebugLogger.shared.logWebViewAction("Failed to delete SearchRecord: \(error.localizedDescription)")
         }
     }
     
-    
-    private func deleteSelectedRecord(_ record: SearchRecord) {
-        withAnimation {
-            modelContext.delete(record)
-            if selectedRecord?.id == record.id {
-                selectedRecord = nil
-            }
-        }
-    }
-    
-    private func decodeLinkContents(from jsonString: String) -> [LinkContent]? {
-        guard !jsonString.isEmpty,
-              let data = jsonString.data(using: .utf8) else {
-            return nil
-        }
-        
-        do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode([LinkContent].self, from: data)
-        } catch {
-            DebugLogger.shared.logWebViewAction("Failed to decode link contents: \(error)")
-            return nil
-        }
-    }
-    
-    private func loadAccountInfo() async {
-        guard !serpKey.isEmpty else {
-            accountInfo = ""
-            return
-        }
+    private func loadAccountInfo() {
+        guard !serpKey.isEmpty else { return }
         
         isLoadingAccountInfo = true
-        DebugLogger.shared.logWebViewAction("Loading SerpAPI account info...")
         
-        do {
-            let serpClient = SerpAPIClient(apiKeyProvider: { serpKey })
-            let info = try await serpClient.getAccountInfo()
-            
-            DebugLogger.shared.logWebViewAction("Account info loaded: \(info)")
-            
-            if let remaining = info.credits_remaining {
-                accountInfo = "✅ SerpAPI OK - \(remaining) searches available"
-            } else {
-                accountInfo = "✅ SerpAPI OK"
-            }
-        } catch {
-            DebugLogger.shared.logWebViewAction("Account info error: \(error)")
-            
-            // Vereinfachte Fehlermeldung
-            if let serpError = error as? SerpAPIClient.SerpError {
-                switch serpError {
-                case .missingAPIKey:
-                    accountInfo = "❌ SerpAPI: API key missing"
-                case .http(let code):
-                    accountInfo = "❌ SerpAPI: HTTP error \(code)"
-                case .network(let message):
-                    accountInfo = "❌ SerpAPI: \(message)"
-                case .badURL:
-                    accountInfo = "❌ SerpAPI: Invalid URL"
-                case .decoding:
-                    accountInfo = "❌ SerpAPI: Data parsing error"
-                case .empty:
-                    accountInfo = "❌ SerpAPI: No results returned"
+        Task {
+            do {
+                let client = SerpAPIClient(apiKeyProvider: { serpKey })
+                let info = try await client.getAccountInfo()
+                
+                await MainActor.run {
+                    isLoadingAccountInfo = false
+                    accountInfo = "Credits remaining: \(info.credits_remaining ?? 0)"
                 }
-            } else {
-                accountInfo = "❌ SerpAPI: \(error.localizedDescription)"
+            } catch {
+                await MainActor.run {
+                    isLoadingAccountInfo = false
+                    accountInfo = ""
+                }
             }
         }
-        
-        isLoadingAccountInfo = false
-    }
-    
-    // MARK: - Helper Functions
-    
-    private func hasSearchParameters(_ record: SearchRecord) -> Bool {
-        return !record.language.isEmpty || 
-               !record.region.isEmpty || 
-               !record.searchType.isEmpty || 
-               !record.timeRange.isEmpty || 
-               record.numberOfResults != 20
     }
 }
 
-// MARK: - ParameterTag View
-
-private struct ParameterTag: View {
-    let text: String
-    let color: Color
-    
-    var body: some View {
-        Text(text)
-            .font(.caption2)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(color.opacity(0.2))
-            .foregroundColor(color)
-            .cornerRadius(4)
-    }
-}
-
-private struct ContentPlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("Noch keine Suche durchgeführt")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-            Text("Geben Sie einen Suchbegriff ein und klicken Sie auf Suchen.")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-// MARK: - Search Parameters Header View
-struct SearchParametersHeaderView: View {
-    @AppStorage("settings.serp.hl") private var serpLanguage: String = ""
-    @AppStorage("settings.serp.gl") private var serpRegion: String = ""
-    @AppStorage("settings.serp.num") private var serpCount: Int = 20
-    @AppStorage("settings.serp.location") private var serpLocation: String = ""
-    @AppStorage("settings.serp.safe") private var serpSafe: String = ""
-    @AppStorage("settings.serp.tbm") private var serpTbm: String = ""
-    @AppStorage("settings.serp.as_qdr") private var serpAsQdr: String = ""
+struct SearchQueryRow: View {
+    let record: SearchRecord
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text(record.query)
+                .font(.headline)
+                .lineLimit(2)
+            
+            Text(record.createdAt, format: .dateTime)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            // Search Parameters als Tags
             HStack {
-                Image(systemName: "gear")
-                    .foregroundColor(.blue)
-                    .font(.caption)
-                
-                Text("Search Parameters")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                
-                Spacer()
+                if !record.language.isEmpty {
+                    ParameterTag(label: "Lang", value: record.language)
+                }
+                if !record.region.isEmpty {
+                    ParameterTag(label: "Region", value: record.region)
+                }
+                if !record.location.isEmpty {
+                    ParameterTag(label: "Location", value: record.location)
+                }
+                if !record.safeSearch.isEmpty {
+                    ParameterTag(label: "Safe", value: record.safeSearch)
+                }
+                if !record.searchType.isEmpty {
+                    ParameterTag(label: "Type", value: record.searchType)
+                }
+                if !record.timeRange.isEmpty {
+                    ParameterTag(label: "Time", value: record.timeRange)
+                }
             }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.3) as Color)
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.gray.opacity(0.3) as Color, lineWidth: 1)
+        )
+    }
+}
+
+struct SearchQueryDetailView: View {
+    let searchRecord: SearchRecord
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 15) {
+                // Search Header
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(searchRecord.query)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("Searched: \(searchRecord.createdAt, format: .dateTime)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    // Search Parameters
+                    SearchParametersHeaderView()
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
+                .cornerRadius(8)
+                
+                // Search Results
+                if !searchRecord.htmlSummary.isEmpty {
+                    WebView(html: searchRecord.htmlSummary)
+                        .frame(minHeight: 400)
+                } else {
+                    Text("No results available")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+            }
+            .padding()
+        }
+        .navigationTitle("Search Results")
+    }
+}
+
+struct SearchParametersHeaderView: View {
+    @AppStorage("serpLanguage") private var language: String = ""
+    @AppStorage("serpRegion") private var region: String = ""
+    @AppStorage("serpLocation") private var location: String = ""
+    @AppStorage("serpSafe") private var safe: String = ""
+    @AppStorage("serpTbm") private var tbm: String = ""
+    @AppStorage("serpTbs") private var tbs: String = ""
+    @AppStorage("serpAsQdr") private var asQdr: String = ""
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Search Parameters")
+                .font(.headline)
+                .fontWeight(.semibold)
             
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible()),
+                GridItem(.flexible()),
                 GridItem(.flexible())
             ], spacing: 8) {
-                // Language - immer anzeigen
-                ParameterDisplayItem(
-                    label: "Language",
-                    value: serpLanguage.isEmpty ? "Any" : getLanguageDisplayName(serpLanguage),
-                    color: .blue
-                )
-                
-                // Region - immer anzeigen
-                ParameterDisplayItem(
-                    label: "Region",
-                    value: serpRegion.isEmpty ? "Any" : getRegionDisplayName(serpRegion),
-                    color: .green
-                )
-                
-                // Results - immer anzeigen
-                ParameterDisplayItem(
-                    label: "Results",
-                    value: "\(serpCount)",
-                    color: .red
-                )
-                
-                // Location - immer anzeigen
-                ParameterDisplayItem(
-                    label: "Location",
-                    value: serpLocation.isEmpty ? "Any" : serpLocation,
-                    color: .orange
-                )
-                
-                // Safe Search - immer anzeigen
-                ParameterDisplayItem(
-                    label: "Safe Search",
-                    value: serpSafe.isEmpty ? "Any" : getSafeSearchDisplayName(serpSafe),
-                    color: .purple
-                )
-                
-                // Search Type - immer anzeigen
-                ParameterDisplayItem(
-                    label: "Search Type",
-                    value: serpTbm.isEmpty ? "All" : getSearchTypeDisplayName(serpTbm),
-                    color: .cyan
-                )
-                
-                // Time Range - immer anzeigen
-                ParameterDisplayItem(
-                    label: "Time Range",
-                    value: serpAsQdr.isEmpty ? "Any Time" : getTimeRangeDisplayName(serpAsQdr),
-                    color: .indigo
-                )
+                ParameterDisplayItem(label: "Language", value: language.isEmpty ? "Any" : language)
+                ParameterDisplayItem(label: "Region", value: region.isEmpty ? "Any" : region)
+                ParameterDisplayItem(label: "Location", value: location.isEmpty ? "Any" : location)
+                ParameterDisplayItem(label: "Safe Search", value: safe.isEmpty ? "Off" : safe)
+                ParameterDisplayItem(label: "Search Type", value: tbm.isEmpty ? "All" : tbm)
+                ParameterDisplayItem(label: "Time Range", value: tbs.isEmpty ? "Any Time" : tbs)
+                ParameterDisplayItem(label: "Date Range", value: asQdr.isEmpty ? "Any" : asQdr)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .padding()
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
         .cornerRadius(8)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-    }
-    
-    private func getLanguageDisplayName(_ code: String) -> String {
-        switch code {
-        case "de": return "Deutsch"
-        case "en": return "English"
-        case "fr": return "Français"
-        case "es": return "Español"
-        case "it": return "Italiano"
-        case "pt": return "Português"
-        case "ru": return "Русский"
-        case "ja": return "日本語"
-        case "ko": return "한국어"
-        case "zh": return "中文"
-        default: return code.uppercased()
-        }
-    }
-    
-    private func getRegionDisplayName(_ code: String) -> String {
-        switch code {
-        case "de": return "Deutschland"
-        case "us": return "United States"
-        case "gb": return "United Kingdom"
-        case "fr": return "France"
-        case "es": return "Spain"
-        case "it": return "Italy"
-        case "pt": return "Portugal"
-        case "ru": return "Russia"
-        case "jp": return "Japan"
-        case "kr": return "South Korea"
-        case "cn": return "China"
-        default: return code.uppercased()
-        }
-    }
-    
-    private func getSafeSearchDisplayName(_ code: String) -> String {
-        switch code {
-        case "active": return "Active"
-        case "off": return "Off"
-        case "moderate": return "Moderate"
-        default: return code.capitalized
-        }
-    }
-    
-    private func getSearchTypeDisplayName(_ code: String) -> String {
-        switch code {
-        case "isch": return "Images"
-        case "nws": return "News"
-        case "vid": return "Videos"
-        case "shop": return "Shopping"
-        case "bks": return "Books"
-        case "fin": return "Finance"
-        default: return code.uppercased()
-        }
-    }
-    
-    private func getTimeRangeDisplayName(_ code: String) -> String {
-        switch code {
-        case "d": return "Past 24 hours"
-        case "w": return "Past week"
-        case "m": return "Past month"
-        case "y": return "Past year"
-        case "h": return "Past hour"
-        default: return code.uppercased()
-        }
     }
 }
 
-// MARK: - Parameter Display Item
 struct ParameterDisplayItem: View {
     let label: String
     let value: String
-    let color: Color
     
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-            
-            Text(value)
                 .font(.caption)
                 .fontWeight(.medium)
-                .foregroundColor(color)
-                .lineLimit(1)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.caption)
+                .foregroundColor(.primary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(color.opacity(0.1))
-        .cornerRadius(6)
+    }
+}
+
+struct ParameterTag: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.caption2)
+                .foregroundColor(.primary)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(4)
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: [SearchRecord.self, SearchResult.self], inMemory: true)
+        .modelContainer(for: [SearchRecord.self, SearchResult.self, LinkRecord.self, ImageRecord.self])
 }

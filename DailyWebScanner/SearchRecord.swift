@@ -37,6 +37,9 @@ final class SearchRecord: Identifiable {
 
     @Relationship(deleteRule: .cascade)
     var results: [SearchResult]
+    
+    @Relationship(deleteRule: .cascade)
+    var linkRecords: [LinkRecord]
 
     init(id: UUID = UUID(), query: String, createdAt: Date = .now, htmlSummary: String = "",
          language: String = "", region: String = "", location: String = "", safeSearch: String = "",
@@ -70,5 +73,6 @@ final class SearchRecord: Identifiable {
         self.totalImagesDownloaded = totalImagesDownloaded
         self.totalContentSize = totalContentSize
         self.results = results
+        self.linkRecords = []
     }
 }

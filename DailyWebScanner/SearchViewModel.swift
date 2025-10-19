@@ -9,7 +9,7 @@ final class SearchViewModel: ObservableObject {
     @Published var historySearch: String = ""
     @Published var activeError: ViewError?
 
-    private var modelContext: ModelContext?
+    var modelContext: ModelContext?
 
     // Handle to the current search task and a token to identify it
     private var currentSearchTask: Task<SendableSearchRecord, Error>?
@@ -58,37 +58,112 @@ final class SearchViewModel: ObservableObject {
         }
     }
     
-    private func fetchLinkContents(for results: [SearchResult]) async {
+    private func fetchLinkContents(for results: [SearchResult], searchRecordId: UUID) async {
         let fetcher = LinkContentFetcher()
-        var linkContents: [LinkContent] = []
-        var totalImages = 0
-        var totalSize = 0
         
-        // Limit to first 5 links to avoid overwhelming the system
-        let linksToFetch = Array(results.prefix(5))
+        // Limit to first 10 links to avoid overwhelming the system
+        let linksToFetch = Array(results.prefix(10))
         
         for result in linksToFetch {
             do {
                 DebugLogger.shared.logWebViewAction("Fetching content for: \(result.link)")
                 let content = try await fetcher.fetchCompleteArticle(from: result.link)
-                linkContents.append(content)
-                totalImages += content.images.count
-                totalSize += content.html.utf8.count
                 
-                // Add image sizes
-                for image in content.images {
-                    if let data = image.data {
-                        totalSize += data.count
+                // Create LinkRecord
+                let linkRecord = LinkRecord(
+                    searchRecordId: searchRecordId,
+                    originalUrl: result.link,
+                    title: content.title,
+                    content: content.content,
+                    html: content.html,
+                    css: content.css,
+                    author: content.metadata.author,
+                    publishDate: content.metadata.publishDate,
+                    articleDescription: content.metadata.description,
+                    keywords: content.metadata.keywords.joined(separator: ", "),
+                    language: content.metadata.language,
+                    wordCount: content.metadata.wordCount,
+                    readingTime: content.metadata.readingTime,
+                    imageCount: content.images.count,
+                    totalImageSize: content.images.reduce(0) { $0 + ($1.data?.count ?? 0) },
+                    hasAIOverview: content.aiOverview != nil,
+                    aiOverviewJSON: content.aiOverview != nil ? encodeAIOverview(content.aiOverview!) : "",
+                    aiOverviewThumbnail: content.aiOverview?.thumbnail,
+                    aiOverviewReferences: content.aiOverview?.references != nil ? encodeReferences(content.aiOverview!.references!) : nil,
+                    hasContentAnalysis: false, // Would need to implement content analysis
+                    contentAnalysisJSON: "",
+                    htmlPreview: HTMLPreviewGenerator.generatePreview(for: LinkRecord(
+                        searchRecordId: searchRecordId,
+                        originalUrl: result.link,
+                        title: content.title,
+                        content: content.content,
+                        html: content.html,
+                        css: content.css,
+                        author: content.metadata.author,
+                        publishDate: content.metadata.publishDate,
+                        articleDescription: content.metadata.description,
+                        keywords: content.metadata.keywords.joined(separator: ", "),
+                        language: content.metadata.language,
+                        wordCount: content.metadata.wordCount,
+                        readingTime: content.metadata.readingTime,
+                        imageCount: content.images.count,
+                        totalImageSize: content.images.reduce(0) { $0 + ($1.data?.count ?? 0) },
+                        hasAIOverview: content.aiOverview != nil,
+                        aiOverviewJSON: content.aiOverview != nil ? encodeAIOverview(content.aiOverview!) : "",
+                        aiOverviewThumbnail: content.aiOverview?.thumbnail,
+                        aiOverviewReferences: content.aiOverview?.references != nil ? encodeReferences(content.aiOverview!.references!) : nil
+                    ))
+                )
+                
+                // Save to SwiftData only (simplified approach)
+                if let context = modelContext {
+                    context.insert(linkRecord)
+                    
+                    // Save images
+                    for image in content.images {
+                        let imageRecord = ImageRecord(
+                            linkRecordId: linkRecord.id,
+                            originalUrl: image.url,
+                            localPath: image.localPath,
+                            altText: image.altText,
+                            width: image.width,
+                            height: image.height,
+                            fileSize: image.data?.count ?? 0
+                        )
+                        context.insert(imageRecord)
                     }
+                    
+                    try context.save()
                 }
                 
             } catch {
                 DebugLogger.shared.logWebViewAction("Failed to fetch content for \(result.link): \(error)")
             }
         }
-        
-        // Update the search record with link contents
-        await updateSearchRecordWithLinkContents(linkContents, totalImages: totalImages, totalSize: totalSize)
+    }
+    
+    private func encodeAIOverview(_ aiOverview: AIOverview) -> String {
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(aiOverview)
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            DebugLogger.shared.logWebViewAction("Failed to encode AI Overview: \(error)")
+            return ""
+        }
+    }
+    
+    private func encodeReferences(_ references: [AIReference]) -> String {
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(references)
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            DebugLogger.shared.logWebViewAction("Failed to encode references: \(error)")
+            return ""
+        }
     }
     
     private func updateSearchRecordWithLinkContents(_ linkContents: [LinkContent], totalImages: Int, totalSize: Int) async {
@@ -120,7 +195,7 @@ final class SearchViewModel: ObservableObject {
         }
     }
     
-    func runSearch(query: String) async throws -> SearchRecord {
+    func runSearch(query: String, language: String = "", region: String = "", location: String = "", safe: String = "", tbm: String = "", tbs: String = "", as_qdr: String = "") async throws -> SearchRecord {
         DebugLogger.shared.logSearchStart(query: query)
         cancelCurrentSearch()
 
@@ -131,22 +206,15 @@ final class SearchViewModel: ObservableObject {
             throw err
         }
 
-        // Read Serp settings from UserDefaults (as written by SettingsView via @AppStorage)
-        let defaults = UserDefaults.standard
-        let hl = defaults.string(forKey: "settings.serp.hl") ?? ""
-        let gl = defaults.string(forKey: "settings.serp.gl") ?? ""
-        let configuredNum = defaults.integer(forKey: "settings.serp.num")
-        let count = configuredNum > 0 ? configuredNum : 20
-        
-        // Read additional SerpAPI parameters
-        let location = defaults.string(forKey: "settings.serp.location") ?? ""
-        let safe = defaults.string(forKey: "settings.serp.safe") ?? ""
-        let tbm = defaults.string(forKey: "settings.serp.tbm") ?? ""
-        let tbs = defaults.string(forKey: "settings.serp.tbs") ?? ""
-        let as_qdr = defaults.string(forKey: "settings.serp.as_qdr") ?? ""
+        // Use provided parameters or defaults
+        let hl = language.isEmpty ? "" : language
+        let gl = region.isEmpty ? "" : region
+        // Always fetch all available results (up to 100 to avoid overwhelming the system)
+        let count = 100
         
         // Debug: Log search parameters
         DebugLogger.shared.logSearchParameters(query: query, language: hl, region: gl, count: count)
+        DebugLogger.shared.logWebViewAction("SerpAPI: Fetching all available results (max 100)")
 
         let ctx = modelContext
 
@@ -172,6 +240,8 @@ final class SearchViewModel: ObservableObject {
                 tbs: tbs.isEmpty ? nil : tbs,
                 as_qdr: as_qdr.isEmpty ? nil : as_qdr
             )
+            
+            DebugLogger.shared.logWebViewAction("SerpAPI returned \(serpResults.count) results (requested: \(count))")
 
             try Task.checkCancellation()
 
@@ -214,11 +284,6 @@ final class SearchViewModel: ObservableObject {
         let contentAnalysis = HTMLContentParser.parseContent(from: html)
         let analysisJSON = encodeContentAnalysis(contentAnalysis)
         
-        // Fetch link contents (async, don't block search)
-        Task {
-            await fetchLinkContents(for: results)
-        }
-        
         let record = SearchRecord(
             query: query,
             htmlSummary: html,
@@ -240,6 +305,11 @@ final class SearchViewModel: ObservableObject {
         )
             ctx.insert(record)
             try ctx.save()
+
+            // Fetch link contents (async, don't block search)
+            Task {
+                await fetchLinkContents(for: results, searchRecordId: record.id)
+            }
 
             return SendableSearchRecord(record)
         }

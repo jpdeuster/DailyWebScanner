@@ -4,9 +4,15 @@ import AppKit
 
 struct WebView: NSViewRepresentable {
     let html: String
+    let allowExternalLinks: Bool
+
+    init(html: String, allowExternalLinks: Bool = true) {
+        self.html = html
+        self.allowExternalLinks = allowExternalLinks
+    }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(allowExternalLinks: allowExternalLinks)
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -57,8 +63,12 @@ struct WebView: NSViewRepresentable {
 
     class Coordinator: NSObject, WKNavigationDelegate {
         var currentHTMLHash: Int?
+        let allowExternalLinks: Bool
 
-        // Öffne alle externen http/https-Links im Standardbrowser.
+        init(allowExternalLinks: Bool = true) {
+            self.allowExternalLinks = allowExternalLinks
+        }
+
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
 
@@ -73,10 +83,18 @@ struct WebView: NSViewRepresentable {
                 return
             }
 
-            // Externe http/https-Links im Standardbrowser öffnen
-            if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
-                DebugLogger.shared.logWebViewAction("Opening external link in default browser: \(url.absoluteString)")
-                NSWorkspace.shared.open(url)
+            // Je nach Konfiguration externe Links behandeln
+            if allowExternalLinks {
+                // Externe http/https-Links im Standardbrowser öffnen
+                if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+                    DebugLogger.shared.logWebViewAction("Opening external link in default browser: \(url.absoluteString)")
+                    NSWorkspace.shared.open(url)
+                    decisionHandler(.cancel)
+                    return
+                }
+            } else {
+                // Alle externen Links blockieren (für HTML-Vorschau)
+                DebugLogger.shared.logWebViewAction("Blocking external navigation: \(url.absoluteString)")
                 decisionHandler(.cancel)
                 return
             }

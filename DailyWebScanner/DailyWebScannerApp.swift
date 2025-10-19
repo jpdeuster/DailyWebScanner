@@ -100,7 +100,9 @@ struct DailyWebScannerApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             SearchRecord.self,
-            SearchResult.self
+            SearchResult.self,
+            LinkRecord.self,
+            ImageRecord.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -129,6 +131,13 @@ struct DailyWebScannerApp: App {
                 .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Suche auslösen
             }
             
+        CommandMenu("Search Queries") {
+            Button("Show Search Queries") {
+                showSearchQueriesWindow()
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+        }
+        
         CommandMenu("Settings") {
             Button("API Settings") {
                 showAPISettingsWindow()
@@ -281,6 +290,29 @@ struct DailyWebScannerApp: App {
         analysisWindow.isReleasedWhenClosed = false
         
         analysisWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    // MARK: - Search Queries Menu Functions
+    
+    private func showSearchQueriesWindow() {
+        let searchQueriesWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        searchQueriesWindow.title = "Search Queries"
+        searchQueriesWindow.center()
+        searchQueriesWindow.contentView = NSHostingView(rootView: SearchQueriesView()
+            .modelContainer(sharedModelContainer))
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        searchQueriesWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        searchQueriesWindow.isReleasedWhenClosed = false
+        
+        searchQueriesWindow.makeKeyAndOrderFront(nil)
     }
     
     // MARK: - Settings Menu Functions

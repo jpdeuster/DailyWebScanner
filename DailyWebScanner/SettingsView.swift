@@ -155,19 +155,7 @@ struct SettingsView: View {
                                     }
                                 }
                                 
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("Anzahl Ergebnisse")
-                                            .font(.headline)
-                                        HStack {
-                                            Stepper(value: $serpNum, in: 1...50) {
-                                                Text("\(serpNum)")
-                                            }
-                                            .help("Top N Ergebnisse abrufen (1–50)")
-                                        }
-                                    }
-                                    Spacer()
-                                }
+                                // Number of Results setting removed - system automatically fetches all available results
                             }
                             
                             Divider()

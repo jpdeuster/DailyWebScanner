@@ -131,9 +131,8 @@ struct LinkContentDetailView: View {
     @State private var showingWebView = false
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
                     // Header
                     VStack(alignment: .leading, spacing: 12) {
                         Text(content.title)
@@ -181,6 +180,11 @@ struct LinkContentDetailView: View {
                     .padding()
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
                     .cornerRadius(12)
+                    
+                    // AI Overview (if available)
+                    if let aiOverview = content.aiOverview {
+                        AIOverviewView(aiOverview: aiOverview)
+                    }
                     
                     // Content
                     VStack(alignment: .leading, spacing: 16) {
@@ -240,8 +244,8 @@ struct LinkContentDetailView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Article Content")
-        }
+        .frame(minWidth: 600, minHeight: 500)
+        .frame(maxWidth: 1000, maxHeight: 800)
         .sheet(isPresented: $showingWebView) {
             HTMLViewerView(html: content.html, title: content.title)
         }
@@ -299,17 +303,271 @@ struct HTMLViewerView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationView {
-            WebView(html: html)
-                .navigationTitle(title)
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Close") {
-                            dismiss()
+        VStack(spacing: 0) {
+            // Header with title and close button
+            HStack {
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .lineLimit(2)
+                
+                Spacer()
+                
+                Button("Close") {
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            
+                // WebView with proper sizing (block external links)
+                WebView(html: html, allowExternalLinks: false)
+                    .frame(minWidth: 800, minHeight: 600)
+        }
+        .frame(minWidth: 800, minHeight: 700)
+        .frame(maxWidth: 1200, maxHeight: 900)
+    }
+}
+
+struct AIOverviewView: View {
+    let aiOverview: AIOverview
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .foregroundColor(.blue)
+                    .font(.title2)
+                
+                Text("AI Overview")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Text("\(aiOverview.textBlocks.count) blocks")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Thumbnail if available
+            if let thumbnail = aiOverview.thumbnail, !thumbnail.isEmpty {
+                AsyncImage(url: URL(string: thumbnail)) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxHeight: 200)
+                        .cornerRadius(8)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(height: 100)
+                        .cornerRadius(8)
+                        .overlay(
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        )
+                }
+            }
+            
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(aiOverview.textBlocks.enumerated()), id: \.offset) { index, block in
+                    AITextBlockView(block: block, index: index)
+                }
+            }
+            
+            // References if available
+            if let references = aiOverview.references, !references.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("References")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                    
+                    ForEach(references, id: \.index) { reference in
+                        AIReferenceView(reference: reference)
+                    }
+                }
+                .padding(.top, 8)
+            }
+        }
+        .padding()
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+struct AITextBlockView: View {
+    let block: AITextBlock
+    let index: Int
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let snippet = block.snippet {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(snippet)
+                        .font(.body)
+                        .lineSpacing(2)
+                    
+                    // Show highlighted words if available
+                    if let highlightedWords = block.snippetHighlightedWords, !highlightedWords.isEmpty {
+                        HStack {
+                            Text("Key points:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            ForEach(highlightedWords, id: \.self) { word in
+                                Text(word)
+                                    .font(.caption)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.yellow.opacity(0.3))
+                                    .cornerRadius(4)
+                            }
+                        }
+                    }
+                    
+                    // Show reference indexes if available
+                    if let referenceIndexes = block.referenceIndexes, !referenceIndexes.isEmpty {
+                        HStack {
+                            Text("References:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            ForEach(referenceIndexes, id: \.self) { refIndex in
+                                Text("[\(refIndex)]")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                    .underline()
+                            }
                         }
                     }
                 }
+            }
+            
+            if let list = block.list, !list.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(list.enumerated()), id: \.offset) { listIndex, item in
+                        AIListItemView(item: item, listIndex: listIndex)
+                    }
+                }
+                .padding(.leading, 16)
+            }
         }
+        .padding(.vertical, 4)
+    }
+}
+
+struct AIListItemView: View {
+    let item: AIListItem
+    let listIndex: Int
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("\(listIndex + 1).")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(item.title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                Spacer()
+            }
+            
+            Text(item.snippet)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .lineSpacing(2)
+            
+            if let snippetLinks = item.snippetLinks, !snippetLinks.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(snippetLinks.enumerated()), id: \.offset) { linkIndex, link in
+                        HStack {
+                            Image(systemName: "link")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            
+                            Text(link.text)
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                                .underline()
+                            
+                            Spacer()
+                        }
+                        .onTapGesture {
+                            if let url = URL(string: link.link) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    }
+                }
+                .padding(.leading, 16)
+            }
+        }
+        .padding()
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
+        .cornerRadius(8)
+    }
+}
+
+struct AIReferenceView: View {
+    let reference: AIReference
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("[\(reference.index)]")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .fontWeight(.semibold)
+                
+                Text(reference.title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .lineLimit(2)
+                
+                Spacer()
+            }
+            
+            Text(reference.snippet)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(3)
+            
+            HStack {
+                Text(reference.source)
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(4)
+                
+                Spacer()
+                
+                Button("Open") {
+                    if let url = URL(string: reference.link) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .font(.caption)
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding()
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.2))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 
