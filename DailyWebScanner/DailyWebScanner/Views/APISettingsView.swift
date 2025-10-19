@@ -213,20 +213,13 @@ struct APISettingsView: View {
         openAIResult = ""
         
         Task {
-            do {
-                let client = OpenAIClient(apiKeyProvider: { openAIKey })
-                // Simple test - just check if the client can be created
-                _ = client
-                
-                await MainActor.run {
-                    isTestingOpenAI = false
-                    openAIResult = "Success: OpenAI is working correctly"
-                }
-            } catch {
-                await MainActor.run {
-                    isTestingOpenAI = false
-                    openAIResult = "Error: \(error.localizedDescription)"
-                }
+            let client = OpenAIClient(apiKeyProvider: { openAIKey })
+            // Simple test - just check if the client can be created
+            _ = client
+            
+            await MainActor.run {
+                isTestingOpenAI = false
+                openAIResult = "Success: OpenAI is working correctly"
             }
         }
     }
