@@ -4,9 +4,9 @@ import WebKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \SearchRecord.query, order: .forward) private var searchRecords: [SearchRecord]
+    @Query(sort: \ManualSearchRecord.query, order: .forward) private var searchRecords: [ManualSearchRecord]
     @State private var searchText: String = ""
-    @State private var selectedSearchRecord: SearchRecord?
+    @State private var selectedSearchRecord: ManualSearchRecord?
     @State private var filterText: String = ""
     // Search parameters using @AppStorage
     @AppStorage("searchLanguage") var language: String = ""
@@ -17,8 +17,8 @@ struct ContentView: View {
     @AppStorage("searchTimeRange") var timeRange: String = ""
     @AppStorage("searchDateRange") var dateRange: String = ""
     
-    // Computed property for filtered search records (alphabetically sorted)
-    private var filteredSearchRecords: [SearchRecord] {
+    // Computed property for filtered manual search records (alphabetically sorted)
+    private var filteredSearchRecords: [ManualSearchRecord] {
         let records = if filterText.isEmpty {
             searchRecords
         } else {
@@ -255,7 +255,7 @@ struct ContentView: View {
                                 Image(systemName: "shield")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
-                                Text("Safe: \(searchRecord.safeSearch.isEmpty ? "Off" : searchRecord.safeSearch)")
+                                Text("Safe: \(searchRecord.safe.isEmpty ? "Off" : searchRecord.safe)")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
@@ -269,7 +269,7 @@ struct ContentView: View {
                                 Image(systemName: "magnifyingglass")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
-                                Text("Type: \(searchRecord.searchType.isEmpty ? "All" : searchRecord.searchType)")
+                                Text("Type: \(searchRecord.tbm.isEmpty ? "All" : searchRecord.tbm)")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
@@ -279,7 +279,7 @@ struct ContentView: View {
                                 Image(systemName: "clock")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
-                                Text("Time: \(searchRecord.timeRange.isEmpty ? "Any" : searchRecord.timeRange)")
+                                Text("Time: \(searchRecord.as_qdr.isEmpty ? "Any" : searchRecord.as_qdr)")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
@@ -354,7 +354,6 @@ struct ContentView: View {
                     DebugLogger.shared.logWebViewAction("🔍 DEBUG: Detail View Active")
                     DebugLogger.shared.logWebViewAction("📱 ContentView: Detail view appeared for SearchRecord '\(searchRecord.query)' (ID: \(searchRecord.id))")
                     DebugLogger.shared.logWebViewAction("📊 ContentView: SearchRecord has \(searchRecord.results.count) results")
-                    DebugLogger.shared.logWebViewAction("📊 ContentView: SearchRecord has \(searchRecord.linkRecords.count) link records")
                 }
                 } else {
                 VStack(spacing: 20) {
@@ -401,7 +400,7 @@ struct ContentView: View {
         }
     }
     
-    private func deleteSearchRecord(_ record: SearchRecord) {
+    private func deleteSearchRecord(_ record: ManualSearchRecord) {
         DebugLogger.shared.logWebViewAction("🗑️ ContentView: Starting delete for SearchRecord '\(record.query)' (ID: \(record.id))")
         
         // Clear selection if deleted record was selected
@@ -421,15 +420,15 @@ struct ContentView: View {
     
     private func performSearch() {
         if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            Task {
-                do {
+        Task {
+            do {
                     let viewModel = SearchViewModel()
                     viewModel.modelContext = modelContext
-                    let record = try await viewModel.runSearch(
+                    let searchResults = try await viewModel.runSearchForResults(
                         query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
                         language: language,
                         region: region,
-                        location: location, // Using location field for city/region
+                        location: location,
                         safe: safeSearch,
                         tbm: searchType,
                         tbs: "",
@@ -437,12 +436,48 @@ struct ContentView: View {
                         nfpr: "",
                         filter: ""
                     )
-                    await MainActor.run {
+                    
+                    // Create ManualSearchRecord
+                    let record = ManualSearchRecord(
+                        query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
+                        language: language,
+                        region: region,
+                        location: location,
+                        safe: safeSearch,
+                        tbm: searchType,
+                        tbs: "",
+                        as_qdr: timeRange,
+                        nfpr: "",
+                        filter: ""
+                    )
+                    record.results = searchResults
+                    
+                    // Convert SearchResults to LinkRecords for the article list
+                    for (_, searchResult) in searchResults.enumerated() {
+                        let linkRecord = LinkRecord(
+                            searchRecordId: record.id,
+                            originalUrl: searchResult.link,
+                            title: searchResult.title,
+                            content: searchResult.snippet,
+                            html: "",
+                            css: "",
+                            fetchedAt: Date(),
+                            articleDescription: searchResult.snippet,
+                            wordCount: searchResult.snippet.split(separator: " ").count,
+                            readingTime: max(1, searchResult.snippet.split(separator: " ").count / 200)
+                        )
+                        modelContext.insert(linkRecord)
+                        DebugLogger.shared.logWebViewAction("Created LinkRecord: \(searchResult.title)")
+                    }
+                
+                await MainActor.run {
+                        modelContext.insert(record)
                         selectedSearchRecord = record
                         searchText = "" // Clear search text after successful search
-                        DebugLogger.shared.logWebViewAction("Search completed - searchRecords count: \(searchRecords.count)")
-                    }
-                } catch {
+                        DebugLogger.shared.logWebViewAction("Manual search completed - searchRecords count: \(searchRecords.count)")
+                        DebugLogger.shared.logWebViewAction("Created \(searchResults.count) LinkRecords for article list")
+                }
+            } catch {
                     DebugLogger.shared.logWebViewAction("Search failed: \(error)")
                 }
             }
@@ -472,7 +507,7 @@ struct ContentView: View {
 }
 
 struct SearchQueryRow: View {
-    let record: SearchRecord
+    let record: ManualSearchRecord
     let onDelete: () -> Void
     
     var body: some View {
@@ -486,7 +521,7 @@ struct SearchQueryRow: View {
                 .font(.headline)
                 .lineLimit(2)
             
-            Text(record.createdAt, format: .dateTime)
+            Text(record.timestamp, format: .dateTime)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
@@ -501,14 +536,14 @@ struct SearchQueryRow: View {
                 if !record.location.isEmpty {
                     ParameterTag(label: "Location", value: record.location)
                 }
-                    if !record.safeSearch.isEmpty && record.safeSearch != "off" {
-                    ParameterTag(label: "Safe", value: record.safeSearch)
+                    if !record.safe.isEmpty && record.safe != "off" {
+                    ParameterTag(label: "Safe", value: record.safe)
                 }
-                if !record.searchType.isEmpty {
-                    ParameterTag(label: "Type", value: record.searchType)
+                if !record.tbm.isEmpty {
+                    ParameterTag(label: "Type", value: record.tbm)
                 }
-                if !record.timeRange.isEmpty {
-                    ParameterTag(label: "Time", value: record.timeRange)
+                if !record.as_qdr.isEmpty {
+                    ParameterTag(label: "Time", value: record.as_qdr)
                 }
             }
             }
@@ -841,16 +876,23 @@ struct SearchResultRow: View {
 struct ParameterTag: View {
     let label: String
     let value: String
+    let color: Color
+    
+    init(label: String, value: String, color: Color = .blue) {
+        self.label = label
+        self.value = value
+        self.color = color
+    }
     
     var body: some View {
         HStack(spacing: 4) {
             Text("\(label): \(value)")
                 .font(.caption)
-                .foregroundColor(.blue)
+                .foregroundColor(color)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .background(Color.blue.opacity(0.1))
+        .background(color.opacity(0.1))
         .cornerRadius(4)
     }
 }

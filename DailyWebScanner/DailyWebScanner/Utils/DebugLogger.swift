@@ -201,12 +201,20 @@ class DebugLogger {
         searchLogger.info("🛑 Search task cancelled")
     }
     
+    func logSearchCancelled(query: String) {
+        searchLogger.info("🛑 Search cancelled: '\(query)'")
+    }
+    
     func logSearchTaskCompleted() {
         searchLogger.info("✅ Search task completed successfully")
     }
     
     func logSearchComplete(query: String, resultCount: Int) {
         searchLogger.info("✅ Search Complete: '\(query)' - \(resultCount) results")
+    }
+    
+    func logSearchSuccess(query: String, resultCount: Int) {
+        searchLogger.info("✅ Search Success: '\(query)' - \(resultCount) results")
     }
     
     func logSearchError(query: String, error: Error) {

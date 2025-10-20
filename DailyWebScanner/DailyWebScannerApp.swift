@@ -100,6 +100,8 @@ struct DailyWebScannerApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             SearchRecord.self,
+            ManualSearchRecord.self,
+            AutomatedSearchRecord.self,
             SearchResult.self,
             LinkRecord.self,
             ImageRecord.self

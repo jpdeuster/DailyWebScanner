@@ -3,8 +3,8 @@ import SwiftData
 
 struct SearchListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \SearchRecord.query, order: .forward) private var searchRecords: [SearchRecord]
-    @State private var selectedSearchRecord: SearchRecord?
+    @Query(sort: \AutomatedSearchRecord.query, order: .forward) private var allSearchRecords: [AutomatedSearchRecord]
+    @State private var selectedSearchRecord: AutomatedSearchRecord?
     @State private var filterText: String = ""
     @State private var newSearchQuery: String = ""
     @State private var selectedHour: Int = 10
@@ -20,12 +20,12 @@ struct SearchListView: View {
     @AppStorage("automatedSearchTimeRange") var timeRange: String = ""
     @AppStorage("automatedSearchDateRange") var dateRange: String = ""
     
-    // Computed property for filtered search records (alphabetically sorted)
-    private var filteredSearchRecords: [SearchRecord] {
+    // Computed property for filtered automated search records (alphabetically sorted)
+    private var filteredSearchRecords: [AutomatedSearchRecord] {
         let records = if filterText.isEmpty {
-            searchRecords
+            allSearchRecords
         } else {
-            searchRecords.filter { record in
+            allSearchRecords.filter { record in
                 record.query.localizedCaseInsensitiveContains(filterText) ||
                 record.language.localizedCaseInsensitiveContains(filterText) ||
                 record.region.localizedCaseInsensitiveContains(filterText) ||
@@ -33,6 +33,38 @@ struct SearchListView: View {
             }
         }
         return records.sorted { $0.query.localizedCaseInsensitiveCompare($1.query) == .orderedAscending }
+    }
+    
+    // Function to calculate time until next search for a specific record
+    private func timeUntilNextSearch(for record: SearchRecord) -> String {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        let scheduledTime = parseScheduledTime(record.scheduledTime)
+        let scheduledHour = scheduledTime.hour
+        let scheduledMinute = scheduledTime.minute
+        
+        // Calculate next occurrence of this time today
+        var nextDate = calendar.date(bySettingHour: scheduledHour, minute: scheduledMinute, second: 0, of: now) ?? now
+        
+        // If the time has already passed today, move to tomorrow
+        if nextDate <= now {
+            nextDate = calendar.date(byAdding: .day, value: 1, to: nextDate) ?? now
+        }
+        
+        let timeInterval = nextDate.timeIntervalSince(now)
+        let totalSeconds = Int(timeInterval)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else if minutes > 0 {
+            return String(format: "%d:%02d", minutes, seconds)
+        } else {
+            return String(format: "%ds", seconds)
+        }
     }
     
     var body: some View {
@@ -177,26 +209,70 @@ struct SearchListView: View {
                             .foregroundColor(.blue)
                         
                         // Hour Picker (0-23)
-                        Picker("Hour", selection: $selectedHour) {
-                            ForEach(0..<24, id: \.self) { hour in
-                                Text(String(format: "%02d", hour)).tag(hour)
+                        HStack {
+                            Button(action: {
+                                if selectedHour > 0 {
+                                    selectedHour -= 1
+                                }
+                            }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.caption2)
                             }
+                            .buttonStyle(.plain)
+                            
+                            Text(String(format: "%02d", selectedHour))
+                                .font(.caption)
+                                .frame(width: 30)
+                            
+                            Button(action: {
+                                if selectedHour < 23 {
+                                    selectedHour += 1
+                                }
+                            }) {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .pickerStyle(.menu)
-                        .frame(width: 80)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(4)
                         
                         Text(":")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                         
                         // Minute Picker (0-59)
-                        Picker("Minute", selection: $selectedMinute) {
-                            ForEach(0..<60, id: \.self) { minute in
-                                Text(String(format: "%02d", minute)).tag(minute)
+                        HStack {
+                            Button(action: {
+                                if selectedMinute > 0 {
+                                    selectedMinute -= 1
+                                }
+                            }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.caption2)
                             }
+                            .buttonStyle(.plain)
+                            
+                            Text(String(format: "%02d", selectedMinute))
+                                .font(.caption)
+                                .frame(width: 30)
+                            
+                            Button(action: {
+                                if selectedMinute < 59 {
+                                    selectedMinute += 1
+                                }
+                            }) {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .pickerStyle(.menu)
-                        .frame(width: 80)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(4)
                     }
                     
                     Button(action: {
@@ -304,7 +380,7 @@ struct SearchListView: View {
                         HStack {
                             Text("Created:")
                                 .fontWeight(.semibold)
-                            Text(searchRecord.createdAt, format: .dateTime)
+                            Text(searchRecord.timestamp, format: .dateTime)
                                 .foregroundColor(.secondary)
                         }
                         
@@ -403,8 +479,8 @@ struct SearchListView: View {
             }
         }
         .onAppear {
-            DebugLogger.shared.logWebViewAction("🔍 SearchListView appeared - searchRecords count: \(searchRecords.count)")
-            for (index, record) in searchRecords.enumerated() {
+            DebugLogger.shared.logWebViewAction("🔍 SearchListView appeared - allSearchRecords count: \(allSearchRecords.count)")
+            for (index, record) in allSearchRecords.enumerated() {
                 DebugLogger.shared.logWebViewAction("🔍 SearchListView: Record \(index): '\(record.query)' (ID: \(record.id))")
             }
             startTimer()
@@ -420,7 +496,7 @@ struct SearchListView: View {
                 do {
                     let viewModel = SearchViewModel()
                     viewModel.modelContext = modelContext
-                    let record = try await viewModel.runSearch(
+                    let searchResults = try await viewModel.runSearchForResults(
                         query: newSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines),
                         language: language,
                         region: region,
@@ -433,16 +509,46 @@ struct SearchListView: View {
                         filter: ""
                     )
                     
-                    // Set automation properties
-                    record.isEnabled = true
-                    record.scheduledTime = String(format: "%02d:%02d", selectedHour, selectedMinute)
-                    record.executionCount = 0
-                    record.lastExecutionDate = nil
+                    // Create AutomatedSearchRecord
+                    let record = AutomatedSearchRecord(
+                        query: newSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines),
+                        language: language,
+                        region: region,
+                        location: location,
+                        safe: safeSearch,
+                        tbm: searchType,
+                        tbs: "",
+                        as_qdr: timeRange,
+                        nfpr: "",
+                        filter: "",
+                        scheduledTime: String(format: "%02d:%02d", selectedHour, selectedMinute)
+                    )
+                    record.results = searchResults
+                    
+                    // Convert SearchResults to LinkRecords for the article list
+                    for (_, searchResult) in searchResults.enumerated() {
+                        let linkRecord = LinkRecord(
+                            searchRecordId: record.id,
+                            originalUrl: searchResult.link,
+                            title: searchResult.title,
+                            content: searchResult.snippet,
+                            html: "",
+                            css: "",
+                            fetchedAt: Date(),
+                            articleDescription: searchResult.snippet,
+                            wordCount: searchResult.snippet.split(separator: " ").count,
+                            readingTime: max(1, searchResult.snippet.split(separator: " ").count / 200)
+                        )
+                        modelContext.insert(linkRecord)
+                        DebugLogger.shared.logWebViewAction("Created LinkRecord: \(searchResult.title)")
+                    }
                     
                     await MainActor.run {
+                        modelContext.insert(record)
                         selectedSearchRecord = record
                         newSearchQuery = "" // Clear search text after successful search
                         DebugLogger.shared.logWebViewAction("✅ SearchListView: Added automated search '\(record.query)' with \(record.results.count) results")
+                        DebugLogger.shared.logWebViewAction("Created \(searchResults.count) LinkRecords for article list")
                     }
                 } catch {
                     DebugLogger.shared.logWebViewAction("❌ SearchListView: Failed to create automated search: \(error)")
@@ -465,7 +571,7 @@ struct SearchListView: View {
     }
     
     private func updateTimeUntilNextSearch() {
-        let enabledSearches = searchRecords.filter { $0.isEnabled && !$0.scheduledTime.isEmpty }
+        let enabledSearches = allSearchRecords
         
         if enabledSearches.isEmpty {
             timeUntilNextSearch = ""
@@ -524,7 +630,7 @@ struct SearchListView: View {
         return (hour: 0, minute: 0)
     }
     
-    private func deleteSearchRecord(_ record: SearchRecord) {
+    private func deleteSearchRecord(_ record: AutomatedSearchRecord) {
         DebugLogger.shared.logWebViewAction("🗑️ SearchListView: Starting delete for SearchRecord '\(record.query)' (ID: \(record.id))")
         
         // Clear selection if deleted record was selected
@@ -544,8 +650,10 @@ struct SearchListView: View {
 }
 
 struct SearchListRow: View {
-    let record: SearchRecord
+    let record: AutomatedSearchRecord
     let onDelete: () -> Void
+    @State private var timeUntilNext: String = ""
+    @State private var timer: Timer?
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -558,7 +666,7 @@ struct SearchListRow: View {
                     .font(.headline)
                     .lineLimit(2)
                 
-                Text(record.createdAt, format: .dateTime)
+                Text(record.timestamp, format: .dateTime)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
@@ -573,14 +681,14 @@ struct SearchListRow: View {
                     if !record.location.isEmpty {
                         ParameterTag(label: "Location", value: record.location)
                     }
-                    if !record.safeSearch.isEmpty && record.safeSearch != "off" {
-                        ParameterTag(label: "Safe", value: record.safeSearch)
+                    if !record.safe.isEmpty && record.safe != "off" {
+                        ParameterTag(label: "Safe", value: record.safe)
                     }
-                    if !record.searchType.isEmpty {
-                        ParameterTag(label: "Type", value: record.searchType)
+                    if !record.tbm.isEmpty {
+                        ParameterTag(label: "Type", value: record.tbm)
                     }
-                    if !record.timeRange.isEmpty {
-                        ParameterTag(label: "Time", value: record.timeRange)
+                    if !record.as_qdr.isEmpty {
+                        ParameterTag(label: "Time", value: record.as_qdr)
                     }
                 }
                 
@@ -599,6 +707,9 @@ struct SearchListRow: View {
                     }
                     if !record.scheduledTime.isEmpty {
                         ParameterTag(label: "Time", value: record.scheduledTime)
+                    }
+                    if record.isEnabled && !timeUntilNext.isEmpty {
+                        ParameterTag(label: "Next in", value: timeUntilNext, color: .blue)
                     }
                 }
             }
@@ -624,6 +735,72 @@ struct SearchListRow: View {
                         .stroke(Color.gray.opacity(0.3) as Color, lineWidth: 1)
                 )
         )
+        .onAppear {
+            startTimer()
+        }
+        .onDisappear {
+            stopTimer()
+        }
+    }
+    
+    private func startTimer() {
+        guard record.isEnabled && !record.scheduledTime.isEmpty else { return }
+        
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            updateTimeUntilNext()
+        }
+        updateTimeUntilNext() // Initial update
+    }
+    
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+    
+    private func updateTimeUntilNext() {
+        guard record.isEnabled && !record.scheduledTime.isEmpty else {
+            timeUntilNext = ""
+            return
+        }
+        
+        let now = Date()
+        let calendar = Calendar.current
+        
+        let scheduledTime = parseScheduledTime(record.scheduledTime)
+        let scheduledHour = scheduledTime.hour
+        let scheduledMinute = scheduledTime.minute
+        
+        // Calculate next occurrence of this time today
+        var nextDate = calendar.date(bySettingHour: scheduledHour, minute: scheduledMinute, second: 0, of: now) ?? now
+        
+        // If the time has already passed today, move to tomorrow
+        if nextDate <= now {
+            nextDate = calendar.date(byAdding: .day, value: 1, to: nextDate) ?? now
+        }
+        
+        let timeInterval = nextDate.timeIntervalSince(now)
+        let totalSeconds = Int(timeInterval)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        
+        if hours > 0 {
+            timeUntilNext = String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else if minutes > 0 {
+            timeUntilNext = String(format: "%d:%02d", minutes, seconds)
+        } else {
+            timeUntilNext = String(format: "%ds", seconds)
+        }
+    }
+    
+    private func parseScheduledTime(_ timeString: String) -> (hour: Int, minute: Int) {
+        let components = timeString.split(separator: ":")
+        if components.count == 2,
+           let hour = Int(components[0]),
+           let minute = Int(components[1]) {
+            return (hour: hour, minute: minute)
+        }
+        return (hour: 0, minute: 0)
     }
 }
 
