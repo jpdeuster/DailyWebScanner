@@ -4,7 +4,7 @@ import WebKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var searchRecords: [SearchRecord]
+    @Query(sort: \SearchRecord.query, order: .forward) private var searchRecords: [SearchRecord]
     @State private var searchText: String = ""
     @State private var selectedSearchRecord: SearchRecord?
     @State private var filterText: String = ""
@@ -17,46 +17,24 @@ struct ContentView: View {
     @AppStorage("searchTimeRange") var timeRange: String = ""
     @AppStorage("searchDateRange") var dateRange: String = ""
     
-    // Computed property for filtered search records
+    // Computed property for filtered search records (alphabetically sorted)
     private var filteredSearchRecords: [SearchRecord] {
-        if filterText.isEmpty {
-            return searchRecords
+        let records = if filterText.isEmpty {
+            searchRecords
         } else {
-            return searchRecords.filter { record in
+            searchRecords.filter { record in
                 record.query.localizedCaseInsensitiveContains(filterText) ||
                 record.language.localizedCaseInsensitiveContains(filterText) ||
                 record.region.localizedCaseInsensitiveContains(filterText) ||
                 record.location.localizedCaseInsensitiveContains(filterText)
             }
         }
+        return records.sorted { $0.query.localizedCaseInsensitiveCompare($1.query) == .orderedAscending }
     }
 
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
-                // Header with Articles Button
-                HStack(spacing: 12) {
-                    Button(action: {
-                        showSearchQueriesWindow()
-                    }) {
-                        HStack {
-                            Image(systemName: "doc.text")
-                                .font(.caption)
-                            Text("Show Saved Articles")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Open Articles List (⌘⇧S)")
-                    
-                    Spacer()
-                }
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 8)
                 
                 // Search Parameters Configuration
                 VStack(spacing: 12) {

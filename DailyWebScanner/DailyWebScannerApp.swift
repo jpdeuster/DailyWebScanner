@@ -116,6 +116,26 @@ struct DailyWebScannerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: {
+                            showSearchQueriesWindow()
+                        }) {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                    .font(.caption)
+                                Text("Show Saved Articles")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open Articles List (⌘⇧S)")
+                    }
+                }
         }
         .modelContainer(sharedModelContainer)
         .commands {

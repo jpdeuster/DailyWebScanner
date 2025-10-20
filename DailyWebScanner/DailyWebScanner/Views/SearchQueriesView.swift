@@ -3,24 +3,24 @@ import SwiftData
 
 struct SearchQueriesView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \LinkRecord.fetchedAt, order: .reverse)
-    private var linkRecords: [LinkRecord]
+    @Query private var linkRecords: [LinkRecord]
     
     @State private var selectedLinkRecord: LinkRecord?
     @State private var filterText: String = ""
     
-    // Computed property for filtered link records
+    // Computed property for filtered link records (alphabetically sorted)
     private var filteredLinkRecords: [LinkRecord] {
-        if filterText.isEmpty {
-            return linkRecords
+        let records = if filterText.isEmpty {
+            linkRecords
         } else {
-            return linkRecords.filter { record in
+            linkRecords.filter { record in
                 record.title.localizedCaseInsensitiveContains(filterText) ||
                 record.content.localizedCaseInsensitiveContains(filterText) ||
                 (record.author?.localizedCaseInsensitiveContains(filterText) ?? false) ||
                 (record.language?.localizedCaseInsensitiveContains(filterText) ?? false)
             }
         }
+        return records.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
     
     var body: some View {
