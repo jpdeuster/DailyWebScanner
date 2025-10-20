@@ -79,7 +79,6 @@ struct ContentView: View {
                                 .font(.caption2)
                                 .foregroundColor(.blue)
                             Picker("Language", selection: $language) {
-                                Text("Any").tag("")
                                 ForEach(LanguageHelper.languages, id: \.code) { language in
                                     Text(language.name).tag(language.code)
                                 }
@@ -94,7 +93,6 @@ struct ContentView: View {
                                 .font(.caption2)
                                 .foregroundColor(.blue)
                             Picker("Region", selection: $region) {
-                                Text("Any").tag("")
                                 ForEach(LanguageHelper.countries, id: \.code) { country in
                                     Text(country.name).tag(country.code)
                                 }
@@ -139,37 +137,37 @@ struct ContentView: View {
                         Spacer()
                     }
                     
-                    // Time Range and Location Row
-                    HStack(spacing: 8) {
-                        // Time Range Picker
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock")
+                        // Time Range and Location Row
+                        HStack(spacing: 8) {
+                            // Time Range Picker
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock")
+                                    .font(.caption2)
+                                    .foregroundColor(.blue)
+                                Picker("Time", selection: $timeRange) {
+                                    Text("Any Time").tag("")
+                                    Text("Past Hour").tag("qdr:h")
+                                    Text("Past Day").tag("qdr:d")
+                                    Text("Past Week").tag("qdr:w")
+                                    Text("Past Month").tag("qdr:m")
+                                    Text("Past Year").tag("qdr:y")
+                                }
+                                .pickerStyle(.menu)
                                 .font(.caption2)
-                                .foregroundColor(.blue)
-                            Picker("Time", selection: $timeRange) {
-                                Text("Any Time").tag("")
-                                Text("Past Hour").tag("qdr:h")
-                                Text("Past Day").tag("qdr:d")
-                                Text("Past Week").tag("qdr:w")
-                                Text("Past Month").tag("qdr:m")
-                                Text("Past Year").tag("qdr:y")
                             }
-                            .pickerStyle(.menu)
-                            .font(.caption2)
+                            
+                            // Location Field for City/Region
+                            HStack(spacing: 4) {
+                                Image(systemName: "building.2")
+                                    .font(.caption2)
+                                    .foregroundColor(.blue)
+                                TextField("City (e.g., Berlin, New York)", text: $location)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.caption2)
+                            }
+                            
+                            Spacer()
                         }
-                        
-                        // Location Field
-                        HStack(spacing: 4) {
-                            Image(systemName: "location")
-                                .font(.caption2)
-                                .foregroundColor(.blue)
-                            TextField("Location", text: $location)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.caption2)
-                        }
-                        
-                        Spacer()
-                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -453,7 +451,7 @@ struct ContentView: View {
                         query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
                         language: language,
                         region: region,
-                        location: location,
+                        location: location, // Using location field for city/region
                         safe: safeSearch,
                         tbm: searchType,
                         tbs: "",
