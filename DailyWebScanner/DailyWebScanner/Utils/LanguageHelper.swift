@@ -399,6 +399,7 @@ struct LanguageHelper {
         ("SX", "Sint Maarten"),
         ("SY", "Syria"),
         ("SZ", "Eswatini"),
+        ("ES", "Spain"),
         ("TC", "Turks and Caicos Islands"),
         ("TD", "Chad"),
         ("TF", "French Southern Territories"),
