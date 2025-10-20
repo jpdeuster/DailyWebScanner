@@ -203,7 +203,7 @@ struct SearchHistoryView: View {
             if let selectedRecord = selectedRecord {
                 VStack(alignment: .leading, spacing: 20) {
                     // Search Parameters Header
-                    SearchParametersHeaderView()
+                    SearchParametersHeaderView(searchRecord: selectedRecord)
                     
                     // WebView with search results
                     WebView(html: selectedRecord.htmlSummary)

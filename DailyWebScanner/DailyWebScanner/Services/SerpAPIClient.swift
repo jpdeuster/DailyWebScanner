@@ -56,13 +56,15 @@ struct SerpAPIClient {
 
     func fetchTopResults(query: String, count: Int = 20, hl: String = "de", gl: String = "de", 
                         location: String? = nil, safe: String? = nil, tbm: String? = nil, 
-                        tbs: String? = nil, as_qdr: String? = nil) async throws -> [SerpOrganicResult] {
+                        tbs: String? = nil, as_qdr: String? = nil, nfpr: String? = nil, 
+                        filter: String? = nil) async throws -> [SerpOrganicResult] {
         
         // If requesting more than 10 results, try multiple pages
         if count > 10 {
             DebugLogger.shared.logWebViewAction("Using multi-page fetch for \(count) results")
             return try await fetchMultiplePages(query: query, totalCount: count, hl: hl, gl: gl, 
-                                              location: location, safe: safe, tbm: tbm, tbs: tbs, as_qdr: as_qdr)
+                                              location: location, safe: safe, tbm: tbm, tbs: tbs, as_qdr: as_qdr, 
+                                              nfpr: nfpr, filter: filter)
         }
         guard let key = apiKeyProvider(), !key.isEmpty else { throw SerpError.missingAPIKey }
 
@@ -96,6 +98,12 @@ struct SerpAPIClient {
         if let as_qdr = as_qdr, !as_qdr.isEmpty {
             queryItems.append(URLQueryItem(name: "as_qdr", value: as_qdr))
         }
+        if let nfpr = nfpr, !nfpr.isEmpty {
+            queryItems.append(URLQueryItem(name: "nfpr", value: nfpr))
+        }
+        if let filter = filter, !filter.isEmpty {
+            queryItems.append(URLQueryItem(name: "filter", value: filter))
+        }
         
         components.queryItems = queryItems
 
@@ -103,6 +111,9 @@ struct SerpAPIClient {
         
         // Debug: Log complete API payload
         DebugLogger.shared.logAPIPayload(url: url.absoluteString, parameters: queryItems)
+        
+        // Validate parameter combinations that might be too restrictive
+        validateSearchParameters(query: query, hl: hl, gl: gl, location: location, tbm: tbm, tbs: tbs, as_qdr: as_qdr)
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -219,7 +230,8 @@ struct SerpAPIClient {
     // MARK: - Multiple Pages Support
     
     private func fetchMultiplePages(query: String, totalCount: Int, hl: String, gl: String,
-                                  location: String?, safe: String?, tbm: String?, tbs: String?, as_qdr: String?) async throws -> [SerpOrganicResult] {
+location: String?, safe: String?, tbm: String?, tbs: String?, as_qdr: String?, nfpr: String?, 
+filter: String?) async throws -> [SerpOrganicResult] {
         var allResults: [SerpOrganicResult] = []
         let pageSize = 10 // Google's default page size
         let totalPages = (totalCount + pageSize - 1) / pageSize // Ceiling division
@@ -245,7 +257,9 @@ struct SerpAPIClient {
                     safe: safe, 
                     tbm: tbm, 
                     tbs: tbs, 
-                    as_qdr: as_qdr
+                    as_qdr: as_qdr,
+                    nfpr: nfpr,
+                    filter: filter
                 )
                 
                 DebugLogger.shared.logWebViewAction("Page \(page + 1) returned \(pageResults.count) results")
@@ -274,7 +288,8 @@ struct SerpAPIClient {
     }
     
     private func fetchSinglePage(query: String, count: Int, start: Int, hl: String, gl: String,
-                               location: String?, safe: String?, tbm: String?, tbs: String?, as_qdr: String?) async throws -> [SerpOrganicResult] {
+                               location: String?, safe: String?, tbm: String?, tbs: String?, as_qdr: String?, 
+                               nfpr: String?, filter: String?) async throws -> [SerpOrganicResult] {
         guard let key = apiKeyProvider(), !key.isEmpty else { throw SerpError.missingAPIKey }
 
         guard var components = URLComponents(string: "https://serpapi.com/search.json") else {
@@ -307,6 +322,12 @@ struct SerpAPIClient {
         if let as_qdr = as_qdr, !as_qdr.isEmpty {
             queryItems.append(URLQueryItem(name: "as_qdr", value: as_qdr))
         }
+        if let nfpr = nfpr, !nfpr.isEmpty {
+            queryItems.append(URLQueryItem(name: "nfpr", value: nfpr))
+        }
+        if let filter = filter, !filter.isEmpty {
+            queryItems.append(URLQueryItem(name: "filter", value: filter))
+        }
         
         components.queryItems = queryItems
         
@@ -326,5 +347,39 @@ struct SerpAPIClient {
         
         let serpResponse = try JSONDecoder().decode(SerpSearchResponse.self, from: data)
         return serpResponse.organic_results ?? []
+    }
+    
+    // MARK: - Parameter Validation
+    
+    private func validateSearchParameters(query: String, hl: String, gl: String, location: String?, tbm: String?, tbs: String?, as_qdr: String?) {
+        var warnings: [String] = []
+        
+        // Check for very restrictive combinations
+        let hasTimeRestriction = (tbs?.contains("qdr:") == true) || (as_qdr?.isEmpty == false)
+        let hasContentType = (tbm?.isEmpty == false)
+        let hasLocation = (location?.isEmpty == false)
+        let hasLanguage = (hl != "en" && !hl.isEmpty)
+        
+        if hasTimeRestriction && hasContentType && hasLocation {
+            warnings.append("Very restrictive search: Time + Content Type + Location")
+        }
+        
+        if hasTimeRestriction && hasContentType && hasLanguage {
+            warnings.append("Very restrictive search: Time + Content Type + Language")
+        }
+        
+        if hasLocation && hasLanguage && hasContentType {
+            warnings.append("Very restrictive search: Location + Language + Content Type")
+        }
+        
+        // Check for specific problematic combinations
+        if tbm == "nws" && tbs?.contains("qdr:w") == true && location != nil {
+            warnings.append("News + Last Week + Location might return no results")
+        }
+        
+        if warnings.count > 0 {
+            DebugLogger.shared.logWebViewAction("⚠️ Search Parameter Warning: \(warnings.joined(separator: ", "))")
+            DebugLogger.shared.logWebViewAction("💡 Consider removing some restrictions if no results are found")
+        }
     }
 }

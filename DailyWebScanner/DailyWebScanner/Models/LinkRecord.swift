@@ -24,6 +24,8 @@ final class LinkRecord: Identifiable {
     // Images
     var imageCount: Int
     var totalImageSize: Int  // in bytes
+    
+    @Relationship(deleteRule: .nullify)
     var images: [ImageRecord] = []
     
     // AI Overview

@@ -7,6 +7,21 @@ struct SearchQueriesView: View {
     private var linkRecords: [LinkRecord]
     
     @State private var selectedLinkRecord: LinkRecord?
+    @State private var filterText: String = ""
+    
+    // Computed property for filtered link records
+    private var filteredLinkRecords: [LinkRecord] {
+        if filterText.isEmpty {
+            return linkRecords
+        } else {
+            return linkRecords.filter { record in
+                record.title.localizedCaseInsensitiveContains(filterText) ||
+                record.content.localizedCaseInsensitiveContains(filterText) ||
+                (record.author?.localizedCaseInsensitiveContains(filterText) ?? false) ||
+                (record.language?.localizedCaseInsensitiveContains(filterText) ?? false)
+            }
+        }
+    }
     
     var body: some View {
         NavigationSplitView {
@@ -17,7 +32,7 @@ struct SearchQueriesView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                     Spacer()
-                    Text("\(linkRecords.count) articles")
+                    Text("\(filteredLinkRecords.count) articles")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -25,11 +40,43 @@ struct SearchQueriesView: View {
                 
                 Divider()
                 
+                // Filter Section
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Filter articles...", text: $filterText)
+                        .textFieldStyle(.plain)
+                        .onChange(of: filterText) { _, _ in
+                            // Filter will be applied automatically via computed property
+                        }
+                    
+                    if !filterText.isEmpty {
+                        Button(action: {
+                            filterText = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+                .padding(.horizontal, 8)
+                
                 // Link Records List
                 List(selection: $selectedLinkRecord) {
-                    ForEach(linkRecords) { record in
+                    ForEach(filteredLinkRecords) { record in
                         NavigationLink(value: record) {
-                            ArticleLinkRow(record: record)
+                            VStack(alignment: .leading, spacing: 4) {
+                                ArticleLinkRow(record: record) {
+                                    deleteLinkRecord(record)
+                                }
+                                
+                            }
                         }
                         .swipeActions {
                             Button(role: .destructive) {
@@ -45,11 +92,32 @@ struct SearchQueriesView: View {
             .frame(minWidth: 300)
         } detail: {
             if let linkRecord = selectedLinkRecord {
-                ArticleLinkDetailView(linkRecord: linkRecord)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Title: \(linkRecord.title)")
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+                    
+                    Text("Selected ID: \(linkRecord.id)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Divider()
+                    
+                    ArticleLinkDetailView(linkRecord: linkRecord)
+                }
+                .padding()
+                .onAppear {
+                    DebugLogger.shared.logWebViewAction("🔍 DEBUG: Selected Article")
+                    DebugLogger.shared.logWebViewAction("📱 SearchQueriesView: Detail view appeared for LinkRecord '\(linkRecord.title)' (ID: \(linkRecord.id))")
+                    DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: LinkRecord has \(linkRecord.images.count) images")
+                }
             } else {
-                Text("Select an article from the sidebar")
-                    .font(.title)
-                    .foregroundColor(.secondary)
+                VStack(spacing: 20) {
+                    Text("Select an article from the sidebar")
+                        .font(.title)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
             }
         }
         .onAppear {
@@ -58,6 +126,11 @@ struct SearchQueriesView: View {
     }
     
     private func deleteLinkRecord(_ record: LinkRecord) {
+        // Clear selection if the deleted record is currently selected
+        if selectedLinkRecord?.id == record.id {
+            selectedLinkRecord = nil
+        }
+        
         modelContext.delete(record)
         do {
             try modelContext.save()
@@ -70,31 +143,45 @@ struct SearchQueriesView: View {
 
 struct ArticleLinkRow: View {
     let record: LinkRecord
+    let onDelete: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(record.title)
-                .font(.headline)
-                .lineLimit(2)
-            
-            Text(record.fetchedAt, format: .dateTime)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            // Article Metadata als Tags
-            HStack {
-                if let author = record.author, !author.isEmpty {
-                    ParameterTag(label: "Author", value: author)
-                }
-                if let language = record.language, !language.isEmpty {
-                    ParameterTag(label: "Lang", value: language)
-                }
-                ParameterTag(label: "Words", value: "\(record.wordCount)")
-                ParameterTag(label: "Read", value: "\(record.readingTime)min")
-                if record.imageCount > 0 {
-                    ParameterTag(label: "Images", value: "\(record.imageCount)")
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(record.title)
+                    .font(.headline)
+                    .lineLimit(2)
+                
+                Text(record.fetchedAt, format: .dateTime)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                // Article Metadata als Tags
+                HStack {
+                    if let author = record.author, !author.isEmpty {
+                        ParameterTag(label: "Author", value: author)
+                    }
+                    if let language = record.language, !language.isEmpty {
+                        ParameterTag(label: "Lang", value: language)
+                    }
+                    ParameterTag(label: "Words", value: "\(record.wordCount)")
+                    ParameterTag(label: "Read", value: "\(record.readingTime)min")
+                    if record.imageCount > 0 {
+                        ParameterTag(label: "Images", value: "\(record.imageCount)")
+                    }
                 }
             }
+            
+            Spacer()
+            
+            // Delete button
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
+            .help("Delete article")
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)

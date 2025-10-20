@@ -8,25 +8,27 @@
 import SwiftUI
 
 struct SearchParametersView: View {
-    @State private var language: String = ""
-    @State private var region: String = ""
-    @State private var location: String = ""
-    @State private var safeSearch: String = ""
-    @State private var searchType: String = ""
-    @State private var timeRange: String = ""
-    @State private var dateRange: String = ""
+    // Persistent storage for search parameters
+    @AppStorage("searchLanguage") private var language: String = "" // "Any" option
+    @AppStorage("searchRegion") private var region: String = "" // "Any" option  
+    @AppStorage("searchLocation") private var location: String = "" // "Any" option
+    @AppStorage("searchSafeSearch") private var safeSearch: String = "off"
+    @AppStorage("searchType") private var searchType: String = "" // "All" option
+    @AppStorage("searchTimeRange") private var timeRange: String = "" // "Any Time" option
+    @AppStorage("searchDateRange") private var dateRange: String = "" // "Any" option
     
     @State private var isExpanded: Bool = false
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
             // Header with toggle
             HStack {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     Image(systemName: "slider.horizontal.3")
                         .foregroundColor(.blue)
+                        .font(.title2)
                     Text("Search Parameters")
-                        .font(.headline)
+                        .font(.title2)
                         .fontWeight(.semibold)
                 }
                 
@@ -37,21 +39,44 @@ struct SearchParametersView: View {
                         isExpanded.toggle()
                     }
                 }) {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .foregroundColor(.blue)
-                        .font(.title3)
+                    HStack(spacing: 4) {
+                        Text(isExpanded ? "Hide" : "Show")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.blue.opacity(0.1))
+                    )
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(NSColor.controlBackgroundColor))
+                    .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+            )
             
             if isExpanded {
-                VStack(spacing: 16) {
+                VStack(spacing: 20) {
                     // Basic Parameters
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Basic Settings")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Image(systemName: "gear")
+                                .foregroundColor(.blue)
+                                .font(.title3)
+                            Text("Basic Settings")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            Spacer()
+                        }
                         
                         LazyVGrid(columns: [
                             GridItem(.flexible()),
@@ -65,21 +90,15 @@ struct SearchParametersView: View {
                                     .foregroundColor(.secondary)
                                 
                                 Picker("", selection: $language) {
-                                    Text("Any").tag("")
-                                    Text("Deutsch (de)").tag("de")
-                                    Text("English (en)").tag("en")
-                                    Text("Français (fr)").tag("fr")
-                                    Text("Español (es)").tag("es")
-                                    Text("Italiano (it)").tag("it")
-                                    Text("Português (pt)").tag("pt")
-                                    Text("Nederlands (nl)").tag("nl")
-                                    Text("Русский (ru)").tag("ru")
-                                    Text("中文 (zh)").tag("zh")
-                                    Text("日本語 (ja)").tag("ja")
-                                    Text("한국어 (ko)").tag("ko")
+                                    ForEach(LanguageHelper.languages, id: \.code) { lang in
+                                        Text(lang.name.isEmpty ? "Any" : "\(lang.name) (\(lang.code))").tag(lang.code)
+                                    }
                                 }
                                 .pickerStyle(.menu)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .onChange(of: language) { _, newValue in
+                                    DebugLogger.shared.logWebViewAction("Language changed to: '\(newValue)'")
+                                }
                             }
                             
                             // Region
@@ -90,25 +109,15 @@ struct SearchParametersView: View {
                                     .foregroundColor(.secondary)
                                 
                                 Picker("", selection: $region) {
-                                    Text("Any").tag("")
-                                    Text("Deutschland (de)").tag("de")
-                                    Text("United States (us)").tag("us")
-                                    Text("United Kingdom (uk)").tag("uk")
-                                    Text("France (fr)").tag("fr")
-                                    Text("Spain (es)").tag("es")
-                                    Text("Italy (it)").tag("it")
-                                    Text("Canada (ca)").tag("ca")
-                                    Text("Australia (au)").tag("au")
-                                    Text("Austria (at)").tag("at")
-                                    Text("Switzerland (ch)").tag("ch")
-                                    Text("Netherlands (nl)").tag("nl")
-                                    Text("Japan (jp)").tag("jp")
-                                    Text("China (cn)").tag("cn")
-                                    Text("India (in)").tag("in")
-                                    Text("Brazil (br)").tag("br")
+                                    ForEach(LanguageHelper.countries, id: \.code) { country in
+                                        Text(country.name.isEmpty ? "Any" : "\(country.name) (\(country.code))").tag(country.code)
+                                    }
                                 }
                                 .pickerStyle(.menu)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .onChange(of: region) { _, newValue in
+                                    DebugLogger.shared.logWebViewAction("Region changed to: '\(newValue)'")
+                                }
                             }
                         }
                     }
@@ -145,6 +154,42 @@ struct SearchParametersView: View {
                                     Text("China").tag("China")
                                     Text("India").tag("India")
                                     Text("Brazil").tag("Brazil")
+                                    Text("Mexico").tag("Mexico")
+                                    Text("Netherlands").tag("Netherlands")
+                                    Text("Sweden").tag("Sweden")
+                                    Text("Norway").tag("Norway")
+                                    Text("Denmark").tag("Denmark")
+                                    Text("Finland").tag("Finland")
+                                    Text("Switzerland").tag("Switzerland")
+                                    Text("Austria").tag("Austria")
+                                    Text("Belgium").tag("Belgium")
+                                    Text("Poland").tag("Poland")
+                                    Text("Czech Republic").tag("Czech Republic")
+                                    Text("Hungary").tag("Hungary")
+                                    Text("Portugal").tag("Portugal")
+                                    Text("Greece").tag("Greece")
+                                    Text("Turkey").tag("Turkey")
+                                    Text("Russia").tag("Russia")
+                                    Text("South Korea").tag("South Korea")
+                                    Text("Singapore").tag("Singapore")
+                                    Text("Hong Kong").tag("Hong Kong")
+                                    Text("Taiwan").tag("Taiwan")
+                                    Text("Thailand").tag("Thailand")
+                                    Text("Malaysia").tag("Malaysia")
+                                    Text("Indonesia").tag("Indonesia")
+                                    Text("Philippines").tag("Philippines")
+                                    Text("Vietnam").tag("Vietnam")
+                                    Text("South Africa").tag("South Africa")
+                                    Text("Egypt").tag("Egypt")
+                                    Text("Israel").tag("Israel")
+                                    Text("UAE").tag("United Arab Emirates")
+                                    Text("Saudi Arabia").tag("Saudi Arabia")
+                                    Text("Argentina").tag("Argentina")
+                                    Text("Chile").tag("Chile")
+                                    Text("Colombia").tag("Colombia")
+                                    Text("Peru").tag("Peru")
+                                    Text("Venezuela").tag("Venezuela")
+                                    Text("New Zealand").tag("New Zealand")
                                 }
                                 .pickerStyle(.menu)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -158,7 +203,6 @@ struct SearchParametersView: View {
                                     .foregroundColor(.secondary)
                                 
                                 Picker("", selection: $safeSearch) {
-                                    Text("Any").tag("")
                                     Text("Off").tag("off")
                                     Text("Active").tag("active")
                                 }
@@ -206,16 +250,6 @@ struct SearchParametersView: View {
                         }
                     }
                     
-                    // Reset Button
-                    HStack {
-                        Spacer()
-                        
-                        Button("Reset to Defaults") {
-                            resetToDefaults()
-                        }
-                        .buttonStyle(.bordered)
-                        .foregroundColor(.secondary)
-                    }
                 }
                 .padding(.top, 8)
             }
@@ -229,29 +263,25 @@ struct SearchParametersView: View {
         )
     }
     
-    private func resetToDefaults() {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            language = ""
-            region = ""
-            location = ""
-            safeSearch = ""
-            searchType = ""
-            timeRange = ""
-            dateRange = ""
-        }
-    }
     
     // Public methods to get current parameters
-    func getParameters() -> (language: String, region: String, location: String, safe: String, tbm: String, tbs: String, as_qdr: String) {
-        return (
+    func getParameters() -> (language: String, region: String, location: String, safe: String, tbm: String, tbs: String, as_qdr: String, nfpr: String, filter: String) {
+        let params = (
             language: language,
             region: region,
             location: location,
             safe: safeSearch,
             tbm: searchType,
             tbs: timeRange,
-            as_qdr: dateRange
+            as_qdr: dateRange,
+            nfpr: "",
+            filter: ""
         )
+        
+        // Debug: Log the parameters
+        DebugLogger.shared.logWebViewAction("SearchParametersView.getParameters() - Language: '\(params.language)', Region: '\(params.region)', Location: '\(params.location)', Safe: '\(params.safe)', TBM: '\(params.tbm)', TBS: '\(params.tbs)', AS_QDR: '\(params.as_qdr)'")
+        
+        return params
     }
 }
 

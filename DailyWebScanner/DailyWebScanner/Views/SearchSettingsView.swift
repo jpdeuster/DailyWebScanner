@@ -56,12 +56,9 @@ struct SearchSettingsView: View {
                                     .fontWeight(.medium)
                                 
                                 Picker("", selection: $serpLanguage) {
-                                    Text("Any").tag("")
-                                    Text("Deutsch").tag("de")
-                                    Text("English").tag("en")
-                                    Text("Français").tag("fr")
-                                    Text("Español").tag("es")
-                                    Text("Italiano").tag("it")
+                                    ForEach(LanguageHelper.languages, id: \.code) { lang in
+                                        Text(lang.name.isEmpty ? "Any" : "\(lang.name) (\(lang.code))").tag(lang.code)
+                                    }
                                 }
                                 .pickerStyle(.menu)
                                 .frame(width: 180)
@@ -72,13 +69,9 @@ struct SearchSettingsView: View {
                                     .fontWeight(.medium)
                                 
                                 Picker("", selection: $serpRegion) {
-                                    Text("Any").tag("")
-                                    Text("Deutschland").tag("de")
-                                    Text("USA").tag("us")
-                                    Text("UK").tag("uk")
-                                    Text("Frankreich").tag("fr")
-                                    Text("Spanien").tag("es")
-                                    Text("Italien").tag("it")
+                                    ForEach(LanguageHelper.countries, id: \.code) { country in
+                                        Text(country.name.isEmpty ? "Any" : "\(country.name) (\(country.code))").tag(country.code)
+                                    }
                                 }
                                 .pickerStyle(.menu)
                                 .frame(width: 180)

@@ -35,10 +35,10 @@ final class SearchRecord: Identifiable {
     var totalImagesDownloaded: Int = 0
     var totalContentSize: Int = 0  // in bytes
 
-    @Relationship(deleteRule: .cascade)
+    @Relationship(deleteRule: .nullify)
     var results: [SearchResult]
     
-    @Relationship(deleteRule: .cascade)
+    @Relationship(deleteRule: .nullify)
     var linkRecords: [LinkRecord]
 
     init(id: UUID = UUID(), query: String, createdAt: Date = .now, htmlSummary: String = "",

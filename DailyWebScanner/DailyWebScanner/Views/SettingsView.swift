@@ -179,9 +179,8 @@ struct SettingsView: View {
                                         Text("Safe Search")
                                             .font(.headline)
                                         Picker("Safe Search", selection: $serpSafe) {
-                                            Text("Off").tag("")
+                                            Text("Off").tag("off")
                                             Text("Active").tag("active")
-                                            Text("Moderate").tag("moderate")
                                         }
                                         .pickerStyle(.segmented)
                                     }

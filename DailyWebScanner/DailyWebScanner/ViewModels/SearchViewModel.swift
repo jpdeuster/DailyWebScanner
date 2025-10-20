@@ -195,7 +195,7 @@ final class SearchViewModel: ObservableObject {
         }
     }
     
-    func runSearch(query: String, language: String = "", region: String = "", location: String = "", safe: String = "", tbm: String = "", tbs: String = "", as_qdr: String = "") async throws -> SearchRecord {
+    func runSearch(query: String, language: String = "", region: String = "", location: String = "", safe: String = "", tbm: String = "", tbs: String = "", as_qdr: String = "", nfpr: String = "", filter: String = "") async throws -> SearchRecord {
         DebugLogger.shared.logSearchStart(query: query)
         cancelCurrentSearch()
 
@@ -238,7 +238,9 @@ final class SearchViewModel: ObservableObject {
                 safe: safe.isEmpty ? nil : safe,
                 tbm: tbm.isEmpty ? nil : tbm,
                 tbs: tbs.isEmpty ? nil : tbs,
-                as_qdr: as_qdr.isEmpty ? nil : as_qdr
+                as_qdr: as_qdr.isEmpty ? nil : as_qdr,
+                nfpr: nfpr.isEmpty ? nil : nfpr,
+                filter: filter.isEmpty ? nil : filter
             )
             
             DebugLogger.shared.logWebViewAction("SerpAPI returned \(serpResults.count) results (requested: \(count))")
