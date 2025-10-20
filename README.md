@@ -190,6 +190,7 @@ See [DISCLAIMER.md](docs/legal/DISCLAIMER.md) for complete legal information.
 
 - **Issues**: [GitHub Issues](https://github.com/jpdeuster/DailyWebScanner/issues)
 - **Discussions**: Coming soon on GitHub
+- **Contact**: [jp@deuster.eu](mailto:jp@deuster.eu)
 - **Security**: See [SECURITY.md](docs/legal/SECURITY.md) for security-related issues
 
 ## 🙏 Acknowledgments
