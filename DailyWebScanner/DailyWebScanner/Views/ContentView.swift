@@ -51,6 +51,26 @@ struct ContentView: View {
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
                 
+                // Manual Search Field
+                HStack {
+                    TextField("Enter search query...", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            performSearch()
+                        }
+                    
+                    Button(action: {
+                        performSearch()
+                    }) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
+                
                 // Search Records List
                 List(selection: $selectedSearchRecord) {
                     ForEach(filteredSearchRecords) { record in
@@ -200,22 +220,28 @@ struct ContentView: View {
         if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Task {
                 do {
+                    let params = searchParameters.getParameters()
                     let viewModel = SearchViewModel()
-                    _ = try await viewModel.runSearch(
-                        query: searchText,
-                        language: searchParameters.getParameters().language,
-                        region: searchParameters.getParameters().region,
-                        location: searchParameters.getParameters().location,
-                        safe: searchParameters.getParameters().safe,
-                        tbm: searchParameters.getParameters().tbm,
-                        tbs: searchParameters.getParameters().tbs,
-                        as_qdr: searchParameters.getParameters().as_qdr,
-                        nfpr: searchParameters.getParameters().nfpr,
-                        filter: searchParameters.getParameters().filter
+                    viewModel.modelContext = modelContext
+                    let record = try await viewModel.runSearch(
+                        query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
+                        language: params.language,
+                        region: params.region,
+                        location: params.location,
+                        safe: params.safe,
+                        tbm: params.tbm,
+                        tbs: params.tbs,
+                        as_qdr: params.as_qdr,
+                        nfpr: params.nfpr,
+                        filter: params.filter
                     )
-                    searchText = ""
+                    await MainActor.run {
+                        selectedSearchRecord = record
+                        searchText = "" // Clear search text after successful search
+                        DebugLogger.shared.logWebViewAction("Search completed - searchRecords count: \(searchRecords.count)")
+                    }
                 } catch {
-                    DebugLogger.shared.logWebViewAction("Search failed: \(error.localizedDescription)")
+                    DebugLogger.shared.logWebViewAction("Search failed: \(error)")
                 }
             }
         }
