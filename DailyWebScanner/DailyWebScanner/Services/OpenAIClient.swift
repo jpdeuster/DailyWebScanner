@@ -68,13 +68,13 @@ struct OpenAIClient {
     func summarize(snippet: String, title: String?, link: String?) async throws -> String {
         guard let key = apiKeyProvider(), !key.isEmpty else { throw OpenAIError.missingAPIKey }
 
-        let systemPrompt = "Du bist ein Assistent, der Web-Snippets prägnant auf Deutsch zusammenfasst."
+        let systemPrompt = "You are an assistant that summarizes web snippets concisely in English."
         let userPrompt = """
-        Titel: \(title ?? "-")
+        Title: \(title ?? "-")
         Link: \(link ?? "-")
         Text: \(snippet)
 
-        Aufgabe: Erstelle eine kurze, gut lesbare Zusammenfassung (1–3 Sätze).
+        Task: Create a short, readable summary (1–3 sentences).
         """
 
         let body = ChatRequest(

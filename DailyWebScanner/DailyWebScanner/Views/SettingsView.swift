@@ -64,16 +64,16 @@ struct SettingsView: View {
                 // Content
                 VStack(alignment: .leading, spacing: 32) {
                     // API Keys Section
-                    SettingsSection(title: "API-Schlüssel", icon: "key.fill") {
+                    SettingsSection(title: "API Keys", icon: "key.fill") {
                         VStack(spacing: 20) {
                             // SerpAPI Key
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("SerpAPI Key")
                                     .font(.headline)
                                     .foregroundColor(.primary)
-                                SecureField("SerpAPI Key eingeben", text: $serpKey)
+                                SecureField("Enter SerpAPI Key", text: $serpKey)
                                     .textFieldStyle(.roundedBorder)
-                                    .help("Deinen SerpAPI Schlüssel findest du unter 'Manage API Key'.")
+                                    .help("You can find your SerpAPI key under 'Manage API Key'.")
                                 
                                 HStack(spacing: 16) {
                                     Link("SerpAPI – Manage API Key", destination: URL(string: "https://serpapi.com/manage-api-key")!)
@@ -92,9 +92,9 @@ struct SettingsView: View {
                                 Text("OpenAI Key (optional)")
                                     .font(.headline)
                                     .foregroundColor(.primary)
-                                SecureField("OpenAI Key eingeben (optional)", text: $openAIKey)
+                                SecureField("Enter OpenAI Key (optional)", text: $openAIKey)
                                     .textFieldStyle(.roundedBorder)
-                                    .help("Deinen OpenAI Schlüssel findest du im OpenAI Dashboard. Ohne Key werden Original-Snippets verwendet.")
+                                    .help("You can find your OpenAI key in the OpenAI Dashboard. Without key, original snippets will be used.")
                                 
                                 Link("OpenAI – API Keys", destination: URL(string: "https://platform.openai.com/api-keys")!)
                                     .font(.callout)
@@ -106,7 +106,7 @@ struct SettingsView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .foregroundStyle(.red)
-                                    Text("SerpAPI Key ist erforderlich für die Suche.")
+                                    Text("SerpAPI Key is required for search.")
                                         .foregroundStyle(.secondary)
                                 }
                                 .font(.callout)
@@ -114,7 +114,7 @@ struct SettingsView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "info.circle.fill")
                                         .foregroundStyle(.blue)
-                                    Text("OpenAI Key ist optional. Ohne Key werden Original-Snippets verwendet.")
+                                    Text("OpenAI Key is optional. Without key, original snippets will be used.")
                                         .foregroundStyle(.secondary)
                                 }
                                 .font(.callout)
@@ -162,50 +162,50 @@ struct SettingsView: View {
                             
                             // Advanced Parameters
                             VStack(alignment: .leading, spacing: 16) {
-                                Text("Erweiterte Einstellungen")
+                                Text("Advanced Settings")
                                     .font(.subheadline.weight(.medium))
                                     .foregroundColor(.secondary)
                                 
                                 VStack(alignment: .leading, spacing: 12) {
                                     VStack(alignment: .leading, spacing: 8) {
-                                        Text("Standort")
+                                        Text("Location")
                                             .font(.headline)
-                                        TextField("z. B. Germany, Berlin", text: $serpLocation)
+                                        TextField("e.g. Germany, Berlin", text: $serpLocation)
                                             .textFieldStyle(.roundedBorder)
-                                            .help("Geografische Einschränkung der Suche")
+                                            .help("Geographic restriction for search")
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text("Safe Search")
                                             .font(.headline)
                                         Picker("Safe Search", selection: $serpSafe) {
-                                            Text("Aus").tag("")
-                                            Text("Aktiv").tag("active")
-                                            Text("Moderat").tag("moderate")
+                                            Text("Off").tag("")
+                                            Text("Active").tag("active")
+                                            Text("Moderate").tag("moderate")
                                         }
                                         .pickerStyle(.segmented)
                                     }
                                     
                                     HStack(spacing: 16) {
                                         VStack(alignment: .leading, spacing: 8) {
-                                            Text("Zeitraum")
+                                            Text("Time Range")
                                                 .font(.headline)
-                                            Picker("Zeitraum", selection: $serpAsQdr) {
-                                                Text("Alle Zeit").tag("")
-                                                Text("Letzter Tag").tag("d")
-                                                Text("Letzte Woche").tag("w")
-                                                Text("Letzter Monat").tag("m")
-                                                Text("Letztes Jahr").tag("y")
+                                            Picker("Time Range", selection: $serpAsQdr) {
+                                                Text("All Time").tag("")
+                                                Text("Past Day").tag("d")
+                                                Text("Past Week").tag("w")
+                                                Text("Past Month").tag("m")
+                                                Text("Past Year").tag("y")
                                             }
                                             .pickerStyle(.menu)
                                         }
                                         
                                         VStack(alignment: .leading, spacing: 8) {
-                                            Text("Suchtyp")
+                                            Text("Search Type")
                                                 .font(.headline)
-                                            Picker("Suchtyp", selection: $serpTbm) {
+                                            Picker("Search Type", selection: $serpTbm) {
                                                 Text("Web").tag("")
-                                                Text("Bilder").tag("isch")
+                                                Text("Images").tag("isch")
                                                 Text("News").tag("nws")
                                                 Text("Videos").tag("vid")
                                             }
@@ -218,24 +218,24 @@ struct SettingsView: View {
                     }
 
                     // Automation
-                    SettingsSection(title: "Automatisierung", icon: "clock.fill") {
+                    SettingsSection(title: "Automation", icon: "clock.fill") {
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("Suchhäufigkeit")
+                            Text("Search Frequency")
                                 .font(.headline)
-                            Picker("Häufigkeit", selection: $frequencyRaw) {
-                                Text("Manuell").tag(Frequency.manual.rawValue)
-                                Text("Täglich").tag(Frequency.daily.rawValue)
-                                Text("Wöchentlich").tag(Frequency.weekly.rawValue)
+                            Picker("Frequency", selection: $frequencyRaw) {
+                                Text("Manual").tag(Frequency.manual.rawValue)
+                                Text("Daily").tag(Frequency.daily.rawValue)
+                                Text("Weekly").tag(Frequency.weekly.rawValue)
                             }
                             .pickerStyle(.segmented)
-                            .help("Wie oft soll automatisch gesucht werden?")
+                            .help("How often should automatic search be performed?")
                         }
                     }
 
                     // Test Section
-                    SettingsSection(title: "API-Test", icon: "checkmark.circle.fill") {
+                    SettingsSection(title: "API Test", icon: "checkmark.circle.fill") {
                         VStack(alignment: .leading, spacing: 16) {
-                            Button("API testen") {
+                            Button("Test API") {
                                 Task { await testAPIs() }
                             }
                             .disabled(isTesting || serpKey.isEmpty)

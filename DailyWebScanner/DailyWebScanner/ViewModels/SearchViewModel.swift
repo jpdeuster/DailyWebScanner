@@ -251,24 +251,24 @@ final class SearchViewModel: ObservableObject {
             for r in serpResults {
                 try Task.checkCancellation()
 
-                let title = r.title ?? "(ohne Titel)"
+                let title = r.title ?? "(no title)"
                 let link = r.link ?? ""
                 let snippet = r.snippet ?? ""
                 guard !link.isEmpty, !snippet.isEmpty else { continue }
 
-                // Versuche OpenAI-Zusammenfassung, falls Key vorhanden, sonst verwende Original-Snippet
+                // Try OpenAI summarization if key is available, otherwise use original snippet
                 let summary: String
                 if let openAIKey = KeychainHelper.get(.openAIAPIKey), !openAIKey.isEmpty {
                     DebugLogger.shared.logOpenAICall(query: query, apiKeyPresent: true)
                     do {
                         summary = try await openAIClient.summarize(snippet: snippet, title: r.title, link: r.link)
                     } catch {
-                        // Bei Fehler mit OpenAI, verwende das Original-Snippet
+                        // On OpenAI error, use original snippet
                         DebugLogger.shared.logWarning(component: "SearchViewModel", message: "OpenAI summarization failed, using original snippet")
                         summary = snippet
                     }
                 } else {
-                    // Kein OpenAI Key vorhanden, verwende Original-Snippet
+                    // No OpenAI key available, use original snippet
                     DebugLogger.shared.logOpenAICall(query: query, apiKeyPresent: false)
                     summary = snippet
                 }

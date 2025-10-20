@@ -205,11 +205,11 @@ struct SearchHistoryView: View {
                     // Search Parameters Header
                     SearchParametersHeaderView()
                     
-                    // WebView mit Suchergebnissen
+                    // WebView with search results
                     WebView(html: selectedRecord.htmlSummary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     
-                    // Link Content falls vorhanden
+                    // Link Content if available
                     if selectedRecord.hasLinkContents, let linkContents = decodeLinkContents(from: selectedRecord.linkContents) {
                         LinkContentView(linkContents: linkContents)
                     }

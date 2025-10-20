@@ -119,16 +119,16 @@ struct DailyWebScannerApp: App {
         }
         .modelContainer(sharedModelContainer)
         .commands {
-            CommandMenu("Suche") {
-                Button("Suchen…") {
+            CommandMenu("Search") {
+                Button("Search…") {
                     NotificationCenter.default.post(name: .focusSearchField, object: nil)
                 }
-                .keyboardShortcut("f", modifiers: [.command]) // ⌘F: Fokus ins Suchfeld
+                .keyboardShortcut("f", modifiers: [.command]) // ⌘F: Focus search field
 
-                Button("Neu Suchen…") {
+                Button("New Search…") {
                     NotificationCenter.default.post(name: .triggerManualSearch, object: nil)
                 }
-                .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Suche auslösen
+                .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Trigger search
             }
             
         CommandMenu("Search Queries") {
