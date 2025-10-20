@@ -8,7 +8,14 @@ struct ContentView: View {
     @State private var searchText: String = ""
     @State private var selectedSearchRecord: SearchRecord?
     @State private var filterText: String = ""
-    @State private var searchParameters = SearchParametersView()
+    // Search parameters using @AppStorage
+    @AppStorage("searchLanguage") var language: String = ""
+    @AppStorage("searchRegion") var region: String = ""
+    @AppStorage("searchLocation") var location: String = ""
+    @AppStorage("searchSafeSearch") var safeSearch: String = "off"
+    @AppStorage("searchType") var searchType: String = ""
+    @AppStorage("searchTimeRange") var timeRange: String = ""
+    @AppStorage("searchDateRange") var dateRange: String = ""
     
     // Computed property for filtered search records
     private var filteredSearchRecords: [SearchRecord] {
@@ -23,7 +30,7 @@ struct ContentView: View {
             }
         }
     }
-    
+
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
@@ -48,6 +55,132 @@ struct ContentView: View {
                     
                     Spacer()
                 }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                
+                // Search Parameters Configuration
+                VStack(spacing: 12) {
+                HStack {
+                        Image(systemName: "gear")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                        Text("Search Parameters")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                        Spacer()
+                    }
+                    
+                    // Language and Region Row
+                    HStack(spacing: 8) {
+                        // Language Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "globe")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Language", selection: $language) {
+                                Text("Any").tag("")
+                                ForEach(LanguageHelper.languages, id: \.code) { language in
+                                    Text(language.name).tag(language.code)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        // Region Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "map")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Region", selection: $region) {
+                                Text("Any").tag("")
+                                ForEach(LanguageHelper.countries, id: \.code) { country in
+                                    Text(country.name).tag(country.code)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    // Safe Search and Type Row
+                    HStack(spacing: 8) {
+                        // Safe Search Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "shield")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Safe", selection: $safeSearch) {
+                                Text("Off").tag("off")
+                                Text("Active").tag("active")
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        // Search Type Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Type", selection: $searchType) {
+                                Text("All").tag("")
+                                Text("News").tag("nws")
+                                Text("Images").tag("isch")
+                                Text("Videos").tag("vid")
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    // Time Range and Location Row
+                    HStack(spacing: 8) {
+                        // Time Range Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Time", selection: $timeRange) {
+                                Text("Any Time").tag("")
+                                Text("Past Hour").tag("qdr:h")
+                                Text("Past Day").tag("qdr:d")
+                                Text("Past Week").tag("qdr:w")
+                                Text("Past Month").tag("qdr:m")
+                                Text("Past Year").tag("qdr:y")
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        // Location Field
+                        HStack(spacing: 4) {
+                            Image(systemName: "location")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            TextField("Location", text: $location)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption2)
+                        }
+                        
+                        Spacer()
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(NSColor.controlBackgroundColor).opacity(0.4))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.blue.opacity(0.15), lineWidth: 0.5)
+                        )
+                )
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
                 
@@ -107,6 +240,100 @@ struct ContentView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
+                    // Search Parameters for Selected Search
+                    VStack(spacing: 8) {
+                        HStack {
+                            Image(systemName: "gear")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Text("Search Parameters")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        HStack(spacing: 12) {
+                            // Language
+                            HStack(spacing: 4) {
+                                Image(systemName: "globe")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("Lang: \(searchRecord.language.isEmpty ? "Any" : searchRecord.language)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            // Region
+                            HStack(spacing: 4) {
+                                Image(systemName: "map")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("Region: \(searchRecord.region.isEmpty ? "Any" : searchRecord.region)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            // Safe Search
+                            HStack(spacing: 4) {
+                                Image(systemName: "shield")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("Safe: \(searchRecord.safeSearch.isEmpty ? "Off" : searchRecord.safeSearch)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                        }
+                        
+                        HStack(spacing: 12) {
+                            // Search Type
+                            HStack(spacing: 4) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("Type: \(searchRecord.searchType.isEmpty ? "All" : searchRecord.searchType)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            // Time Range
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("Time: \(searchRecord.timeRange.isEmpty ? "Any" : searchRecord.timeRange)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            // Location
+                            if !searchRecord.location.isEmpty {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "location")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    Text("Loc: \(searchRecord.location)")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            Spacer()
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color(NSColor.controlBackgroundColor).opacity(0.4))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.blue.opacity(0.15), lineWidth: 0.5)
+                            )
+                    )
+                    
                     Divider()
                     
                     if !searchRecord.results.isEmpty {
@@ -153,20 +380,20 @@ struct ContentView: View {
                     DebugLogger.shared.logWebViewAction("📊 ContentView: SearchRecord has \(searchRecord.results.count) results")
                     DebugLogger.shared.logWebViewAction("📊 ContentView: SearchRecord has \(searchRecord.linkRecords.count) link records")
                 }
-            } else {
+                } else {
                 VStack(spacing: 20) {
                     Image(systemName: "magnifyingglass.circle")
                         .font(.system(size: 64))
                         .foregroundColor(.blue)
                     
                     Text("Welcome to DailyWebScanner")
-                        .font(.title)
+                    .font(.title)
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                     
                     Text("Select a search from the sidebar to view results")
                         .font(.body)
-                        .foregroundColor(.secondary)
+                    .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                     
                     VStack(spacing: 16) {
@@ -220,20 +447,19 @@ struct ContentView: View {
         if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Task {
                 do {
-                    let params = searchParameters.getParameters()
                     let viewModel = SearchViewModel()
                     viewModel.modelContext = modelContext
                     let record = try await viewModel.runSearch(
                         query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
-                        language: params.language,
-                        region: params.region,
-                        location: params.location,
-                        safe: params.safe,
-                        tbm: params.tbm,
-                        tbs: params.tbs,
-                        as_qdr: params.as_qdr,
-                        nfpr: params.nfpr,
-                        filter: params.filter
+                        language: language,
+                        region: region,
+                        location: location,
+                        safe: safeSearch,
+                        tbm: searchType,
+                        tbs: "",
+                        as_qdr: timeRange,
+                        nfpr: "",
+                        filter: ""
                     )
                     await MainActor.run {
                         selectedSearchRecord = record
@@ -280,35 +506,35 @@ struct SearchQueryRow: View {
                 .font(.title2)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(record.query)
-                    .font(.headline)
-                    .lineLimit(2)
-                
-                Text(record.createdAt, format: .dateTime)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
+            Text(record.query)
+                .font(.headline)
+                .lineLimit(2)
+            
+            Text(record.createdAt, format: .dateTime)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
                 // Search Parameters as Tags
-                HStack {
-                    if !record.language.isEmpty {
-                        ParameterTag(label: "Lang", value: record.language)
-                    }
-                    if !record.region.isEmpty {
-                        ParameterTag(label: "Region", value: record.region)
-                    }
-                    if !record.location.isEmpty {
-                        ParameterTag(label: "Location", value: record.location)
-                    }
-                    if !record.safeSearch.isEmpty && record.safeSearch != "off" {
-                        ParameterTag(label: "Safe", value: record.safeSearch)
-                    }
-                    if !record.searchType.isEmpty {
-                        ParameterTag(label: "Type", value: record.searchType)
-                    }
-                    if !record.timeRange.isEmpty {
-                        ParameterTag(label: "Time", value: record.timeRange)
-                    }
+            HStack {
+                if !record.language.isEmpty {
+                    ParameterTag(label: "Lang", value: record.language)
                 }
+                if !record.region.isEmpty {
+                    ParameterTag(label: "Region", value: record.region)
+                }
+                if !record.location.isEmpty {
+                    ParameterTag(label: "Location", value: record.location)
+                }
+                    if !record.safeSearch.isEmpty && record.safeSearch != "off" {
+                    ParameterTag(label: "Safe", value: record.safeSearch)
+                }
+                if !record.searchType.isEmpty {
+                    ParameterTag(label: "Type", value: record.searchType)
+                }
+                if !record.timeRange.isEmpty {
+                    ParameterTag(label: "Time", value: record.timeRange)
+                }
+            }
             }
             
             Spacer()
@@ -400,8 +626,8 @@ struct SearchQueryDetailView: View {
                                 .foregroundColor(.primary)
                             
                             Text("Your search for \"\(searchRecord.query)\" did not return any results.")
-                                .font(.body)
-                                .foregroundColor(.secondary)
+                        .font(.body)
+                        .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                         }
                         
@@ -554,12 +780,12 @@ struct ParameterDisplayItem: View {
                 .foregroundColor(.blue)
                 .font(.caption)
             
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
                 
-                Text(value)
+            Text(value)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(.primary)
@@ -584,12 +810,12 @@ struct SearchResultRow: View {
             HStack {
                 Image(systemName: "link")
                     .foregroundColor(.blue)
-                    .font(.caption)
+                .font(.caption)
                 
                 Text(result.title)
                     .font(.headline)
                     .lineLimit(2)
-                    .foregroundColor(.primary)
+                .foregroundColor(.primary)
                 
                 Spacer()
             }

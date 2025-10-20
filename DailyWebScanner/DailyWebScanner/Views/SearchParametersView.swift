@@ -9,13 +9,13 @@ import SwiftUI
 
 struct SearchParametersView: View {
     // Persistent storage for search parameters
-    @AppStorage("searchLanguage") private var language: String = "" // "Any" option
-    @AppStorage("searchRegion") private var region: String = "" // "Any" option  
-    @AppStorage("searchLocation") private var location: String = "" // "Any" option
-    @AppStorage("searchSafeSearch") private var safeSearch: String = "off"
-    @AppStorage("searchType") private var searchType: String = "" // "All" option
-    @AppStorage("searchTimeRange") private var timeRange: String = "" // "Any Time" option
-    @AppStorage("searchDateRange") private var dateRange: String = "" // "Any" option
+    @AppStorage("searchLanguage") var language: String = "" // "Any" option
+    @AppStorage("searchRegion") var region: String = "" // "Any" option  
+    @AppStorage("searchLocation") var location: String = "" // "Any" option
+    @AppStorage("searchSafeSearch") var safeSearch: String = "off"
+    @AppStorage("searchType") var searchType: String = "" // "All" option
+    @AppStorage("searchTimeRange") var timeRange: String = "" // "Any Time" option
+    @AppStorage("searchDateRange") var dateRange: String = "" // "Any" option
     
     @State private var isExpanded: Bool = false
     
