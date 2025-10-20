@@ -38,7 +38,7 @@ final class SearchViewModel: ObservableObject {
         DebugLogger.shared.logSearchStart(query: query)
         cancelCurrentSearch()
 
-        guard let modelContext else {
+        guard modelContext != nil else {
             let err = NSError(domain: "SearchViewModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "Kein ModelContext verfügbar."])
             activeError = err
             DebugLogger.shared.logSearchError(query: query, error: err)
@@ -146,7 +146,7 @@ final class SearchViewModel: ObservableObject {
         DebugLogger.shared.logSearchStart(query: query)
         cancelCurrentSearch()
 
-        guard let modelContext else {
+        guard modelContext != nil else {
             let err = NSError(domain: "SearchViewModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "Kein ModelContext verfügbar."])
             activeError = err
             DebugLogger.shared.logSearchError(query: query, error: err)
@@ -265,7 +265,7 @@ final class SearchViewModel: ObservableObject {
         do {
             // Update each SearchResult with link content
             for result in record.results {
-                if let url = URL(string: result.link) {
+                if URL(string: result.link) != nil {
                     // Simple content fetching - just set summary to snippet for now
                     result.summary = result.snippet
                 }
