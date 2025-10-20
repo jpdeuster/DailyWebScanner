@@ -187,31 +187,12 @@ When suggesting features:
 4. **Think about user impact**
 5. **Check for existing similar requests**
 
-## 🛠️ Development Guidelines
-
-### **For Contributors**
-- **Start small** - Begin with simple modifications
-- **Ask questions** - No question is too basic
-- **Share your experiments** - Document what you tried and discovered
-- **Study the codebase** - Understand how the project is structured
-
-### **For Experimenters**
-- **Try new approaches** - Experiment with different implementations
-- **Test edge cases** - Push the boundaries of what's possible
-- **Share discoveries** - Document interesting findings
-- **Propose alternatives** - Suggest different ways to solve problems
-
-### **For Maintainers**
-- **Document your approach** - Help others understand your thinking
-- **Be patient with feedback** - We're all working together
-- **Celebrate progress** - Share achievements, no matter how small
-- **Maintain quality** - Ensure code follows project standards
 
 ## 📞 Getting Help
 
 - **Issues**: [GitHub Issues](https://github.com/jpdeuster/DailyWebScanner/issues)
 - **Discussions**: Coming soon on GitHub  
-- **Security**: See [SECURITY.md](docs/legal/SECURITY.md) for security-related issues
+- **Security**: See [SECURITY.md](../legal/SECURITY.md) for security-related issues
 - **Technical Questions**: Feel free to ask about Swift, macOS development, or any technical concepts
 
 ## 🙏 Recognition
