@@ -21,6 +21,13 @@ final class SearchRecord: Identifiable {
     var searchDuration: TimeInterval = 0.0
     var resultCount: Int = 0
     
+    // Automated Search Properties
+    var isEnabled: Bool = true
+    var executionCount: Int = 0
+    var lastExecutionDate: Date?
+    var scheduledTime: String = "10:00"  // HH:MM format
+    var dateRange: String = ""  // For timeRange parameter
+    
     // Content Analysis
     var contentAnalysis: String = ""  // JSON string of ContentAnalysis
     var headlinesCount: Int = 0
@@ -48,7 +55,8 @@ final class SearchRecord: Identifiable {
          contentAnalysis: String = "", headlinesCount: Int = 0, linksCount: Int = 0, 
          contentBlocksCount: Int = 0, tagsCount: Int = 0, hasContentAnalysis: Bool = false,
          linkContents: String = "", hasLinkContents: Bool = false, totalImagesDownloaded: Int = 0,
-         totalContentSize: Int = 0) {
+         totalContentSize: Int = 0, isEnabled: Bool = true, executionCount: Int = 0,
+         lastExecutionDate: Date? = nil, scheduledTime: String = "10:00", dateRange: String = "") {
         self.id = id
         self.query = query
         self.createdAt = createdAt
@@ -72,6 +80,11 @@ final class SearchRecord: Identifiable {
         self.hasLinkContents = hasLinkContents
         self.totalImagesDownloaded = totalImagesDownloaded
         self.totalContentSize = totalContentSize
+        self.isEnabled = isEnabled
+        self.executionCount = executionCount
+        self.lastExecutionDate = lastExecutionDate
+        self.scheduledTime = scheduledTime
+        self.dateRange = dateRange
         self.results = results
         self.linkRecords = []
     }

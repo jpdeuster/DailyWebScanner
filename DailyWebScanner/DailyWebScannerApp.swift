@@ -119,20 +119,18 @@ struct DailyWebScannerApp: App {
         }
         .modelContainer(sharedModelContainer)
         .commands {
-            CommandMenu("Search") {
-                Button("Search…") {
-                    NotificationCenter.default.post(name: .focusSearchField, object: nil)
-                }
-                .keyboardShortcut("f", modifiers: [.command]) // ⌘F: Focus search field
-
-                Button("New Search…") {
-                    NotificationCenter.default.post(name: .triggerManualSearch, object: nil)
-                }
-                .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Trigger search
+        CommandMenu("Search") {
+            Button("Search…") {
+                NotificationCenter.default.post(name: .focusSearchField, object: nil)
             }
+            .keyboardShortcut("f", modifiers: [.command]) // ⌘F: Focus search field
+
+            Button("Search List") {
+                showSearchListWindow()
+            }
+            .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Show search list
             
-        CommandMenu("Search Queries") {
-            Button("Show Search Queries") {
+            Button("Article List") {
                 showSearchQueriesWindow()
             }
             .keyboardShortcut("s", modifiers: [.command, .shift])
@@ -293,6 +291,26 @@ struct DailyWebScannerApp: App {
     }
     
     // MARK: - Search Queries Menu Functions
+    
+    private func showSearchListWindow() {
+        let searchListWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        searchListWindow.title = "Search List - Automated Searches"
+        searchListWindow.center()
+        searchListWindow.contentView = NSHostingView(rootView: SearchListView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        searchListWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        searchListWindow.isReleasedWhenClosed = false
+        
+        searchListWindow.makeKeyAndOrderFront(nil)
+    }
     
     private func showSearchQueriesWindow() {
         let searchQueriesWindow = NSWindow(
