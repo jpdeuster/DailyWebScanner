@@ -1,15 +1,15 @@
 # Contributing to DailyWebScanner
 
-**Welcome to our learning community!** 🎓
+**Welcome to DailyWebScanner!** 🚀
 
-This is a **hobby project for learning purposes** - I explicitly encourage everyone to use, modify, and extend this code freely. Whether you're learning Swift, macOS development, or just want to experiment with search technology, you're welcome here!
+This is a **hobby project** - I explicitly encourage everyone to use, modify, and extend this code freely. Whether you're developing Swift, macOS applications, or want to experiment with search technology, you're welcome here!
 
 ## 🌟 Open Source Philosophy
 
 - ✅ **Use the code freely** - Modify, extend, and adapt it for your own needs
 - ✅ **Share your improvements** - Submit pull requests with your enhancements  
 - ✅ **Suggest new features** - Propose ideas and planning suggestions
-- ✅ **Learn together** - Use this project as a learning resource
+- ✅ **Share knowledge** - Help others understand the codebase
 - ✅ **No pressure** - This is a hobby project, contribute when you feel like it
 
 Thank you for your interest in contributing to DailyWebScanner! This document provides guidelines and information for contributors.
@@ -97,17 +97,35 @@ xcodebuild -project DailyWebScanner.xcodeproj -scheme DailyWebScanner -configura
 ```
 DailyWebScanner/
 ├── DailyWebScannerApp.swift      # App entry point
-├── ContentView.swift             # Main UI
-├── SearchViewModel.swift         # Search logic
-├── SerpAPIClient.swift           # SerpAPI integration
-├── OpenAIClient.swift            # OpenAI integration
-├── HTMLRenderer.swift            # HTML rendering
-├── WebView.swift                 # WebKit integration
-├── SettingsView.swift            # Settings interface
-├── KeychainHelper.swift          # Secure storage
-├── SearchRecord.swift            # Data model
-├── SearchResult.swift            # Result model
-└── DailyWebScanner.entitlements  # Sandbox permissions
+├── DailyWebScanner.entitlements # Sandbox permissions
+├── Assets.xcassets/              # App assets and icons
+├── DailyWebScanner/              # Main app code
+│   ├── Models/                   # Data models
+│   │   ├── SearchRecord.swift
+│   │   ├── SearchResult.swift
+│   │   └── LinkRecord.swift
+│   ├── Views/                    # SwiftUI views
+│   │   ├── ContentView.swift
+│   │   ├── SettingsView.swift
+│   │   ├── WebView.swift
+│   │   └── [other views...]
+│   ├── ViewModels/               # Business logic
+│   │   └── SearchViewModel.swift
+│   ├── Services/                 # API integrations
+│   │   ├── SerpAPIClient.swift
+│   │   ├── OpenAIClient.swift
+│   │   └── LinkContentFetcher.swift
+│   └── Utils/                    # Helper functions
+│       ├── KeychainHelper.swift
+│       ├── HTMLRenderer.swift
+│       └── [other utilities...]
+├── docs/                         # Documentation
+│   ├── architecture/            # Technical docs
+│   ├── development/              # Roadmap and planning
+│   ├── legal/                   # Legal information
+│   └── project/                 # Project information
+└── .github/                     # GitHub templates
+    └── ISSUE_TEMPLATE/
 ```
 
 ## 🔒 Security Guidelines
@@ -169,13 +187,13 @@ When suggesting features:
 4. **Think about user impact**
 5. **Check for existing similar requests**
 
-## 🎓 Learning & Experimentation
+## 🛠️ Development Guidelines
 
-### **For Learners**
+### **For Contributors**
 - **Start small** - Begin with simple modifications
 - **Ask questions** - No question is too basic
-- **Share your experiments** - Document what you tried and learned
-- **Learn from others** - Study how others have modified the code
+- **Share your experiments** - Document what you tried and discovered
+- **Study the codebase** - Understand how the project is structured
 
 ### **For Experimenters**
 - **Try new approaches** - Experiment with different implementations
@@ -183,18 +201,18 @@ When suggesting features:
 - **Share discoveries** - Document interesting findings
 - **Propose alternatives** - Suggest different ways to solve problems
 
-### **For Contributors**
-- **Document your learning** - Share what you learned while contributing
-- **Explain your approach** - Help others understand your thinking
-- **Be patient with feedback** - We're all learning together
-- **Celebrate progress** - Share your achievements, no matter how small
+### **For Maintainers**
+- **Document your approach** - Help others understand your thinking
+- **Be patient with feedback** - We're all working together
+- **Celebrate progress** - Share achievements, no matter how small
+- **Maintain quality** - Ensure code follows project standards
 
 ## 📞 Getting Help
 
 - **Issues**: [GitHub Issues](https://github.com/jpdeuster/DailyWebScanner/issues)
 - **Discussions**: Coming soon on GitHub  
 - **Security**: See [SECURITY.md](docs/legal/SECURITY.md) for security-related issues
-- **Learning Questions**: Feel free to ask about Swift, macOS development, or any technical concepts
+- **Technical Questions**: Feel free to ask about Swift, macOS development, or any technical concepts
 
 ## 🙏 Recognition
 
