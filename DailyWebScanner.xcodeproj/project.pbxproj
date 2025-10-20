@@ -24,7 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		E88E66F72EA34052001CF40C /* DailyWebScanner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyWebScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E88E66F72EA34052001CF40C /* DailyWebScannerDebug.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DailyWebScannerDebug.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E88E67062EA34053001CF40C /* DailyWebScannerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyWebScannerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E88E67102EA34053001CF40C /* DailyWebScannerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyWebScannerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -85,7 +85,7 @@
 		E88E66F82EA34052001CF40C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E88E66F72EA34052001CF40C /* DailyWebScanner.app */,
+				E88E66F72EA34052001CF40C /* DailyWebScannerDebug.app */,
 				E88E67062EA34053001CF40C /* DailyWebScannerTests.xctest */,
 				E88E67102EA34053001CF40C /* DailyWebScannerUITests.xctest */,
 			);
@@ -114,7 +114,7 @@
 			packageProductDependencies = (
 			);
 			productName = DailyWebScanner;
-			productReference = E88E66F72EA34052001CF40C /* DailyWebScanner.app */;
+			productReference = E88E66F72EA34052001CF40C /* DailyWebScannerDebug.app */;
 			productType = "com.apple.product-type.application";
 		};
 		E88E67052EA34053001CF40C /* DailyWebScannerTests */ = {
@@ -394,8 +394,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = YES;
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = DailyWebScanner/DailyWebScanner.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -416,8 +418,8 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = YES;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = DailyWebScanner/Info.plist;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -425,7 +427,8 @@
 				);
 				MARKETING_VERSION = 0.5;
 				PRODUCT_BUNDLE_IDENTIFIER = de.deusterdevelopment.DailyWebScannerDebug;
-				PRODUCT_NAME = "DailyWebScannerDebug";
+				PRODUCT_NAME = DailyWebScannerDebug;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
 				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
@@ -447,8 +450,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = YES;
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = DailyWebScanner/DailyWebScanner.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -469,8 +474,8 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = YES;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = DailyWebScanner/Info.plist;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -479,6 +484,7 @@
 				MARKETING_VERSION = 0.5;
 				PRODUCT_BUNDLE_IDENTIFIER = de.deusterdevelopment.DailyWebScanner;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
 				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
