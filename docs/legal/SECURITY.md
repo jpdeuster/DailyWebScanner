@@ -1,57 +1,57 @@
-# Sicherheitsrichtlinien
+# Security Policy
 
-## Melden von Sicherheitslücken
+## Reporting Security Vulnerabilities
 
-Wenn Sie eine Sicherheitslücke in diesem Projekt entdecken, melden Sie diese bitte **NICHT** öffentlich über GitHub Issues.
+If you discover a security vulnerability in this project, please **DO NOT** report it publicly via GitHub Issues.
 
-Stattdessen kontaktieren Sie uns direkt unter: [Ihre E-Mail-Adresse]
+Instead, contact us directly at: [Your Email Address]
 
-## Sicherheitsmaßnahmen
+## Security Measures
 
-### API-Keys und sensible Daten
-- ✅ **Keine hardcodierten API-Keys** im Quellcode
-- ✅ **Keychain-Integration** für sichere Speicherung von API-Keys
-- ✅ **Sandbox-Berechtigungen** für minimale Systemzugriffe
-- ✅ **Entitlements-Datei** für kontrollierte Berechtigungen
+### API Keys and Sensitive Data
+- ✅ **No hardcoded API keys** in source code
+- ✅ **Keychain integration** for secure API key storage
+- ✅ **Sandbox permissions** for minimal system access
+- ✅ **Entitlements file** for controlled permissions
 
-### Datenschutz
-- 🔒 **Lokale Speicherung**: Alle Daten werden lokal im Keychain gespeichert
-- 🔒 **Keine Cloud-Synchronisation**: Keine Daten werden an externe Server gesendet
-- 🔒 **Sandbox-Isolation**: App läuft in isolierter Umgebung
+### Data Privacy
+- 🔒 **Local storage**: All data is stored locally in the Keychain
+- 🔒 **No cloud synchronization**: No data is sent to external servers
+- 🔒 **Sandbox isolation**: App runs in isolated environment
 
-### Netzwerk-Sicherheit
-- 🔐 **HTTPS-only**: Alle API-Aufrufe verwenden verschlüsselte Verbindungen
-- 🔐 **API-Key-Masking**: Keys werden nicht in Logs oder URLs angezeigt
-- 🔐 **Minimale Berechtigungen**: Nur notwendige Netzwerk-Berechtigungen
+### Network Security
+- 🔐 **HTTPS-only**: All API calls use encrypted connections
+- 🔐 **API key masking**: Keys are not displayed in logs or URLs
+- 🔐 **Minimal permissions**: Only necessary network permissions
 
-## Verantwortlichkeitsbereich
+## Scope of Responsibility
 
-Dieses Projekt ist für die Sicherheit der folgenden Komponenten verantwortlich:
+This project is responsible for the security of the following components:
 
-- ✅ **App-Code**: SwiftUI-Anwendung
-- ✅ **API-Integration**: SerpAPI und OpenAI
-- ✅ **Datenpersistierung**: SwiftData und Keychain
-- ✅ **Netzwerk-Kommunikation**: URLSession
+- ✅ **App Code**: SwiftUI application
+- ✅ **API Integration**: SerpAPI and OpenAI
+- ✅ **Data Persistence**: SwiftData and Keychain
+- ✅ **Network Communication**: URLSession
 
-## Nicht im Verantwortungsbereich
+## Out of Scope
 
-- ❌ **Externe APIs**: SerpAPI, OpenAI
-- ❌ **Betriebssystem**: macOS Sandbox
-- ❌ **Drittanbieter-Services**: GitHub, etc.
+- ❌ **External APIs**: SerpAPI, OpenAI
+- ❌ **Operating System**: macOS Sandbox
+- ❌ **Third-party Services**: GitHub, etc.
 
-## Best Practices für Entwickler
+## Best Practices for Developers
 
-1. **Niemals API-Keys committen**
-2. **Verwenden Sie Umgebungsvariablen für Tests**
-3. **Regelmäßige Sicherheitsupdates**
-4. **Code-Reviews für sicherheitskritische Änderungen**
+1. **Never commit API keys**
+2. **Use environment variables for testing**
+3. **Regular security updates**
+4. **Code reviews for security-critical changes**
 
-## Bekannte Sicherheitsüberlegungen
+## Known Security Considerations
 
-- **Sandbox-Einschränkungen**: App kann nur auf explizit erlaubte Ressourcen zugreifen
-- **Keychain-Zugriff**: Nur die App selbst kann auf gespeicherte Keys zugreifen
-- **Netzwerk-Isolation**: Keine lokalen Netzwerk-Services
+- **Sandbox restrictions**: App can only access explicitly allowed resources
+- **Keychain access**: Only the app itself can access stored keys
+- **Network isolation**: No local network services
 
 ---
 
-**Letzte Aktualisierung**: Oktober 2024
+**Last Updated**: October 2024

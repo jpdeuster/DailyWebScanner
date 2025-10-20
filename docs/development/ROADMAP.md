@@ -1,302 +1,91 @@
-# DailyWebScanner Roadmap
+# DailyWebScanner - Development Roadmap
 
-This document outlines the development roadmap for DailyWebScanner, from the current beta version to future major releases.
+A clear, focused roadmap for DailyWebScanner development from Beta 0.5 to Enterprise v1.0.
 
-## 🎯 Vision Statement
+## 🎯 Vision
 
-DailyWebScanner aims to become the ultimate intelligent search companion for macOS, combining powerful web search capabilities with AI-driven insights to help users discover, organize, and understand information more effectively.
+DailyWebScanner aims to become the ultimate intelligent search companion for macOS, combining powerful web search capabilities with AI-driven insights.
 
-**This is a hobby project for learning purposes!** I explicitly encourage everyone to:
-- ✅ **Use the code freely** - Modify, extend, and adapt it for your own needs
-- ✅ **Suggest features** - Propose new ideas and planning suggestions  
-- ✅ **Learn together** - Use this project as a learning resource
-- ✅ **Shape the roadmap** - Your input helps guide development priorities
+**This is a hobby project for learning purposes!** We encourage:
+- ✅ **Free use** - Modify and extend for your needs
+- ✅ **Feature suggestions** - Propose new ideas
+- ✅ **Learning together** - Use as a learning resource
+- ✅ **Shape development** - Your input guides priorities
 
 ## 📊 Current Status: Beta 0.5
 
-**Status**: Active Development  
-**Focus**: Core functionality and stability
+**Status**: ✅ **Fully Functional**  
+**Focus**: Core features working, ready for enhancements
 
-### ✅ Completed Features
-- Core search functionality with SerpAPI
-- Optional OpenAI integration for AI summaries
-- Search history with SwiftData persistence
-- Sandbox security implementation
-- Modern SwiftUI interface
-- Secure Keychain storage
-- Comprehensive documentation
-
-### 🚧 Known Issues
-- Swift 6 Sendable warnings (non-critical)
-- WebKit crashes in certain configurations (mitigated)
-- Limited error handling for network timeouts
+### ✅ **Completed (Beta 0.5)**
+- **Google Search Integration** - Via SerpAPI
+- **AI Summaries** - Optional OpenAI integration
+- **Search History** - SwiftData persistence
+- **Multi-Window UI** - Separate windows for different views
+- **Per-Search Parameters** - Dynamic search configuration
+- **Content Analysis** - Full article storage with images
+- **Security** - Sandbox + Keychain storage
 
 ---
 
-## 🗓️ Release Timeline
+## 🚀 **Next Releases**
 
-### **v0.6 - Enhanced User Experience**
+### **v0.6 - Advanced Analytics**
+- **Search Pattern Analysis** - Track trends and behavior
+- **Advanced Search Features** - Full-text search, filters
+- **Performance Optimization** - Faster queries, better memory usage
+- **Search History Analytics** - Usage insights and patterns
 
-#### 🗄️ Database Integration
-- **SQLite Database**: Local SQLite integration for search results
-- **Search History**: Complete search history with analytics
-- **Result Caching**: Intelligent caching of search results
-- **Data Migration**: Migration from SwiftData to SQLite
-- **Performance Optimization**: Faster search and result loading
+### **v0.7 - Smart Categorization**
+- **AI-Powered Classification** - Automatic content categorization
+- **Advanced Tagging** - Custom tags, hierarchies, auto-tagging
+- **Content Insights** - Quality scoring, source analysis
+- **Smart Recommendations** - AI-powered suggestions
 
-#### 🎨 User Interface Improvements
-- **Search Filters**: Date range, language, region filters
-- **Result Sorting**: Sort by relevance, date, source
-- **Keyboard Shortcuts**: Quick access and navigation
-- **Dark Mode**: Complete dark mode support
-- **Accessibility**: VoiceOver and accessibility improvements
+### **v0.8 - Export & Integration**
+- **Export Functionality** - PDF, HTML, CSV exports
+- **Cloud Integration** - iCloud sync, cross-device sharing
+- **External Integrations** - Browser extensions, APIs
+- **Backup & Restore** - Data protection and migration
 
-#### 🔧 Technical Improvements
-- Performance optimization for large result sets
-- Improved error handling and user feedback
-- Enhanced WebKit stability
-- Better memory management
-- Database query optimization
-
-#### 📱 User Experience
-- Improved onboarding flow
-- Better visual feedback for loading states
-- Enhanced search result presentation
-- Smoother animations and transitions
-- Search history visualization
+### **v0.9 - Advanced AI Features**
+- **Multiple AI Providers** - Claude, Gemini, local models
+- **Intelligent Content Analysis** - Sentiment, trends, multi-language
+- **Personalized Recommendations** - AI-powered suggestions
+- **Advanced Analytics Dashboard** - Visual insights and metrics
 
 ---
 
-### **v0.7 - Export & Sharing**
+## 🎯 **Success Goals**
 
-#### 📄 Export Capabilities
-- **PDF Export**: Export search results to PDF with custom formatting
-- **Markdown Export**: Export results in Markdown format
-- **Share Integration**: Native macOS sharing
-- **Print Support**: Print search results with custom layouts
-- **Bookmark Management**: Save and organize bookmarks
+### **Technical Targets**
+- **Performance**: Sub-50ms search queries
+- **Reliability**: 99.9% uptime
+- **Scalability**: 10,000+ articles support
+- **Security**: Enterprise-grade encryption
 
-#### 🔗 Integration Features
-- macOS Share Sheet integration
-- Quick Look preview support
-- Drag and drop functionality
-- Clipboard integration
-
-#### ☁️ Cloud Synchronization
-- **iCloud Integration**: Sync search history and bookmarks across devices
-- **CloudKit Support**: Seamless data synchronization
-- **Offline Access**: Local caching with cloud sync
-- **Cross-Device Search**: Continue searches across different Mac devices
-- **Privacy-First Sync**: End-to-end encrypted synchronization
+### **User Experience**
+- **Usability**: Intuitive interface design
+- **Efficiency**: 60% productivity improvement
+- **Satisfaction**: 4.8/5 user rating
+- **Adoption**: 90% feature utilization
 
 ---
 
-### **v0.8 - Advanced Search**
+## 🤝 **Community Input**
 
-#### 🔍 Multiple Search Engines
-- **Bing Integration**: Microsoft Bing search support
-- **DuckDuckGo**: Privacy-focused search engine
-- **Yandex**: International search capabilities
-- **Custom Engines**: User-defined search engines
+**Your feedback shapes this project!**
 
-#### 🎯 Specialized Search Modes
-- **Image Search**: Visual search capabilities
-- **News Search**: Dedicated news search mode
-- **Academic Search**: Scholar and academic sources
-- **Shopping Search**: E-commerce focused results
+- **Contributions**: [CONTRIBUTING.md](docs/project/CONTRIBUTING.md)
+- **Security**: [SECURITY.md](docs/legal/SECURITY.md)
+- **Discussions**: Coming soon on GitHub
 
-#### 🔧 Advanced Features
-- **Search Operators**: Advanced search syntax support
-- **Search Templates**: Predefined search configurations
-- **Search History Analytics**: Usage patterns and insights
+### **We encourage:**
+- **Suggest features** - Even wild ideas are welcome
+- **Propose approaches** - Different ways to solve problems
+- **Share experiments** - Document what you learned
+- **Help prioritize** - Which features are most valuable?
 
 ---
 
-### **v0.9 - AI Enhancement**
-
-#### 🤖 Multiple AI Providers
-- **Claude Integration**: Anthropic's Claude AI
-- **Gemini Support**: Google's Gemini AI
-- **Local Models**: Support for local AI models
-- **Custom AI Endpoints**: User-defined AI services
-
-#### 🧠 Advanced AI Features
-- **Custom AI Prompts**: User-defined summarization prompts
-- **AI Comparison**: Compare summaries from different AI providers
-- **Smart Categorization**: AI-powered result categorization
-- **Trend Analysis**: AI-powered trend detection
-- **Content Analysis**: Deep content understanding
-
-#### 🔬 Research Features
-- **Research Assistant**: AI-powered research guidance
-- **Source Verification**: AI-powered source credibility analysis
-- **Content Summarization**: Multi-level content summarization
-
----
-
-### **v1.0 - Production Ready**
-
-#### 🚀 Performance & Stability
-- **Performance Optimization**: Faster search and rendering
-- **Error Handling**: Comprehensive error management
-- **User Onboarding**: Interactive tutorial
-- **Settings Migration**: Import/export settings
-- **Production Stability**: Enterprise-grade reliability
-
-#### 🛡️ Security & Privacy
-- **Enhanced Security**: Advanced security measures
-- **Privacy Controls**: Granular privacy settings
-- **Data Encryption**: End-to-end encryption for sensitive data
-- **Audit Logging**: Security and usage logging
-
----
-
-### **v1.1 - Collaboration**
-
-#### 👥 Team Features
-- **Team Sharing**: Share search results with teams
-- **Collaborative Filtering**: Shared search preferences
-- **Comments System**: Add notes to search results
-- **Search Collections**: Organize searches into collections
-- **Export Templates**: Custom export formats
-
-#### 🔄 Workflow Integration
-- **Slack Integration**: Share results to Slack
-- **Microsoft Teams**: Teams integration
-- **Email Integration**: Direct email sharing
-- **Calendar Integration**: Schedule-based searches
-
----
-
-### **v1.2 - Advanced Features**
-
-#### 🤖 Automation
-- **Search Automation**: Scheduled searches
-- **Alert System**: Notifications for new results
-- **Smart Alerts**: AI-powered alert suggestions
-- **Workflow Automation**: Custom automation rules
-
-#### 🔌 Extensibility
-- **API Integration**: Third-party service integration
-- **Plugin System**: Extensible architecture
-- **Webhook Support**: Real-time notifications
-- **Custom Integrations**: User-defined integrations
-
-#### 📊 Analytics
-- **Advanced Analytics**: Search pattern analysis
-- **Usage Insights**: Detailed usage statistics
-- **Performance Metrics**: App performance monitoring
-- **User Behavior**: Understanding user patterns
-
----
-
-### **v2.0 - Cloud & Sync**
-
-#### ☁️ Cloud Features
-- **Advanced iCloud Integration**: Full CloudKit synchronization
-- **Cross-Device Sync**: iPhone/iPad companion app
-- **Web Dashboard**: Browser-based interface
-- **Team Workspaces**: Collaborative workspaces
-- **Real-time Collaboration**: Live search sharing
-- **Cloud Storage**: Unlimited search history storage
-- **Smart Sync**: Intelligent conflict resolution
-- **Offline Mode**: Full offline functionality with sync
-- **Enterprise Features**: SSO, admin controls
-
-#### 🌐 Platform Expansion
-- **iOS App**: Native iOS companion
-- **iPad App**: Optimized iPad experience
-- **Web App**: Browser-based interface
-- **API Platform**: Public API for developers
-
----
-
-## 🎯 Long-term Vision
-
-### **AI Research Assistant**
-- Advanced research capabilities
-- Multi-source synthesis
-- Research paper analysis
-- Citation management
-- Knowledge graph construction
-
-### **Knowledge Management**
-- Personal knowledge networks
-- Concept mapping
-- Information architecture
-- Knowledge discovery
-- Learning pathways
-
-### **Emerging Technologies**
-- **Voice Search**: Voice-activated search
-- **AR Integration**: Augmented reality search
-- **Machine Learning**: Personalized search algorithms
-- **Blockchain**: Decentralized search verification
-- **IoT Integration**: Smart device search
-
----
-
-## 🎯 Success Metrics
-
-### **User Engagement**
-- Daily active users
-- Search frequency
-- Feature adoption rates
-- User retention
-
-### **Technical Performance**
-- Search response time
-- App stability
-- Memory usage
-- Battery impact
-
-### **User Satisfaction**
-- User ratings and reviews
-- Feature request fulfillment
-- Community engagement
-- Support ticket resolution
-
----
-
-## 🤝 Community Involvement
-
-### **Beta Testing Program**
-- Early access to new features
-- Direct feedback channels
-- Community recognition
-- Exclusive features
-
-### **Developer Community**
-- Open source contributions
-- Plugin development
-- API integrations
-- Documentation improvements
-
-### **Research Partnerships**
-- Academic collaborations
-- Research paper citations
-- Conference presentations
-- Open source research
-
----
-
-## 📞 Feedback & Contributions
-
-**Your input shapes this project!** We welcome community input on our roadmap:
-
-- **Feature Requests**: [GitHub Discussions](https://github.com/jpdeuster/DailyWebScanner/discussions)
-- **Planning Suggestions**: Help prioritize what to build next
-- **Bug Reports**: [GitHub Issues](https://github.com/jpdeuster/DailyWebScanner/issues)
-- **Contributions**: [CONTRIBUTING.md](CONTRIBUTING.md)
-- **Security**: [SECURITY.md](SECURITY.md)
-- **Learning Questions**: Ask about Swift, macOS development, or any concepts
-
-### **Community-Driven Development**
-- **Suggest new features** - Even wild ideas are welcome
-- **Propose alternative approaches** - Different ways to solve problems
-- **Share your experiments** - Document what you tried and learned
-- **Help prioritize** - Which features would be most valuable to you?
-
----
-
-*This roadmap is a living document and may be updated based on user feedback, technical constraints, and market conditions.*
+*This roadmap is a living document, updated based on user feedback and technical progress.*

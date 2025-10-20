@@ -1,5 +1,10 @@
 # DailyWebScanner
 
+[![Version](https://img.shields.io/badge/version-0.5--beta-orange.svg)](https://github.com/jpdeuster/DailyWebScanner)
+[![macOS](https://img.shields.io/badge/macOS-14.0+-green.svg)](https://www.apple.com/macos/)
+[![Swift](https://img.shields.io/badge/Swift-5.9-orange.svg)](https://swift.org)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ## 🎯 Overview
 
 DailyWebScanner is a powerful macOS application for comprehensive web search, content analysis, and article storage. Built with SwiftUI and SwiftData, it provides intelligent search capabilities with AI-powered content extraction and analysis.
@@ -20,24 +25,51 @@ DailyWebScanner is a powerful macOS application for comprehensive web search, co
 
 ## 🚀 Quick Start
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/jpdeuster/DailyWebScanner.git
-   cd DailyWebScanner
-   ```
+### Prerequisites
+- macOS 14.0 or later
+- Xcode 15.0 or later
+- SerpAPI account (required)
+- OpenAI account (optional)
 
-2. **Open in Xcode**
-   ```bash
-   open DailyWebScanner.xcodeproj
-   ```
+### Installation
 
-3. **Configure API Keys**
-   - Set up SerpAPI key for Google search
-   - Optionally configure OpenAI key for AI features
+1. **Clone the repository:**
+```bash
+git clone https://github.com/jpdeuster/DailyWebScanner.git
+cd DailyWebScanner
+```
 
-4. **Build and Run**
-   - Press `Cmd+R` in Xcode
-   - Start searching and analyzing content!
+2. **Open in Xcode:**
+```bash
+open DailyWebScanner.xcodeproj
+```
+
+3. **Build and run** (⌘+R)
+
+## ⚙️ Configuration
+
+### SerpAPI Setup (Required)
+1. Sign up at [SerpAPI](https://serpapi.com)
+2. Get your API key from the dashboard
+3. Add it in the app settings
+
+### OpenAI Setup (Optional)
+1. Create an account at [OpenAI](https://platform.openai.com)
+2. Generate an API key
+3. Add it in the app settings
+
+> **Note**: Without an OpenAI key, the app will use original search snippets instead of AI summaries.
+
+## 🌟 Features
+
+- 🔍 **Google Web Search**: Full Google search integration via SerpAPI
+- 🌐 **Web Search Engine**: Comprehensive web search capabilities
+- 🤖 **AI Summaries**: Optional OpenAI integration for intelligent content summarization
+- 📱 **Native macOS App**: Built with SwiftUI for modern macOS experience
+- 🔒 **Security First**: Sandbox-compatible with secure Keychain storage
+- 📊 **Search History**: Automatically saves and displays past searches
+- 🎨 **Modern UI**: Responsive design with HTML rendering
+- 🌍 **International**: Supports multiple languages and regions
 
 ## 📊 Current Features
 
@@ -85,7 +117,6 @@ DailyWebScanner/
 ## 📖 Documentation
 
 ### **📋 Project Information**
-- [README](docs/project/README.md) - Detailed project information
 - [CHANGELOG](docs/project/CHANGELOG.md) - Version history
 - [CONTRIBUTING](docs/project/CONTRIBUTING.md) - Contribution guidelines
 
@@ -103,7 +134,27 @@ DailyWebScanner/
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](docs/project/CONTRIBUTING.md) for details.
+**This is a hobby project for learning purposes!** I explicitly encourage everyone to:
+
+- ✅ **Use the code freely** - Modify, extend, and adapt it for your own needs
+- ✅ **Share improvements** - Submit pull requests with your enhancements
+- ✅ **Suggest features** - Propose new ideas and planning suggestions
+- ✅ **Learn together** - Use this project as a learning resource
+
+### How to Contribute
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Commit your changes**: `git commit -m 'Add amazing feature'`
+4. **Push to the branch**: `git push origin feature/amazing-feature`
+5. **Open a Pull Request**
+
+### Development Guidelines
+- Follow Swift style guidelines
+- Add tests for new features
+- Update documentation
+- Ensure security best practices
+- **Share your learning journey** - Document what you learned while contributing
 
 ## 📄 License
 
@@ -111,13 +162,45 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔒 Security
 
-For security-related issues, please see our [Security Policy](docs/legal/SECURITY.md).
+- **Sandbox Isolation**: App runs in isolated environment
+- **Keychain Storage**: API keys stored securely
+- **HTTPS Only**: All network communication encrypted
+- **Minimal Permissions**: Only necessary system access
+
+See [SECURITY.md](docs/legal/SECURITY.md) for detailed security information.
+
+## ⚠️ Disclaimer & Data Responsibility
+
+**Important Legal Notice:**
+
+- **No Warranty**: This software is provided "as is" without any warranty or guarantee
+- **User Responsibility**: You are solely responsible for your use of this application and any data you process
+- **No Liability**: The developer assumes no responsibility for any consequences of using this software
+- **Data Usage**: You are responsible for complying with all applicable laws and regulations regarding data processing
+- **API Keys**: You are responsible for the security and proper use of your API keys
+- **Search Results**: You are responsible for how you use, store, and process search results
+- **Privacy**: You are responsible for protecting your own privacy and that of others
+- **Compliance**: Ensure your use complies with terms of service of external APIs (SerpAPI, OpenAI, etc.)
+
+**This is a hobby project for learning purposes. Use at your own risk.**
+
+See [DISCLAIMER.md](docs/legal/DISCLAIMER.md) for complete legal information.
 
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/jpdeuster/DailyWebScanner/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/jpdeuster/DailyWebScanner/discussions)
+- **Security**: See [SECURITY.md](docs/legal/SECURITY.md) for security-related issues
+
+## 🙏 Acknowledgments
+
+- [SerpAPI](https://serpapi.com) for Google web search integration
+- [Google](https://google.com) for providing comprehensive web search capabilities
+- [OpenAI](https://openai.com) for AI summarization
+- Apple for SwiftUI and macOS frameworks
 
 ---
 
-*DailyWebScanner - Intelligent Web Search and Content Analysis for macOS*
+**Made with ❤️ for macOS**
+
+*DailyWebScanner - Your intelligent search companion*
