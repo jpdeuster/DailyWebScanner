@@ -118,22 +118,41 @@ struct DailyWebScannerApp: App {
             ContentView()
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
-                        Button(action: {
-                            showSearchQueriesWindow()
-                        }) {
-                            HStack {
-                                Image(systemName: "doc.text")
-                                    .font(.caption)
-                                Text("Show Saved Articles")
-                                    .font(.caption)
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                showSearchListView()
+                            }) {
+                                HStack {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .font(.caption)
+                                    Text("Automated Search")
+                                        .font(.caption)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(6)
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(6)
+                            .buttonStyle(.plain)
+                            .help("Open Automated Search (⌘R)")
+                            
+                            Button(action: {
+                                showSearchQueriesWindow()
+                            }) {
+                                HStack {
+                                    Image(systemName: "doc.text")
+                                        .font(.caption)
+                                    Text("Show Saved Articles")
+                                        .font(.caption)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Open Articles List (⌘⇧S)")
                         }
-                        .buttonStyle(.plain)
-                        .help("Open Articles List (⌘⇧S)")
                     }
                 }
         }
@@ -141,14 +160,14 @@ struct DailyWebScannerApp: App {
         .commands {
         CommandMenu("Search") {
             Button("Search…") {
-                NotificationCenter.default.post(name: .focusSearchField, object: nil)
+                    NotificationCenter.default.post(name: .focusSearchField, object: nil)
             }
             .keyboardShortcut("f", modifiers: [.command]) // ⌘F: Focus search field
 
-            Button("Search List") {
+            Button("Automated Search") {
                 showSearchListWindow()
             }
-            .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Show search list
+            .keyboardShortcut("r", modifiers: [.command]) // ⌘R: Show automated search
             
             Button("Article List") {
                 showSearchQueriesWindow()
@@ -325,6 +344,27 @@ struct DailyWebScannerApp: App {
         
         // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
         searchListWindow.delegate = apiWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        searchListWindow.isReleasedWhenClosed = false
+        
+        searchListWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showSearchListView() {
+        let searchListWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        searchListWindow.title = "Automated Search"
+        searchListWindow.center()
+        searchListWindow.contentView = NSHostingView(rootView: SearchListView()
+            .modelContainer(sharedModelContainer))
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        searchListWindow.delegate = searchWindowDelegate
         
         // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
         searchListWindow.isReleasedWhenClosed = false

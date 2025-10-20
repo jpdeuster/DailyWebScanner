@@ -3,56 +3,230 @@ import SwiftData
 
 struct SearchListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \SearchRecord.createdAt, order: .reverse) private var searchRecords: [SearchRecord]
+    @Query(sort: \SearchRecord.query, order: .forward) private var searchRecords: [SearchRecord]
     @State private var selectedSearchRecord: SearchRecord?
     @State private var filterText: String = ""
     @State private var newSearchQuery: String = ""
-    @State private var newSearchTime: String = "10:00"
-    @State private var newSearchEnabled: Bool = true
+    @State private var selectedHour: Int = 10
+    @State private var selectedMinute: Int = 0
+    @State private var timeUntilNextSearch: String = ""
+    @State private var timer: Timer?
+    // Search parameters using @AppStorage
+    @AppStorage("automatedSearchLanguage") var language: String = ""
+    @AppStorage("automatedSearchRegion") var region: String = ""
+    @AppStorage("automatedSearchLocation") var location: String = ""
+    @AppStorage("automatedSearchSafeSearch") var safeSearch: String = "off"
+    @AppStorage("automatedSearchType") var searchType: String = ""
+    @AppStorage("automatedSearchTimeRange") var timeRange: String = ""
+    @AppStorage("automatedSearchDateRange") var dateRange: String = ""
     
-    var filteredSearchRecords: [SearchRecord] {
-        if filterText.isEmpty {
-            return searchRecords
+    // Computed property for filtered search records (alphabetically sorted)
+    private var filteredSearchRecords: [SearchRecord] {
+        let records = if filterText.isEmpty {
+            searchRecords
         } else {
-            return searchRecords.filter { record in
-                record.query.localizedCaseInsensitiveContains(filterText)
+            searchRecords.filter { record in
+                record.query.localizedCaseInsensitiveContains(filterText) ||
+                record.language.localizedCaseInsensitiveContains(filterText) ||
+                record.region.localizedCaseInsensitiveContains(filterText) ||
+                record.location.localizedCaseInsensitiveContains(filterText)
             }
         }
+        return records.sorted { $0.query.localizedCaseInsensitiveCompare($1.query) == .orderedAscending }
     }
     
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
-                // Header with Add New Search
+                // Search Parameters Configuration
                 VStack(spacing: 12) {
-                    Text("Automated Search Management")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .padding(.top)
+                    HStack {
+                        Image(systemName: "gear")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                        Text("Search Parameters")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                        Spacer()
+                    }
                     
-                    // Add New Search Section
-                    VStack(spacing: 8) {
-                        HStack {
-                            TextField("Search query", text: $newSearchQuery)
-                                .textFieldStyle(.roundedBorder)
-                            
-                            TextField("Time (HH:MM)", text: $newSearchTime)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 100)
-                            
-                            Toggle("Enabled", isOn: $newSearchEnabled)
-                                .toggleStyle(.switch)
+                    // Language and Region Row
+                    HStack(spacing: 8) {
+                        // Language Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "globe")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Language", selection: $language) {
+                                ForEach(LanguageHelper.languages, id: \.code) { language in
+                                    Text(language.name).tag(language.code)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
                         }
                         
-                        Button("Add Automated Search") {
+                        // Region Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "map")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Region", selection: $region) {
+                                ForEach(LanguageHelper.countries, id: \.code) { country in
+                                    Text(country.name).tag(country.code)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    // Safe Search and Type Row
+                    HStack(spacing: 8) {
+                        // Safe Search Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "shield")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Safe", selection: $safeSearch) {
+                                Text("Off").tag("off")
+                                Text("Active").tag("active")
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        // Search Type Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Type", selection: $searchType) {
+                                Text("All").tag("")
+                                Text("News").tag("nws")
+                                Text("Images").tag("isch")
+                                Text("Videos").tag("vid")
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    // Time Range and Location Row
+                    HStack(spacing: 8) {
+                        // Time Range Picker
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Picker("Time", selection: $timeRange) {
+                                Text("Any Time").tag("")
+                                Text("Past Hour").tag("qdr:h")
+                                Text("Past Day").tag("qdr:d")
+                                Text("Past Week").tag("qdr:w")
+                                Text("Past Month").tag("qdr:m")
+                                Text("Past Year").tag("qdr:y")
+                            }
+                            .pickerStyle(.menu)
+                            .font(.caption2)
+                        }
+                        
+                        // Location Field for City/Region
+                        HStack(spacing: 4) {
+                            Image(systemName: "building.2")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            TextField("City (e.g., Berlin, New York)", text: $location)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption2)
+                        }
+                        
+                        Spacer()
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(NSColor.controlBackgroundColor).opacity(0.4))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.blue.opacity(0.15), lineWidth: 0.5)
+                        )
+                )
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
+                
+                // Manual Search Field
+                HStack {
+                    TextField("Enter search query...", text: $newSearchQuery)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
                             addAutomatedSearch()
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(newSearchQuery.isEmpty)
+                    
+                    // Time Picker for Automation
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                        
+                        // Hour Picker (0-23)
+                        Picker("Hour", selection: $selectedHour) {
+                            ForEach(0..<24, id: \.self) { hour in
+                                Text(String(format: "%02d", hour)).tag(hour)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 80)
+                        
+                        Text(":")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        
+                        // Minute Picker (0-59)
+                        Picker("Minute", selection: $selectedMinute) {
+                            ForEach(0..<60, id: \.self) { minute in
+                                Text(String(format: "%02d", minute)).tag(minute)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 80)
                     }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
-                    .cornerRadius(8)
+                    
+                    Button(action: {
+                        addAutomatedSearch()
+                    }) {
+                        HStack {
+                            Image(systemName: "plus.circle")
+                            Text("Add")
+                        }
+                        .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(newSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
+                
+                // Timer Display
+                if !timeUntilNextSearch.isEmpty {
+                    HStack {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                        Text("Next search in: \(timeUntilNextSearch)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
                 }
                 
                 Divider()
@@ -233,52 +407,121 @@ struct SearchListView: View {
             for (index, record) in searchRecords.enumerated() {
                 DebugLogger.shared.logWebViewAction("🔍 SearchListView: Record \(index): '\(record.query)' (ID: \(record.id))")
             }
+            startTimer()
+        }
+        .onDisappear {
+            stopTimer()
         }
     }
     
     private func addAutomatedSearch() {
-        let newRecord = SearchRecord(
-            query: newSearchQuery,
-            language: "en",
-            region: "US",
-            location: "",
-            safeSearch: "off",
-            searchType: "",
-            timeRange: "",
-            numberOfResults: 20,
-            searchDuration: 0.0,
-            resultCount: 0,
-            results: [],
-            contentAnalysis: "",
-            headlinesCount: 0,
-            linksCount: 0,
-            contentBlocksCount: 0,
-            tagsCount: 0,
-            hasContentAnalysis: false,
-            linkContents: "",
-            hasLinkContents: false,
-            totalImagesDownloaded: 0,
-            totalContentSize: 0,
-            isEnabled: newSearchEnabled,
-            executionCount: 0,
-            lastExecutionDate: nil,
-            scheduledTime: newSearchTime,
-            dateRange: ""
-        )
-        
-        modelContext.insert(newRecord)
-        
-        do {
-            try modelContext.save()
-            DebugLogger.shared.logWebViewAction("✅ SearchListView: Added automated search '\(newSearchQuery)'")
-            
-            // Reset form
-            newSearchQuery = ""
-            newSearchTime = "10:00"
-            newSearchEnabled = true
-        } catch {
-            DebugLogger.shared.logWebViewAction("❌ SearchListView: Failed to add automated search: \(error.localizedDescription)")
+        if !newSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Task {
+                do {
+                    let viewModel = SearchViewModel()
+                    viewModel.modelContext = modelContext
+                    let record = try await viewModel.runSearch(
+                        query: newSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines),
+                        language: language,
+                        region: region,
+                        location: location,
+                        safe: safeSearch,
+                        tbm: searchType,
+                        tbs: "",
+                        as_qdr: timeRange,
+                        nfpr: "",
+                        filter: ""
+                    )
+                    
+                    // Set automation properties
+                    record.isEnabled = true
+                    record.scheduledTime = String(format: "%02d:%02d", selectedHour, selectedMinute)
+                    record.executionCount = 0
+                    record.lastExecutionDate = nil
+                    
+                    await MainActor.run {
+                        selectedSearchRecord = record
+                        newSearchQuery = "" // Clear search text after successful search
+                        DebugLogger.shared.logWebViewAction("✅ SearchListView: Added automated search '\(record.query)' with \(record.results.count) results")
+                    }
+                } catch {
+                    DebugLogger.shared.logWebViewAction("❌ SearchListView: Failed to create automated search: \(error)")
+                }
+            }
         }
+    }
+    
+    // MARK: - Timer Functions
+    private func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            updateTimeUntilNextSearch()
+        }
+        updateTimeUntilNextSearch() // Initial update
+    }
+    
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+    
+    private func updateTimeUntilNextSearch() {
+        let enabledSearches = searchRecords.filter { $0.isEnabled && !$0.scheduledTime.isEmpty }
+        
+        if enabledSearches.isEmpty {
+            timeUntilNextSearch = ""
+            return
+        }
+        
+        let now = Date()
+        let calendar = Calendar.current
+        
+        var nextSearchTime: Date?
+        
+        for search in enabledSearches {
+            let scheduledTime = parseScheduledTime(search.scheduledTime)
+            let scheduledHour = scheduledTime.hour
+            let scheduledMinute = scheduledTime.minute
+            
+            // Calculate next occurrence of this time today
+            var nextDate = calendar.date(bySettingHour: scheduledHour, minute: scheduledMinute, second: 0, of: now) ?? now
+            
+            // If the time has already passed today, move to tomorrow
+            if nextDate <= now {
+                nextDate = calendar.date(byAdding: .day, value: 1, to: nextDate) ?? now
+            }
+            
+            if nextSearchTime == nil || nextDate < nextSearchTime! {
+                nextSearchTime = nextDate
+            }
+        }
+        
+        if let nextTime = nextSearchTime {
+            let timeInterval = nextTime.timeIntervalSince(now)
+            let totalSeconds = Int(timeInterval)
+            let hours = totalSeconds / 3600
+            let minutes = (totalSeconds % 3600) / 60
+            let seconds = totalSeconds % 60
+            
+            if hours > 0 {
+                timeUntilNextSearch = String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            } else if minutes > 0 {
+                timeUntilNextSearch = String(format: "%d:%02d", minutes, seconds)
+            } else {
+                timeUntilNextSearch = String(format: "%ds", seconds)
+            }
+        } else {
+            timeUntilNextSearch = ""
+        }
+    }
+    
+    private func parseScheduledTime(_ timeString: String) -> (hour: Int, minute: Int) {
+        let components = timeString.split(separator: ":")
+        if components.count == 2,
+           let hour = Int(components[0]),
+           let minute = Int(components[1]) {
+            return (hour: hour, minute: minute)
+        }
+        return (hour: 0, minute: 0)
     }
     
     private func deleteSearchRecord(_ record: SearchRecord) {
@@ -319,7 +562,29 @@ struct SearchListRow: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
-                // Search Metadata as Tags
+                // Search Parameters as Tags
+                HStack {
+                    if !record.language.isEmpty {
+                        ParameterTag(label: "Lang", value: record.language)
+                    }
+                    if !record.region.isEmpty {
+                        ParameterTag(label: "Region", value: record.region)
+                    }
+                    if !record.location.isEmpty {
+                        ParameterTag(label: "Location", value: record.location)
+                    }
+                    if !record.safeSearch.isEmpty && record.safeSearch != "off" {
+                        ParameterTag(label: "Safe", value: record.safeSearch)
+                    }
+                    if !record.searchType.isEmpty {
+                        ParameterTag(label: "Type", value: record.searchType)
+                    }
+                    if !record.timeRange.isEmpty {
+                        ParameterTag(label: "Time", value: record.timeRange)
+                    }
+                }
+                
+                // Automation Metadata as Tags
                 HStack {
                     if record.executionCount > 0 {
                         ParameterTag(label: "Runs", value: "\(record.executionCount)")
@@ -331,6 +596,9 @@ struct SearchListRow: View {
                     }
                     if !record.results.isEmpty {
                         ParameterTag(label: "Results", value: "\(record.results.count)")
+                    }
+                    if !record.scheduledTime.isEmpty {
+                        ParameterTag(label: "Time", value: record.scheduledTime)
                     }
                 }
             }
