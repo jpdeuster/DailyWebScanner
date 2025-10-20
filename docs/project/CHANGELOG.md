@@ -58,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### v0.6.0 - Advanced Analytics (Q1 2025)
+### v0.6.0 - Advanced Analytics
 - [ ] **Search Pattern Analysis**: Track search trends over time
 - [ ] **Advanced Search Features**: Full-text search across stored content
 - [ ] **Performance Optimization**: Query performance improvements
@@ -67,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] **Keyboard Shortcuts**: Enhanced keyboard navigation
 - [ ] **Accessibility Improvements**: Better accessibility support
 
-### v0.7.0 - Smart Categorization (Q2 2025)
+### v0.7.0 - Smart Categorization
 - [ ] **AI-Powered Content Classification**: Automatic content categorization
 - [ ] **Advanced Tagging System**: Custom tag creation and management
 - [ ] **Content Insights**: Quality scoring and source reliability analysis
@@ -75,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] **Tag-based Filtering**: Filter content by tags
 - [ ] **Content Similarity**: Find similar articles
 
-### v0.8.0 - Export & Integration (Q3 2025)
+### v0.8.0 - Export & Integration
 - [ ] **Export Functionality**: Export to CSV, JSON, PDF, HTML
 - [ ] **Cloud Integration**: iCloud sync for data synchronization
 - [ ] **External Integrations**: Browser extension support
@@ -83,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] **Backup & Restore**: Data backup and restore functionality
 - [ ] **Cross-device Sync**: Share data across devices
 
-### v0.9.0 - Advanced AI Features (Q4 2025)
+### v0.9.0 - Advanced AI Features
 - [ ] **Intelligent Content Analysis**: Sentiment analysis and topic trends
 - [ ] **Personalized Recommendations**: AI-powered search suggestions
 - [ ] **Advanced Analytics Dashboard**: Visual analytics and charts
@@ -91,15 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] **Smart Query Completion**: AI-powered search query suggestions
 - [ ] **Content Summarization**: Improved AI summarization
 
-### v1.0.0 - Enterprise Features (Q1 2026)
-- [ ] **Multi-User Support**: User accounts and authentication
-- [ ] **Team Collaboration**: Shared search collections
-- [ ] **Enterprise Security**: Advanced encryption and audit logging
-- [ ] **Enterprise Analytics**: Team search analytics and reporting
-- [ ] **User Permission Management**: Role-based access control
-- [ ] **Scalable Architecture**: Support for large teams
-
-### v1.1+ - Future Releases
+### Future Releases
 - [ ] **Advanced Search Engines**: Multiple search providers
 - [ ] **Search Automation**: Automated search workflows
 - [ ] **Advanced Analytics**: Deep insights and reporting

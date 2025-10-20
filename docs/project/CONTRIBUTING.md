@@ -23,7 +23,7 @@ Thank you for your interest in contributing to DailyWebScanner! This document pr
 - Specify your macOS version and Xcode version
 
 ### Suggesting Features
-- Use [GitHub Discussions](https://github.com/jpdeuster/DailyWebScanner/discussions) for feature requests
+- **Feature requests coming soon** - GitHub Discussions will be available when repository is created
 - **I welcome all suggestions!** - Even wild ideas are appreciated
 - Describe the feature and its benefits
 - Consider the impact on existing functionality
@@ -68,9 +68,12 @@ Thank you for your interest in contributing to DailyWebScanner! This document pr
 
 ### Building
 ```bash
-# Clone the repository
-git clone https://github.com/jpdeuster/DailyWebScanner.git
-cd DailyWebScanner
+# Clone the repository (when available on GitHub)
+# git clone https://github.com/jpdeuster/DailyWebScanner.git
+# cd DailyWebScanner
+
+# For now, use local development:
+cd /path/to/DailyWebScanner
 
 # Open in Xcode
 open DailyWebScanner.xcodeproj
@@ -189,8 +192,8 @@ When suggesting features:
 ## 📞 Getting Help
 
 - **Issues**: [GitHub Issues](https://github.com/jpdeuster/DailyWebScanner/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/jpdeuster/DailyWebScanner/discussions)
-- **Security**: See [SECURITY.md](SECURITY.md) for security-related issues
+- **Discussions**: Coming soon on GitHub  
+- **Security**: See [SECURITY.md](docs/legal/SECURITY.md) for security-related issues
 - **Learning Questions**: Feel free to ask about Swift, macOS development, or any technical concepts
 
 ## 🙏 Recognition
