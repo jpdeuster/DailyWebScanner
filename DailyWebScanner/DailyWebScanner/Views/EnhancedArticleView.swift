@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 /// Enhanced article view with powerful content extraction and beautiful display
 struct EnhancedArticleView: View {
@@ -118,7 +119,8 @@ struct EnhancedArticleView: View {
                 // Nachladen direkt aus der DB, falls zum Zeitpunkt des Renderns noch leer
                 if imagesToShow.isEmpty {
                     do {
-                        let descriptor = FetchDescriptor<ImageRecord>(predicate: #Predicate { $0.linkRecordId == linkRecord.id })
+                        let targetId: UUID = linkRecord.id
+                        let descriptor = FetchDescriptor<ImageRecord>(predicate: #Predicate { $0.linkRecordId == targetId })
                         if let fetched = try? modelContext.fetch(descriptor), !fetched.isEmpty {
                             let mapped = fetched.map { rec in
                                 HTMLContentExtractor.ExtractedImage(
@@ -1790,7 +1792,7 @@ struct HTMLTabView: View {
             ScrollView {
                 if html.isEmpty {
                     VStack(spacing: 16) {
-                        Image(systemName: "doc.html")
+                        Image(systemName: "doc.text")
                             .font(.system(size: 48))
                             .foregroundColor(.gray)
                         Text("No HTML Content Available")
