@@ -424,6 +424,22 @@ struct ContentView: View {
                         // Fetch HTML content immediately to avoid network requests later
                         let htmlContent = await fetchHTMLFromURL(searchResult.link)
                         
+                        // Extract ALL content from HTML for fast access
+                        DebugLogger.shared.logWebViewAction("🔄 ContentView: Starting content extraction for '\(searchResult.title)'")
+                        let extractor = HTMLContentExtractor()
+                        let extractedContent = await extractor.extractContent(from: htmlContent, baseURL: searchResult.link)
+                        
+                        DebugLogger.shared.logWebViewAction("📊 ContentView: Extracted content - Text: \(extractedContent.mainText.count) chars, Links: \(extractedContent.links.count), Videos: \(extractedContent.videos.count), Images: \(extractedContent.images.count)")
+                        
+        // Save links as JSON (skip for now - need to make ExtractedLink Encodable)
+        let linksJSON = "" // (try? JSONEncoder().encode(extractedContent.links)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        
+        // Save videos as JSON (references only) - skip for now
+        let videosJSON = "" // (try? JSONEncoder().encode(extractedContent.videos)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        
+        // Save metadata as JSON - skip for now
+        let metadataJSON = "" // (try? JSONEncoder().encode(extractedContent.metadata)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                        
                         let linkRecord = LinkRecord(
                             searchRecordId: record.id,
                             originalUrl: searchResult.link,
@@ -431,11 +447,56 @@ struct ContentView: View {
                             content: searchResult.snippet,
                             html: htmlContent,  // ← HTML wird sofort geladen!
                             css: "",
+                            extractedText: extractedContent.mainText,  // ← Extracted text wird gespeichert!
                             fetchedAt: Date(),
                             articleDescription: searchResult.snippet,
                             wordCount: searchResult.snippet.split(separator: " ").count,
                             readingTime: max(1, searchResult.snippet.split(separator: " ").count / 200)
                         )
+                        
+                        // Download and save images to ImageRecord relationships
+                        for image in extractedContent.images {
+                            DebugLogger.shared.logWebViewAction("🖼️ ContentView: Downloading image: \(image.url)")
+                            
+                            // Download image data
+                            var localPath: String?
+                            var fileSize: Int = 0
+                            
+                            if let imageURL = URL(string: image.url) {
+                                do {
+                                    let (data, response) = try await URLSession.shared.data(from: imageURL)
+                                    fileSize = data.count
+                                    
+                                    // Save to local file system
+                                    let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                                    let imagesPath = documentsPath.appendingPathComponent("DailyWebScanner/Images")
+                                    try FileManager.default.createDirectory(at: imagesPath, withIntermediateDirectories: true)
+                                    
+                                    let fileName = "\(linkRecord.id.uuidString)_\(UUID().uuidString).jpg"
+                                    let fileURL = imagesPath.appendingPathComponent(fileName)
+                                    try data.write(to: fileURL)
+                                    localPath = fileURL.path
+                                    
+                                    DebugLogger.shared.logWebViewAction("💾 ContentView: Image saved to \(fileURL.path) (\(fileSize) bytes)")
+                                } catch {
+                                    DebugLogger.shared.logWebViewAction("❌ ContentView: Failed to download image \(image.url): \(error.localizedDescription)")
+                                }
+                            }
+                            
+                            let imageRecord = ImageRecord(
+                                linkRecordId: linkRecord.id,
+                                originalUrl: image.url,
+                                localPath: localPath,
+                                altText: image.alt,
+                                width: image.width,
+                                height: image.height,
+                                fileSize: fileSize,
+                                downloadedAt: Date()
+                            )
+                            linkRecord.images.append(imageRecord)
+                        }
+                        
+                        DebugLogger.shared.logWebViewAction("💾 ContentView: Saved complete content to database for '\(searchResult.title)'")
                         modelContext.insert(linkRecord)
                         DebugLogger.shared.logWebViewAction("Created LinkRecord with HTML: \(searchResult.title) (HTML length: \(htmlContent.count))")
                     }

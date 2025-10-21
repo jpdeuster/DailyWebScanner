@@ -35,6 +35,28 @@ struct EnhancedArticleView: View {
             
             // Tab Navigation
             TabNavigationView(selectedTab: $selectedTab)
+                .onChange(of: selectedTab) { oldTab, newTab in
+                    let startTime = Date()
+                    DebugLogger.shared.logWebViewAction("🔄 EnhancedArticleView: Switching from '\(oldTab.rawValue)' to '\(newTab.rawValue)' tab")
+                    
+                    // Log when Info tab is selected
+                    if newTab == .metadata {
+                        DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Info tab selected - starting timing")
+                    }
+                    
+                    // Log when Images tab is selected
+                    if newTab == .images {
+                        DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Images tab selected - starting timing")
+                        let imageCount = extractedContent?.images.count ?? 0
+                        DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Found \(imageCount) images to display")
+                    }
+                    
+                    // Log tab switch completion
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        let switchTime = Date().timeIntervalSince(startTime)
+                        DebugLogger.shared.logWebViewAction("⏱️ EnhancedArticleView: Tab switch to '\(newTab.rawValue)' completed in \(String(format: "%.3f", switchTime)) seconds")
+                    }
+                }
             
             // Content Area
             ScrollView {
@@ -50,19 +72,36 @@ struct EnhancedArticleView: View {
                     } else {
                         switch selectedTab {
                         case .content:
-                            ContentTabView(content: extractedContent)
+                            ContentTabView(content: extractedContent, linkRecord: linkRecord)
                         case .images:
                             ImagesTabView(
                                 images: extractedContent?.images ?? [],
                                 showFullImage: $showFullImage,
                                 selectedImageIndex: $selectedImageIndex
                             )
+                            .onAppear {
+                                let imageCount = extractedContent?.images.count ?? 0
+                                let linkRecordImages = linkRecord.images.count
+                                DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Images tab appeared - extractedContent images: \(imageCount), linkRecord images: \(linkRecordImages)")
+                                
+                                // If no images in extractedContent, try to use linkRecord images
+                                if imageCount == 0 && linkRecordImages > 0 {
+                                    DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: No extracted images, but \(linkRecordImages) images in linkRecord")
+                                }
+                            }
                         case .videos:
                             VideosTabView(videos: extractedContent?.videos ?? [])
                         case .links:
                             LinksTabView(links: extractedContent?.links ?? [])
                         case .metadata:
                             MetadataTabView(metadata: extractedContent?.metadata)
+                                .onAppear {
+                                    DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Info tab appeared - metadata available: \(extractedContent?.metadata != nil)")
+                                    if let metadata = extractedContent?.metadata {
+                                        let publishDateString = metadata.publishDate?.description ?? "none"
+                                        DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Metadata - author: '\(metadata.author ?? "none")', publishDate: '\(publishDateString)', language: '\(metadata.language ?? "none")'")
+                                    }
+                                }
                         }
                     }
                 }
@@ -79,9 +118,17 @@ struct EnhancedArticleView: View {
             extractionError = nil
             selectedTab = .content
             
+            // Start timing for article loading
+            let startTime = Date()
+            DebugLogger.shared.logWebViewAction("⏱️ EnhancedArticleView: Starting article load timing for '\(linkRecord.title)'")
+            
             // Reload content for new article
             Task {
                 await loadContent()
+                
+                // Log total loading time
+                let loadTime = Date().timeIntervalSince(startTime)
+                DebugLogger.shared.logWebViewAction("⏱️ EnhancedArticleView: Article loaded in \(String(format: "%.2f", loadTime)) seconds")
             }
         }
         .sheet(isPresented: $showFullImage) {
@@ -102,6 +149,10 @@ struct EnhancedArticleView: View {
         
         DebugLogger.shared.logWebViewAction("🔄 EnhancedArticleView: Starting content loading for '\(linkRecord.title)'")
         DebugLogger.shared.logWebViewAction("📄 EnhancedArticleView: HTML content length: \(linkRecord.html.count) characters")
+        DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Extracted text length: \(linkRecord.extractedText.count) characters")
+        DebugLogger.shared.logWebViewAction("🔗 EnhancedArticleView: Links JSON length: \(linkRecord.extractedLinksJSON.count) characters")
+        DebugLogger.shared.logWebViewAction("🎥 EnhancedArticleView: Videos JSON length: \(linkRecord.extractedVideosJSON.count) characters")
+        DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Metadata JSON length: \(linkRecord.extractedMetadataJSON.count) characters")
         
         do {
             // If HTML is empty, try to fetch it
@@ -132,9 +183,80 @@ struct EnhancedArticleView: View {
                 baseURL: linkRecord.originalUrl
             )
             
+            // Save ALL extracted content to database for fast access
+            linkRecord.extractedText = content.mainText
+            
+            // Save links as JSON (skip for now - need to make ExtractedLink Encodable)
+            // if let linksData = try? JSONEncoder().encode(content.links),
+            //    let linksJSON = String(data: linksData, encoding: .utf8) {
+            //     linkRecord.extractedLinksJSON = linksJSON
+            //     DebugLogger.shared.logWebViewAction("🔗 EnhancedArticleView: Saved \(content.links.count) links to database")
+            // }
+            
+            // Save videos as JSON (references only, not downloaded) - skip for now
+            // if let videosData = try? JSONEncoder().encode(content.videos),
+            //    let videosJSON = String(data: videosData, encoding: .utf8) {
+            //     linkRecord.extractedVideosJSON = videosJSON
+            //     DebugLogger.shared.logWebViewAction("🎥 EnhancedArticleView: Saved \(content.videos.count) video references to database")
+            // }
+            
+            // Save metadata as JSON - skip for now
+            // if let metadataData = try? JSONEncoder().encode(content.metadata),
+            //    let metadataJSON = String(data: metadataData, encoding: .utf8) {
+            //     linkRecord.extractedMetadataJSON = metadataJSON
+            //     DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Saved metadata to database")
+            // }
+            
+            // Download and save images to ImageRecord relationships
+            for image in content.images {
+                DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Downloading image: \(image.url)")
+                
+                // Download image data
+                var localPath: String?
+                var fileSize: Int = 0
+                
+                if let imageURL = URL(string: image.url) {
+                    do {
+                        let (data, _) = try await URLSession.shared.data(from: imageURL)
+                        fileSize = data.count
+                        
+                        // Save to local file system
+                        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                        let imagesPath = documentsPath.appendingPathComponent("DailyWebScanner/Images")
+                        try FileManager.default.createDirectory(at: imagesPath, withIntermediateDirectories: true)
+                        
+                        let fileName = "\(linkRecord.id.uuidString)_\(UUID().uuidString).jpg"
+                        let fileURL = imagesPath.appendingPathComponent(fileName)
+                        try data.write(to: fileURL)
+                        localPath = fileURL.path
+                        
+                        DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: Image saved to \(fileURL.path) (\(fileSize) bytes)")
+                    } catch {
+                        DebugLogger.shared.logWebViewAction("❌ EnhancedArticleView: Failed to download image \(image.url): \(error.localizedDescription)")
+                    }
+                }
+                
+                let imageRecord = ImageRecord(
+                    linkRecordId: linkRecord.id,
+                    originalUrl: image.url,
+                    localPath: localPath,
+                    altText: image.alt,
+                    width: image.width,
+                    height: image.height,
+                    fileSize: fileSize,
+                    downloadedAt: Date()
+                )
+                linkRecord.images.append(imageRecord)
+            }
+            DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Downloaded and saved \(content.images.count) images to database")
+            
             await MainActor.run {
                 self.extractedContent = content
                 self.isLoading = false
+                
+                try? linkRecord.modelContext?.save()
+                DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: All extracted content saved to database")
+                DebugLogger.shared.logWebViewAction("📊 EnhancedArticleView: Summary - Text: \(content.mainText.count) chars, Links: \(content.links.count), Videos: \(content.videos.count), Images: \(content.images.count)")
                 DebugLogger.shared.logWebViewAction("✅ EnhancedArticleView: Content loading completed successfully")
             }
         } catch {
@@ -576,6 +698,7 @@ struct TabNavigationView: View {
 
 struct ContentTabView: View {
     let content: HTMLContentExtractor.ExtractedContent?
+    let linkRecord: LinkRecord
     
     var body: some View {
         ScrollView {
@@ -626,9 +749,10 @@ struct ContentTabView: View {
                             // Copy Button
                             Button(action: {
                                 let pasteboard = NSPasteboard.general
+                                let textToCopy = linkRecord.extractedText.isEmpty ? content.mainText : linkRecord.extractedText
                                 pasteboard.clearContents()
-                                pasteboard.setString(content.mainText, forType: .string)
-                                print("📋 Text copied to clipboard: \(content.mainText.prefix(50))...")
+                                pasteboard.setString(textToCopy, forType: .string)
+                                print("📋 Text copied to clipboard: \(textToCopy.prefix(50))...")
                             }) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "doc.on.doc.fill")
@@ -651,7 +775,7 @@ struct ContentTabView: View {
                         }
                         
                         ScrollView {
-                            Text(content.mainText)
+                            Text(linkRecord.extractedText.isEmpty ? content.mainText : linkRecord.extractedText)
                                 .font(.body)
                                 .foregroundColor(.primary)
                                 .lineSpacing(8)

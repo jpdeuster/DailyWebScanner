@@ -10,6 +10,7 @@ final class LinkRecord: Identifiable {
     var content: String
     var html: String
     var css: String
+    var extractedText: String  // ← Extracted main text for fast access
     var fetchedAt: Date
     
     // Metadata
@@ -20,6 +21,11 @@ final class LinkRecord: Identifiable {
     var language: String?
     var wordCount: Int
     var readingTime: Int
+    
+    // Extracted Content (JSON strings for fast access)
+    var extractedLinksJSON: String = ""  // JSON of extracted links
+    var extractedVideosJSON: String = ""  // JSON of video references (not downloaded)
+    var extractedMetadataJSON: String = ""  // JSON of metadata
     
     // Images
     var imageCount: Int
@@ -42,7 +48,7 @@ final class LinkRecord: Identifiable {
     var htmlPreview: String  // Rendered HTML for preview
     
     init(id: UUID = UUID(), searchRecordId: UUID, originalUrl: String, title: String, 
-         content: String, html: String, css: String, fetchedAt: Date = .now,
+         content: String, html: String, css: String, extractedText: String = "", fetchedAt: Date = .now,
          author: String? = nil, publishDate: Date? = nil, articleDescription: String? = nil,
          keywords: String? = nil, language: String? = nil, wordCount: Int = 0,
          readingTime: Int = 0, imageCount: Int = 0, totalImageSize: Int = 0,
@@ -57,6 +63,7 @@ final class LinkRecord: Identifiable {
         self.content = content
         self.html = html
         self.css = css
+        self.extractedText = extractedText
         self.fetchedAt = fetchedAt
         self.author = author
         self.publishDate = publishDate

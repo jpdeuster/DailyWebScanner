@@ -4,9 +4,11 @@ import SwiftData
 struct SearchQueriesView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var linkRecords: [LinkRecord]
-    
+    @Query private var imageRecords: [ImageRecord]
     @State private var selectedLinkRecord: LinkRecord?
     @State private var filterText: String = ""
+    @State private var databaseSize: String = "Calculating..."
+    @State private var totalImagesSize: String = "Calculating..."
     
     // Computed property for filtered link records (alphabetically sorted)
     private var filteredLinkRecords: [LinkRecord] {
@@ -22,6 +24,7 @@ struct SearchQueriesView: View {
         }
         return records.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
+    
     
     var body: some View {
         NavigationSplitView {
@@ -119,7 +122,152 @@ struct SearchQueriesView: View {
         }
         .onAppear {
             DebugLogger.shared.logWebViewAction("SearchQueriesView appeared - linkRecords count: \(linkRecords.count)")
+            calculateDatabaseSize()
         }
+        .safeAreaInset(edge: .bottom) {
+            // Enhanced Database Status Bar
+            VStack(spacing: 0) {
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(Color.gray.opacity(0.3))
+                
+                HStack(spacing: 20) {
+                    // Database Size
+                    HStack(spacing: 6) {
+                        Image(systemName: "externaldrive.fill")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                        Text("Database:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(databaseSize)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    
+                    // Articles Count
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text.fill")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Text("Articles:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(linkRecords.count)")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    
+                    // Images Count & Size
+                    HStack(spacing: 6) {
+                        Image(systemName: "photo.fill")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Text("Images:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(imageRecords.count) (\(totalImagesSize))")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Spacer()
+                    
+                    // Refresh Button
+                    Button(action: {
+                        calculateDatabaseSize()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.caption)
+                            Text("Refresh")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh database statistics")
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.9))
+            }
+        }
+    }
+    
+    // Calculate database size and image statistics
+    private func calculateDatabaseSize() {
+        Task {
+            var totalSize: Int64 = 0
+            var totalImagesSize: Int64 = 0
+            
+            // Get real database file size
+            let databasePath = getDatabasePath()
+            let realDatabaseSize = getFileSize(at: databasePath)
+            
+            // Calculate LinkRecord sizes (approximation)
+            for record in linkRecords {
+                totalSize += Int64(record.html.count)
+                totalSize += Int64(record.extractedText.count)
+                totalSize += Int64(record.extractedLinksJSON.count)
+                totalSize += Int64(record.extractedVideosJSON.count)
+                totalSize += Int64(record.extractedMetadataJSON.count)
+                totalSize += Int64(record.content.count)
+                totalSize += Int64(record.title.count)
+                totalSize += Int64(record.originalUrl.count)
+            }
+            
+            // Calculate ImageRecord sizes (local files)
+            for image in imageRecords {
+                totalImagesSize += Int64(image.fileSize)
+                totalSize += Int64(image.fileSize)
+            }
+            
+            await MainActor.run {
+                // Use real database size if available, otherwise calculated size
+                let finalDatabaseSize = realDatabaseSize > 0 ? realDatabaseSize : totalSize
+                databaseSize = formatBytes(finalDatabaseSize)
+                self.totalImagesSize = formatBytes(totalImagesSize)
+                DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: Real DB size: \(formatBytes(realDatabaseSize)), Calculated: \(formatBytes(totalSize)), Images: \(imageRecords.count) (\(self.totalImagesSize))")
+            }
+        }
+    }
+    
+    // Get the actual database file path
+    private func getDatabasePath() -> String {
+        let containerURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        
+        // Get the actual bundle identifier dynamically
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "de.deusterdevelopment.DailyWebScanner"
+        let appContainerURL = containerURL.appendingPathComponent(bundleIdentifier)
+        let databaseURL = appContainerURL.appendingPathComponent("default.store")
+        
+        DebugLogger.shared.logWebViewAction("📁 SearchQueriesView: Database path: \(databaseURL.path)")
+        return databaseURL.path
+    }
+    
+    // Get file size in bytes
+    private func getFileSize(at path: String) -> Int64 {
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: path)
+            if let fileSize = attributes[.size] as? NSNumber {
+                return fileSize.int64Value
+            }
+        } catch {
+            DebugLogger.shared.logWebViewAction("⚠️ SearchQueriesView: Could not get database file size: \(error.localizedDescription)")
+        }
+        return 0
+    }
+    
+    // Format bytes to human readable string
+    private func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
     
     private func deleteLinkRecord(_ record: LinkRecord) {
