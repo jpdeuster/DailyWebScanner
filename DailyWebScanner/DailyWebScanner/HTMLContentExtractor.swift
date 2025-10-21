@@ -68,8 +68,14 @@ class HTMLContentExtractor: NSObject {
         
         let parser = HTMLParser()
         
+        // Try to isolate likely article markup before parsing to reduce boilerplate
+        let articleHTML = isolateArticleHTML(html)
+        if articleHTML.count != html.count {
+            DebugLogger.shared.logWebViewAction("🧩 HTMLContentExtractor: Using isolated <article>/<main> segment (length: \(articleHTML.count))")
+        }
+        
         // Parse HTML structure
-        let document = parser.parse(html)
+        let document = parser.parse(articleHTML)
         DebugLogger.shared.logWebViewAction("🌐 HTMLContentExtractor: HTML document parsed successfully")
         
         // Extract different content types with logging
@@ -100,6 +106,9 @@ class HTMLContentExtractor: NSObject {
         
         DebugLogger.shared.logWebViewAction("📈 HTMLContentExtractor: Content metrics - Words: \(wordCount), Reading time: \(readingTime) minutes")
         
+        // Improved author detection (prefer JSON-LD/meta over weak CSS text)
+        let smartAuthor = extractAuthorSmart(fromHTML: html)
+        
         let extractedContent = ExtractedContent(
             title: title,
             description: description,
@@ -108,7 +117,7 @@ class HTMLContentExtractor: NSObject {
             videos: videos,
             links: links,
             metadata: ContentMetadata(
-                author: metadata.author,
+                author: smartAuthor ?? metadata.author,
                 publishDate: metadata.publishDate,
                 category: metadata.category,
                 tags: metadata.tags,
@@ -392,6 +401,107 @@ class HTMLContentExtractor: NSObject {
             readingTime: 0 // Will be calculated separately
         )
     }
+
+    // Prefer structured data/meta; then heuristic. Return one name or nil
+    private func extractAuthorSmart(fromHTML html: String) -> String? {
+        // 1) JSON-LD schema.org Article/NewsArticle/BlogPosting: author.name or author[0].name
+        if let jsonAuthor = extractAuthorFromJSONLD(html: html) {
+            return jsonAuthor
+        }
+        // 2) Meta tags: article:author, name=author, twitter:creator (strip leading @)
+        if let metaAuthor = extractAuthorFromMeta(html: html) {
+            return metaAuthor
+        }
+        // 3) Heuristic Byline around common patterns (very conservative)
+        if let byline = extractBylineHeuristic(html: html) {
+            return byline
+        }
+        return nil
+    }
+
+    private func extractAuthorFromJSONLD(html: String) -> String? {
+        // Very lightweight: find <script type="application/ld+json"> blocks and look for "@type":"(Article|NewsArticle|BlogPosting)"
+        let pattern = "<script[^>]*type=\\\"application/ld\\+json\\\"[^>]*>([\\s\\S]*?)</script>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+        let range = NSRange(html.startIndex..., in: html)
+        let matches = regex.matches(in: html, options: [], range: range)
+        for m in matches {
+            guard let r = Range(m.range(at: 1), in: html) else { continue }
+            let json = String(html[r])
+            if let name = parseJSONLDAuthor(json: json) { return name }
+        }
+        return nil
+    }
+
+    private func parseJSONLDAuthor(json: String) -> String? {
+        // Nahezu-regexbasiert um Abhängigkeiten zu vermeiden; robust genug für häufige Fälle
+        // Entscheide nur, wenn ein Article‑Typ vorhanden ist.
+        let articlePattern = "\\\"@type\\\"\\s*:\\s*\\\"(Article|NewsArticle|BlogPosting)\\\""
+        guard (try? NSRegularExpression(pattern: articlePattern))?.firstMatch(in: json, range: NSRange(json.startIndex..., in: json)) != nil else { return nil }
+        // author als Objekt mit name
+        let namePattern = "\\\"author\\\"[\\s\\S]*?\\\"name\\\"\\s*:\\s*\\\"([^\\\"]{2,60})\\\""
+        if let rx = try? NSRegularExpression(pattern: namePattern), let m = rx.firstMatch(in: json, range: NSRange(json.startIndex..., in: json)), let r = Range(m.range(at: 1), in: json) {
+            let candidate = String(json[r]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if isLikelyPersonName(candidate) { return candidate }
+        }
+        // author als Array von Objekten
+        let arrayNamePattern = "\\\"author\\\"[\\s\\S]*?\\[([\\s\\S]*?)\\]"
+        if let rx = try? NSRegularExpression(pattern: arrayNamePattern), let m = rx.firstMatch(in: json, range: NSRange(json.startIndex..., in: json)), let r = Range(m.range(at: 1), in: json) {
+            let body = String(json[r])
+            let inner = "\\\"name\\\"\\s*:\\s*\\\"([^\\\"]{2,60})\\\""
+            if let rx2 = try? NSRegularExpression(pattern: inner), let m2 = rx2.firstMatch(in: body, range: NSRange(body.startIndex..., in: body)), let r2 = Range(m2.range(at: 1), in: body) {
+                let candidate = String(body[r2]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if isLikelyPersonName(candidate) { return candidate }
+            }
+        }
+        return nil
+    }
+
+    private func extractAuthorFromMeta(html: String) -> String? {
+        let patterns = [
+            "<meta[^>]*property=\\\"article:author\\\"[^>]*content=\\\"([^\\\"]{2,60})\\\"[^>]*>",
+            "<meta[^>]*name=\\\"author\\\"[^>]*content=\\\"([^\\\"]{2,60})\\\"[^>]*>",
+            "<meta[^>]*name=\\\"twitter:creator\\\"[^>]*content=\\\"([^\\\"]{2,60})\\\"[^>]*>"
+        ]
+        for p in patterns {
+            if let rx = try? NSRegularExpression(pattern: p, options: [.caseInsensitive]),
+               let m = rx.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+               let r = Range(m.range(at: 1), in: html) {
+                var candidate = String(html[r]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if candidate.hasPrefix("@") { candidate.removeFirst() }
+                if isLikelyPersonName(candidate) { return candidate }
+            }
+        }
+        return nil
+    }
+
+    private func extractBylineHeuristic(html: String) -> String? {
+        // Sehr konservatives Muster: „von <Name>“ / „By <Name>“ nahe dem Anfang
+        let snippet = String(html.prefix(10000))
+        let patterns = [
+            #"(?:\bvon\b|\bby\b)\s+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß'’\-]{1,}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'’\-]{1,}(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'’\-]{1,})?)"#
+        ]
+        for p in patterns {
+            if let rx = try? NSRegularExpression(pattern: p, options: [.caseInsensitive]),
+               let m = rx.firstMatch(in: snippet, range: NSRange(snippet.startIndex..., in: snippet)),
+               let r = Range(m.range(at: 1), in: snippet) {
+                let candidate = String(snippet[r]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if isLikelyPersonName(candidate) { return candidate }
+            }
+        }
+        return nil
+    }
+
+    private func isLikelyPersonName(_ s: String) -> Bool {
+        if s.count < 2 || s.count > 60 { return false }
+        if s.contains("@") || s.contains("http") { return false }
+        let words = s.split(separator: " ")
+        if words.count < 1 || words.count > 4 { return false }
+        // Basic character check
+        let allowed = CharacterSet.letters.union(.whitespaces).union(CharacterSet(charactersIn: "-'’"))
+        if s.unicodeScalars.contains(where: { !allowed.contains($0) }) { return false }
+        return true
+    }
     
     private func extractAuthor(from document: HTMLDocument) -> String? {
         let authorSelectors = [
@@ -533,6 +643,34 @@ class HTMLContentExtractor: NSObject {
         
         return nil
     }
+    
+    // Heuristic isolation of likely article content to improve mainText quality
+    private func isolateArticleHTML(_ html: String) -> String {
+        // 1) Prefer explicit <article> block
+        if let rangeStart = html.range(of: "<article", options: [.caseInsensitive]),
+           let closeRange = html.range(of: "</article>", options: [.caseInsensitive], range: rangeStart.lowerBound..<html.endIndex) {
+            return String(html[rangeStart.lowerBound..<closeRange.upperBound])
+        }
+        // 2) Fallback to <main>
+        if let rangeStart = html.range(of: "<main", options: [.caseInsensitive]),
+           let closeRange = html.range(of: "</main>", options: [.caseInsensitive], range: rangeStart.lowerBound..<html.endIndex) {
+            return String(html[rangeStart.lowerBound..<closeRange.upperBound])
+        }
+        // 3) Fallback: try common containers quickly by class hints; take a window
+        let hints = [
+            "article-content", "entry-content", "post-content", "content__article", "story-body", "c-article__body", "articleBody"
+        ]
+        for hint in hints {
+            if let hintRange = html.range(of: hint, options: [.caseInsensitive]) {
+                let startIndex = html[..<hintRange.lowerBound].range(of: "<div", options: [.backwards, .caseInsensitive])?.lowerBound ?? html.startIndex
+                let from = startIndex
+                let to = html.index(from, offsetBy: min(200_000, html.distance(from: from, to: html.endIndex)), limitedBy: html.endIndex) ?? html.endIndex
+                return String(html[from..<to])
+            }
+        }
+        // 4) Otherwise, return full HTML
+        return html
+    }
 }
 
 // MARK: - HTML Parser (Simplified)
@@ -572,20 +710,27 @@ class HTMLElement {
         // Extract text content from HTML and remove CSS/JS
         var cleanText = html
         
+        // Remove script and style blocks FIRST (so their contents don't leak when tags are stripped)
+        cleanText = cleanText.replacingOccurrences(of: "<script[^>]*>[\\s\\S]*?</script>", with: "", options: [.regularExpression, .caseInsensitive])
+        cleanText = cleanText.replacingOccurrences(of: "<style[^>]*>[\\s\\S]*?</style>", with: "", options: [.regularExpression, .caseInsensitive])
+        
+        // Remove HTML comments
+        cleanText = cleanText.replacingOccurrences(of: "<!--[\\s\\S]*?-->", with: "", options: .regularExpression)
+        
         // Remove HTML tags
         cleanText = cleanText.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
         
-        // Remove CSS blocks
-        cleanText = cleanText.replacingOccurrences(of: "<style[^>]*>.*?</style>", with: "", options: [.regularExpression, .caseInsensitive])
+        // Extra safety: strip leftover CSS blocks and at-rules that might have leaked as plain text
+        cleanText = cleanText.replacingOccurrences(of: "@media[^\\{]*\\{[\\s\\S]*?\\}", with: "", options: .regularExpression)
+        cleanText = cleanText.replacingOccurrences(of: "@keyframes[^\\{]*\\{[\\s\\S]*?\\}", with: "", options: .regularExpression)
+        cleanText = cleanText.replacingOccurrences(of: "/\\*[\\s\\S]*?\\*/", with: "", options: .regularExpression)
         
-        // Remove script blocks
-        cleanText = cleanText.replacingOccurrences(of: "<script[^>]*>.*?</script>", with: "", options: [.regularExpression, .caseInsensitive])
-        
-        // Remove CSS rules (standalone CSS)
+        // Remove remaining CSS rule bodies if any
         cleanText = cleanText.replacingOccurrences(of: "\\{[^}]*\\}", with: "", options: .regularExpression)
         
-        // Remove CSS selectors
+        // Remove CSS selectors fragments like .class or #id tokens (best-effort)
         cleanText = cleanText.replacingOccurrences(of: "\\.[a-zA-Z0-9_-]+", with: "", options: .regularExpression)
+        cleanText = cleanText.replacingOccurrences(of: "#[a-zA-Z0-9_-]+", with: "", options: .regularExpression)
         
         // Clean up multiple spaces and newlines
         cleanText = cleanText.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
