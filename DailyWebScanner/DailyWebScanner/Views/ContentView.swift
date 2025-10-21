@@ -255,7 +255,7 @@ struct ContentView: View {
                             }
                             
                             // Results List (non-clickable)
-                            List(searchRecord.results.prefix(10)) { result in
+                            List(searchRecord.results.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }.prefix(10)) { result in
                                 SearchResultRowView(result: result)
                             }
                             .listStyle(.plain)
@@ -822,7 +822,7 @@ struct SearchQueryDetailView: View {
                         }
                         
                         List {
-                            ForEach(searchRecord.results) { result in
+                            ForEach(searchRecord.results.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }) { result in
                                 SearchResultRow(result: result)
                                     .swipeActions {
                                         Button(role: .destructive) {

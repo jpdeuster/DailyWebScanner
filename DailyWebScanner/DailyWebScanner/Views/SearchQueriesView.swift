@@ -72,7 +72,7 @@ struct SearchQueriesView: View {
                 
                 // Link Records List
                 List(selection: $selectedLinkRecord) {
-                    ForEach(filteredLinkRecords) { record in
+                    ForEach(filteredLinkRecords.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }) { record in
                         NavigationLink(value: record) {
                             VStack(alignment: .leading, spacing: 4) {
                                 ArticleLinkRow(record: record) {
