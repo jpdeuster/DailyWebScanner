@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.0-beta] - 2024-12-19
+## [0.5.0-beta] - 2025-10-21
 
 ### Added
 - **Initial Beta Release** of DailyWebScanner
@@ -28,10 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 📰 **Article Management**: Complete article storage with LinkRecord system
 - 🎛️ **Per-Search Parameters**: Dynamic configuration for each search
 - 🪟 **Multi-Window Interface**: Separate windows for search, articles, and settings
-- 🤖 **AI Integration**: OpenAI and Google AI Overview support
-- 📊 **Search History**: Complete search and article history tracking
+- 🤖 **AI Integration**: OpenAI client code present (not tested)
+- 📊 **Search History**: Basic search record storage (SwiftData)
 - 🎨 **Modern UI**: SwiftUI-based interface with HTML rendering
-- 🌍 **International**: Supports multiple languages and regions
+- 🌍 **International**: Search parameters support multiple languages and regions
 - 🔒 **Security First**: Sandbox-compatible with secure Keychain storage
 - 📁 **Professional Structure**: Organized folder structure for maintainability
 
@@ -58,16 +58,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### v0.6.0 - Advanced Analytics
-- [ ] **Search Pattern Analysis**: Track search trends over time
-- [ ] **Advanced Search Features**: Full-text search across stored content
-- [ ] **Performance Optimization**: Query performance improvements
-- [ ] **Search Insights**: Generate search behavior reports
-- [ ] **Content Filtering**: Filter by date, author, domain
-- [ ] **Keyboard Shortcuts**: Enhanced keyboard navigation
-- [ ] **Accessibility Improvements**: Better accessibility support
+### v0.7.0 - Automated Search System
+- [x] **Enable/Disable Toggle**: Individual control for each automated search
+- [x] **Real-time Timer Display**: Live countdown to next search execution
+- [x] **Automatic Execution**: Searches run automatically at scheduled times
+- [x] **Persistent Timers**: Timer system survives app restarts
+- [x] **Global Timer Management**: Centralized monitoring of all enabled searches
+- [x] **Execution Tracking**: Count and timestamp of search executions
+- [x] **Debug Logging**: Comprehensive logging for automated search operations
 
-### v0.7.0 - Smart Categorization
+### v0.6.0 - HTML Viewer for Articles
+- [ ] **HTML Article Viewer**: Dedicated viewer for article content
+- [ ] **Enhanced Article Display**: Better formatting and readability
+- [ ] **Content Navigation**: Easy browsing through article list
+- [ ] **Search Integration**: Seamless connection with search results
+
+### v0.8.0 - Smart Categorization
 - [ ] **AI-Powered Content Classification**: Automatic content categorization
 - [ ] **Advanced Tagging System**: Custom tag creation and management
 - [ ] **Content Insights**: Quality scoring and source reliability analysis
@@ -91,9 +97,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] **Smart Query Completion**: AI-powered search query suggestions
 - [ ] **Content Summarization**: Improved AI summarization
 
-### Future Releases
-- [ ] **Advanced Search Engines**: Multiple search providers
-- [ ] **Search Automation**: Automated search workflows
-- [ ] **Advanced Analytics**: Deep insights and reporting
-- [ ] **Cloud Synchronization**: Enterprise cloud integration
-- [ ] **Cross-platform Support**: iOS and web versions
+### v1.0.0 - App Store Release
+- [ ] **App Store Submission**: Complete App Store submission process
+- [ ] **App Store Optimization**: Screenshots, descriptions, keywords
+- [ ] **Final Testing**: Comprehensive testing on all supported devices
+- [ ] **Privacy Policy**: Complete privacy policy and data handling
+- [ ] **Terms of Service**: App Store terms and conditions compliance
+- [ ] **Accessibility**: Full accessibility support for all users
+
+### v1.1.0 - iPad & iCloud Support
+- [ ] **iPad Support**: Universal app for macOS and iPad
+- [ ] **iCloud Integration**: Cross-device data synchronization
+- [ ] **Touch Interface**: Optimized for iPad touch interactions
+- [ ] **Universal Purchase**: Single purchase for macOS and iPad
+- [ ] **Cross-Device Sync**: Seamless data sharing between devices
+- [ ] **iPad-Specific UI**: Optimized layouts for tablet interface
+

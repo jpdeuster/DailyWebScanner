@@ -1,6 +1,6 @@
 # DailyWebScanner
 
-[![Version](https://img.shields.io/badge/version-0.5--beta-orange.svg)](https://github.com/jpdeuster/DailyWebScanner)
+[![Version](https://img.shields.io/badge/version-0.5.0-orange.svg)](https://github.com/jpdeuster/DailyWebScanner)
 [![macOS](https://img.shields.io/badge/macOS-14.0+-green.svg)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange.svg)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -15,7 +15,7 @@ DailyWebScanner is a powerful macOS application for comprehensive web search, co
 - **SwiftUI Interface** - Modern, native macOS application
 - **SwiftData Database** - Local data persistence with relationships
 - **Multi-Window Support** - Separate windows for different views
-- **AI Integration** - OpenAI and Google AI Overview support
+- **AI Integration** - OpenAI client code present (not tested) support
 
 ### **📚 Documentation**
 - **[Project Documentation](docs/project/)** - Main project information
@@ -69,23 +69,24 @@ open DailyWebScanner.xcodeproj
 - 🔒 **Security First**: Sandbox-compatible with secure Keychain storage
 - 📊 **Search History**: Automatically saves and displays past searches
 - 🎨 **Modern UI**: Responsive design with HTML rendering
-- 🌍 **International**: Supports multiple languages and regions
+- 🌍 **International**: Search parameters support multiple languages and regions
 
 ## 📊 Current Features
 
 ### **✅ Implemented (Beta 0.5)**
 - **Google Search Integration** - Via SerpAPI
 - **Content Analysis** - Full article extraction with images
-- **AI Integration** - OpenAI and Google AI Overview
+- **AI Integration** - OpenAI client code present (not tested)
 - **Per-Search Parameters** - Dynamic search configuration
 - **Multi-Window Interface** - Separate windows for different views
-- **Search History** - Complete search and article tracking
+- **Search History** - Basic search record storage
 
 ### **🔄 Planned Features**
-- **Advanced Analytics** - Search pattern analysis
-- **Smart Categorization** - AI-powered content classification
-- **Export Functionality** - Data export in various formats
-- **Cloud Integration** - iCloud sync for data synchronization
+- **HTML Article Viewer** - Enhanced article display and navigation (v0.6.0)
+- **Automated Search System** - Scheduled searches with timers (v0.7.0)
+- **Smart Categorization** - AI-powered content classification (v0.8.0)
+- **Export Functionality** - Data export in various formats (v0.9.0)
+- **Cloud Integration** - iCloud sync for data synchronization (v0.9.0)
 
 ## 🏗️ Architecture
 
@@ -111,8 +112,8 @@ DailyWebScanner/
 
 - **Current Version**: Beta 0.5
 - **Status**: Fully functional with core features
-- **Next Release**: v0.6.0 (Advanced Analytics)
-- **Target**: Enterprise v1.0.0
+- **Next Release**: v0.6.0 (HTML Viewer for Articles)
+- **Target**: App Store v1.0.0
 
 ## 📖 Documentation
 

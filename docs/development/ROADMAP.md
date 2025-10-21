@@ -30,29 +30,48 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 
 ## 🚀 **Next Releases**
 
-### **v0.6 - Advanced Analytics**
-- **Search Pattern Analysis** - Track trends and behavior
-- **Advanced Search Features** - Full-text search, filters
-- **Performance Optimization** - Faster queries, better memory usage
-- **Search History Analytics** - Usage insights and patterns
+### **v0.6.0 - HTML Viewer for Articles**
+- **HTML Article Viewer** - Dedicated viewer for article content
+- **Enhanced Article Display** - Better formatting and readability
+- **Content Navigation** - Easy browsing through article list
+- **Search Integration** - Seamless connection with search results
 
-### **v0.7 - Smart Categorization**
+### **v0.7.0 - Automated Search System**
+- **Enable/Disable Toggle** - Individual control for each automated search
+- **Real-time Timer Display** - Live countdown to next search execution
+- **Automatic Execution** - Searches run automatically at scheduled times
+- **Persistent Timers** - Timer system survives app restarts
+- **Global Timer Management** - Centralized monitoring of all enabled searches
+- **Execution Tracking** - Count and timestamp of search executions
+- **Debug Logging** - Comprehensive logging for automated search operations
+
+### **v0.8.0 - Smart Categorization**
 - **AI-Powered Classification** - Automatic content categorization
 - **Advanced Tagging** - Custom tags, hierarchies, auto-tagging
 - **Content Insights** - Quality scoring, source analysis
 - **Smart Recommendations** - AI-powered suggestions
 
-### **v0.8 - Export & Integration**
+### **v0.9.0 - Export & Integration**
 - **Export Functionality** - PDF, HTML, CSV exports
 - **Cloud Integration** - iCloud sync, cross-device sharing
 - **External Integrations** - Browser extensions, APIs
 - **Backup & Restore** - Data protection and migration
 
-### **v0.9 - Advanced AI Features**
-- **Multiple AI Providers** - Claude, Gemini, local models
-- **Intelligent Content Analysis** - Sentiment, trends, multi-language
-- **Personalized Recommendations** - AI-powered suggestions
-- **Advanced Analytics Dashboard** - Visual insights and metrics
+### **v1.0.0 - App Store Release**
+- **App Store Submission** - Complete App Store submission process
+- **App Store Optimization** - Screenshots, descriptions, keywords
+- **Final Testing** - Comprehensive testing on all supported devices
+- **Privacy Policy** - Complete privacy policy and data handling
+- **Terms of Service** - App Store terms and conditions compliance
+- **Accessibility** - Full accessibility support for all users
+
+### **v1.1.0 - iPad & iCloud Support**
+- **iPad Support** - Universal app for macOS and iPad
+- **iCloud Integration** - Cross-device data synchronization
+- **Touch Interface** - Optimized for iPad touch interactions
+- **Universal Purchase** - Single purchase for macOS and iPad
+- **Cross-Device Sync** - Seamless data sharing between devices
+- **iPad-Specific UI** - Optimized layouts for tablet interface
 
 ---
 

@@ -11,6 +11,7 @@ struct SearchListView: View {
     @State private var selectedMinute: Int = 0
     @State private var timeUntilNextSearch: String = ""
     @State private var timer: Timer?
+    @State private var globalTimer: Timer?
     // Search parameters using @AppStorage
     @AppStorage("automatedSearchLanguage") var language: String = ""
     @AppStorage("automatedSearchRegion") var region: String = ""
@@ -570,6 +571,96 @@ struct SearchListView: View {
         timer = nil
     }
     
+    private func startGlobalTimer() {
+        globalTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            checkAndExecuteAutomatedSearches()
+        }
+    }
+    
+    private func stopGlobalTimer() {
+        globalTimer?.invalidate()
+        globalTimer = nil
+    }
+    
+    private func checkAndExecuteAutomatedSearches() {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        for record in allSearchRecords {
+            guard record.isEnabled && !record.scheduledTime.isEmpty else { continue }
+            
+            let scheduledTime = parseScheduledTime(record.scheduledTime)
+            let scheduledHour = scheduledTime.hour
+            let scheduledMinute = scheduledTime.minute
+            
+            // Calculate next occurrence of this time today
+            var nextDate = calendar.date(bySettingHour: scheduledHour, minute: scheduledMinute, second: 0, of: now) ?? now
+            
+            // If the time has already passed today, move to tomorrow
+            if nextDate <= now {
+                nextDate = calendar.date(byAdding: .day, value: 1, to: nextDate) ?? now
+            }
+            
+            let timeInterval = nextDate.timeIntervalSince(now)
+            let totalSeconds = Int(timeInterval)
+            
+            // Check if it's time to execute the search (within 1 second tolerance)
+            if totalSeconds <= 1 && totalSeconds >= 0 {
+                executeGlobalAutomatedSearch(record)
+            }
+        }
+    }
+    
+    private func executeGlobalAutomatedSearch(_ record: AutomatedSearchRecord) {
+        DebugLogger.shared.logWebViewAction("🔄 Executing global automated search: \(record.query)")
+        
+        Task {
+            do {
+                let searchViewModel = SearchViewModel()
+                let searchResults = try await searchViewModel.runSearchForResults(
+                    query: record.query,
+                    language: record.language,
+                    region: record.region,
+                    location: record.location,
+                    safe: record.safe,
+                    tbm: record.tbm,
+                    tbs: record.tbs,
+                    as_qdr: record.as_qdr,
+                    nfpr: record.nfpr,
+                    filter: record.filter
+                )
+                
+                await MainActor.run {
+                    // Add results to the record
+                    record.results.append(contentsOf: searchResults)
+                    record.executionCount += 1
+                    record.lastExecutionDate = Date()
+                    
+                    // Convert SearchResults to LinkRecords for the article list
+                    for (_, searchResult) in searchResults.enumerated() {
+                        let linkRecord = LinkRecord(
+                            searchRecordId: record.id,
+                            originalUrl: searchResult.link,
+                            title: searchResult.title,
+                            content: searchResult.snippet,
+                            html: "",
+                            css: "",
+                            fetchedAt: Date(),
+                            articleDescription: searchResult.snippet,
+                            wordCount: searchResult.snippet.split(separator: " ").count,
+                            readingTime: max(1, searchResult.snippet.split(separator: " ").count / 200)
+                        )
+                        modelContext.insert(linkRecord)
+                    }
+                    
+                    DebugLogger.shared.logWebViewAction("✅ Global automated search completed: \(record.query) - \(searchResults.count) results")
+                }
+            } catch {
+                DebugLogger.shared.logWebViewAction("❌ Global automated search failed: \(record.query) - \(error)")
+            }
+        }
+    }
+    
     private func updateTimeUntilNextSearch() {
         let enabledSearches = allSearchRecords
         
@@ -652,6 +743,7 @@ struct SearchListView: View {
 struct SearchListRow: View {
     let record: AutomatedSearchRecord
     let onDelete: () -> Void
+    @Environment(\.modelContext) private var modelContext
     @State private var timeUntilNext: String = ""
     @State private var timer: Timer?
     
@@ -712,9 +804,33 @@ struct SearchListRow: View {
                         ParameterTag(label: "Next in", value: timeUntilNext, color: .blue)
                     }
                 }
+                
+                // Prominent Timer Display for Enabled Searches
+                if record.isEnabled && !record.scheduledTime.isEmpty && !timeUntilNext.isEmpty {
+                    HStack {
+                        Image(systemName: "clock.fill")
+                            .foregroundColor(.blue)
+                        Text("Next search in: \(timeUntilNext)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.top, 4)
+                }
             }
             
             Spacer()
+            
+            // Enable/Disable Toggle Button
+            Button(action: {
+                record.isEnabled.toggle()
+            }) {
+                Image(systemName: record.isEnabled ? "pause.circle.fill" : "play.circle.fill")
+                    .foregroundColor(record.isEnabled ? .orange : .green)
+                    .font(.title3)
+            }
+            .buttonStyle(.plain)
+            .help(record.isEnabled ? "Disable automated search" : "Enable automated search")
             
             // Delete Button
             Button(action: onDelete) {
@@ -790,6 +906,61 @@ struct SearchListRow: View {
             timeUntilNext = String(format: "%d:%02d", minutes, seconds)
         } else {
             timeUntilNext = String(format: "%ds", seconds)
+        }
+        
+        // Check if it's time to execute the search (within 1 second tolerance)
+        if totalSeconds <= 1 && totalSeconds >= 0 {
+            executeAutomatedSearch()
+        }
+    }
+    
+    private func executeAutomatedSearch() {
+        DebugLogger.shared.logWebViewAction("🔄 Executing automated search: \(record.query)")
+        
+        Task {
+            do {
+                let searchViewModel = SearchViewModel()
+                let searchResults = try await searchViewModel.runSearchForResults(
+                    query: record.query,
+                    language: record.language,
+                    region: record.region,
+                    location: record.location,
+                    safe: record.safe,
+                    tbm: record.tbm,
+                    tbs: record.tbs,
+                    as_qdr: record.as_qdr,
+                    nfpr: record.nfpr,
+                    filter: record.filter
+                )
+                
+                await MainActor.run {
+                    // Add results to the record
+                    record.results.append(contentsOf: searchResults)
+                    record.executionCount += 1
+                    record.lastExecutionDate = Date()
+                    
+                    // Convert SearchResults to LinkRecords for the article list
+                    for (_, searchResult) in searchResults.enumerated() {
+                        let linkRecord = LinkRecord(
+                            searchRecordId: record.id,
+                            originalUrl: searchResult.link,
+                            title: searchResult.title,
+                            content: searchResult.snippet,
+                            html: "",
+                            css: "",
+                            fetchedAt: Date(),
+                            articleDescription: searchResult.snippet,
+                            wordCount: searchResult.snippet.split(separator: " ").count,
+                            readingTime: max(1, searchResult.snippet.split(separator: " ").count / 200)
+                        )
+                        modelContext.insert(linkRecord)
+                    }
+                    
+                    DebugLogger.shared.logWebViewAction("✅ Automated search completed: \(record.query) - \(searchResults.count) results")
+                }
+            } catch {
+                DebugLogger.shared.logWebViewAction("❌ Automated search failed: \(record.query) - \(error)")
+            }
         }
     }
     
