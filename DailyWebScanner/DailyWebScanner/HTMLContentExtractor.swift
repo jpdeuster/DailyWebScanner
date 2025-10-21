@@ -88,7 +88,7 @@ class HTMLContentExtractor: NSObject {
         let mainText = extractMainText(from: document)
         DebugLogger.shared.logWebViewAction("📖 HTMLContentExtractor: Main text extracted: \(mainText.count) characters")
         
-        let images = extractImages(from: document, baseURL: baseURL)
+        let images = extractImagesFromHTML(articleHTML, baseURL: baseURL)
         DebugLogger.shared.logWebViewAction("🖼️ HTMLContentExtractor: Images found: \(images.count)")
         
         let videos = extractVideos(from: document, baseURL: baseURL)
@@ -98,7 +98,7 @@ class HTMLContentExtractor: NSObject {
         DebugLogger.shared.logWebViewAction("🔗 HTMLContentExtractor: Links found: \(links.count)")
         
         let metadata = extractMetadata(from: document)
-        DebugLogger.shared.logWebViewAction("📊 HTMLContentExtractor: Metadata extracted - Author: \(metadata.author ?? "None"), Language: \(metadata.language ?? "None")")
+        DebugLogger.shared.logWebViewAction("📊 HTMLContentExtractor: Metadata extracted - Author: \(metadata.author ?? "None"), Language: \(metadata.language ?? "None"), Tags: \(metadata.tags.count)")
         
         // Calculate reading metrics
         let wordCount = mainText.split(separator: " ").count
@@ -108,6 +108,7 @@ class HTMLContentExtractor: NSObject {
         
         // Improved author detection (prefer JSON-LD/meta over weak CSS text)
         let smartAuthor = extractAuthorSmart(fromHTML: html)
+        if let sa = smartAuthor { DebugLogger.shared.logWebViewAction("🧠 HTMLContentExtractor: Smart author detected: \(sa)") }
         
         let extractedContent = ExtractedContent(
             title: title,
@@ -235,40 +236,63 @@ class HTMLContentExtractor: NSObject {
     
     // MARK: - Image Extraction
     
-    private func extractImages(from document: HTMLDocument, baseURL: String) -> [ExtractedImage] {
-        var images: [ExtractedImage] = []
+    private func extractImagesFromHTML(_ html: String, baseURL: String) -> [ExtractedImage] {
+        var results: [ExtractedImage] = []
+        // Find all <img ...> tags
+        let imgTagPattern = "<img[^>]*>"
+        guard let tagRegex = try? NSRegularExpression(pattern: imgTagPattern, options: [.caseInsensitive]) else { return results }
+        let fullRange = NSRange(html.startIndex..., in: html)
+        let matches = tagRegex.matches(in: html, options: [], range: fullRange)
         
-        // Find all img elements
-        let imgElements = document.querySelectorAll("img")
-        
-        for (index, img) in imgElements.enumerated() {
-            let src = img.getAttribute("src") ?? ""
-            let alt = img.getAttribute("alt") ?? ""
-            let title = img.getAttribute("title") ?? ""
-            let width = Int(img.getAttribute("width") ?? "")
-            let height = Int(img.getAttribute("height") ?? "")
+        for m in matches {
+            guard let r = Range(m.range, in: html) else { continue }
+            let tag = String(html[r])
             
-            // Determine if this is likely the main image
-            let isMainImage = index == 0 || 
-                             alt.lowercased().contains("main") ||
-                             alt.lowercased().contains("featured") ||
-                             img.className.contains("main") ||
-                             img.className.contains("featured")
+            func attr(_ name: String) -> String? {
+                let pattern = "\\b\(name)\\s*=\\s*\"([^\"]*)\"|\\b\(name)\\s*=\\s*'([^']*)'|\\b\(name)\\s*=\\s*([^\\s>]+)"
+                if let rx = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+                    if let am = rx.firstMatch(in: tag, options: [], range: NSRange(tag.startIndex..., in: tag)) {
+                        for i in 1..<am.numberOfRanges {
+                            if let ar = Range(am.range(at: i), in: tag) {
+                                let val = String(tag[ar])
+                                if !val.isEmpty { return val }
+                            }
+                        }
+                    }
+                }
+                return nil
+            }
             
-            // Resolve relative URLs
-            let fullURL = resolveURL(src, baseURL: baseURL)
+            guard var src = attr("src"), !src.isEmpty else { continue }
+            let alt = attr("alt") ?? ""
+            let title = attr("title") ?? ""
+            let width = Int(attr("width") ?? "")
+            let height = Int(attr("height") ?? "")
             
-            images.append(ExtractedImage(
-                url: fullURL,
+            // Resolve relative and protocol-relative URLs; allow data URLs as-is
+            if !src.lowercased().hasPrefix("data:") {
+                src = resolveURL(src, baseURL: baseURL)
+            }
+            
+            results.append(ExtractedImage(
+                url: src,
                 alt: alt,
                 caption: title,
                 width: width,
                 height: height,
-                isMainImage: isMainImage
+                isMainImage: false
             ))
         }
         
-        return images
+        // Deduplicate by URL
+        var seen: Set<String> = []
+        results = results.filter { img in
+            if seen.contains(img.url) { return false }
+            seen.insert(img.url)
+            return true
+        }
+        
+        return results
     }
     
     // MARK: - Video Extraction
@@ -605,19 +629,25 @@ class HTMLContentExtractor: NSObject {
     // MARK: - Helper Methods
     
     private func resolveURL(_ url: String, baseURL: String) -> String {
-        if url.hasPrefix("http://") || url.hasPrefix("https://") {
-            return url
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.lowercased().hasPrefix("http://") || trimmed.lowercased().hasPrefix("https://") {
+            return trimmed
         }
-        
-        if url.hasPrefix("//") {
-            return "https:" + url
+        if trimmed.lowercased().hasPrefix("data:") {
+            return trimmed
         }
-        
-        if url.hasPrefix("/") {
-            return baseURL + url
+        if trimmed.hasPrefix("//") {
+            // Keep scheme from base if possible, else https
+            if let base = URL(string: baseURL), let scheme = base.scheme {
+                return "\(scheme):\(trimmed)"
+            }
+            return "https:\(trimmed)"
         }
-        
-        return baseURL + "/" + url
+        // Use Foundation URL resolution for relative paths
+        if let base = URL(string: baseURL), let resolved = URL(string: trimmed, relativeTo: base)?.absoluteURL {
+            return resolved.absoluteString
+        }
+        return trimmed
     }
     
     private func parseDate(_ dateString: String) -> Date? {

@@ -11,6 +11,7 @@ struct EnhancedArticleView: View {
     @State private var selectedTab: ArticleTab = .content
     @State private var showFullImage: Bool = false
     @State private var selectedImageIndex: Int = 0
+    @Environment(\.modelContext) private var modelContext
     
     enum ArticleTab: String, CaseIterable {
         case content = "Text View"
@@ -82,7 +83,7 @@ struct EnhancedArticleView: View {
         case .html:
             HTMLTabView(html: linkRecord.html, css: linkRecord.css, url: linkRecord.originalUrl)
                                 .onAppear {
-                                    DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: HTML tab appeared - HTML length: \(linkRecord.html.count) characters")
+                                    DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: HTML tab appeared - HTML length: \(linkRecord.html.count) characters, CSS length: \(linkRecord.css.count) characters, baseURL: \(linkRecord.originalUrl)")
                                     if linkRecord.html.isEmpty {
                                         DebugLogger.shared.logWebViewAction("⚠️ EnhancedArticleView: HTML content is empty!")
                                     } else {
@@ -91,10 +92,15 @@ struct EnhancedArticleView: View {
                                 }
         case .images:
             // Prefer locally saved images; map localPath to file:// URL for offline rendering
-            let imagesToShow = !linkRecord.images.isEmpty ? linkRecord.images.map { imageRecord in
-                let url = (imageRecord.localPath.map { "file://\($0)" }) ?? imageRecord.originalUrl
+            var imagesToShow = !linkRecord.images.isEmpty ? linkRecord.images.map { imageRecord in
+                let urlString: String
+                if let path = imageRecord.localPath {
+                    urlString = URL(fileURLWithPath: path).absoluteString
+                } else {
+                    urlString = imageRecord.originalUrl
+                }
                 return HTMLContentExtractor.ExtractedImage(
-                    url: url,
+                    url: urlString,
                     alt: imageRecord.altText ?? "",
                     caption: "",
                     width: nil,
@@ -102,33 +108,69 @@ struct EnhancedArticleView: View {
                     isMainImage: false
                 )
             } : (extractedContent?.images ?? [])
-                            
-                            ImagesTabView(
-                                images: imagesToShow,
-                                showFullImage: $showFullImage,
-                                selectedImageIndex: $selectedImageIndex
-                            )
-                            .onAppear {
-                                let imageCount = extractedContent?.images.count ?? 0
-                                let linkRecordImages = linkRecord.images.count
-                                DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Images tab appeared - extractedContent images: \(imageCount), linkRecord images: \(linkRecordImages)")
-                                
-                                // If no images in extractedContent, try to use linkRecord images
-                                if imageCount == 0 && linkRecordImages > 0 {
-                                    DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: No extracted images, but \(linkRecordImages) images in linkRecord")
-                                }
+            
+            ImagesTabView(
+                images: imagesToShow,
+                showFullImage: $showFullImage,
+                selectedImageIndex: $selectedImageIndex
+            )
+            .onAppear {
+                // Nachladen direkt aus der DB, falls zum Zeitpunkt des Renderns noch leer
+                if imagesToShow.isEmpty {
+                    do {
+                        let descriptor = FetchDescriptor<ImageRecord>(predicate: #Predicate { $0.linkRecordId == linkRecord.id })
+                        if let fetched = try? modelContext.fetch(descriptor), !fetched.isEmpty {
+                            let mapped = fetched.map { rec in
+                                HTMLContentExtractor.ExtractedImage(
+                                    url: (rec.localPath.map { URL(fileURLWithPath: $0).absoluteString }) ?? rec.originalUrl,
+                                    alt: rec.altText ?? "",
+                                    caption: "",
+                                    width: rec.width,
+                                    height: rec.height,
+                                    isMainImage: false
+                                )
                             }
+                            self.extractedContent = HTMLContentExtractor.ExtractedContent(
+                                title: extractedContent?.title ?? linkRecord.title,
+                                description: extractedContent?.description ?? (linkRecord.articleDescription ?? ""),
+                                mainText: extractedContent?.mainText ?? linkRecord.extractedText,
+                                images: mapped,
+                                videos: extractedContent?.videos ?? [],
+                                links: extractedContent?.links ?? [],
+                                metadata: extractedContent?.metadata ?? HTMLContentExtractor.ContentMetadata(author: linkRecord.author, publishDate: linkRecord.publishDate, category: nil, tags: [], language: linkRecord.language, wordCount: linkRecord.wordCount, readingTime: linkRecord.readingTime),
+                                readingTime: extractedContent?.readingTime ?? linkRecord.readingTime,
+                                wordCount: extractedContent?.wordCount ?? linkRecord.wordCount
+                            )
+                            imagesToShow = mapped
+                            DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Fetched \(mapped.count) images from DB onAppear")
+                        }
+                    }
+                }
+                let imageCount = imagesToShow.count
+                let linkRecordImages = linkRecord.images.count
+                let sample = imagesToShow.prefix(3).map { $0.url }.joined(separator: ", ")
+                DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Images tab appeared - toShow: \(imageCount), linkRecord images: \(linkRecordImages), sample: [\(sample)]")
+                
+                if imageCount == 0 && linkRecordImages > 0 {
+                    DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: No extracted images, but \(linkRecordImages) images in linkRecord")
+                }
+            }
         case .videos:
             VideosTabView(videos: extractedContent?.videos ?? [])
         case .links:
             LinksTabView(links: decodedLinks() ?? (extractedContent?.links ?? []))
+                .onAppear {
+                    let count = (decodedLinks() ?? (extractedContent?.links ?? [])).count
+                    let sample = (decodedLinks() ?? (extractedContent?.links ?? [])).prefix(3).map { $0.url }.joined(separator: ", ")
+                    DebugLogger.shared.logWebViewAction("🔗 EnhancedArticleView: Links tab appeared - count: \(count), sample: [\(sample)]")
+                }
         case .metadata:
             MetadataTabView(metadata: decodedMetadata() ?? extractedContent?.metadata)
                                 .onAppear {
                                     DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Info tab appeared - metadata available: \(extractedContent?.metadata != nil)")
-                                    if let metadata = extractedContent?.metadata {
+                                    if let metadata = decodedMetadata() ?? extractedContent?.metadata {
                                         let publishDateString = metadata.publishDate?.description ?? "none"
-                                        DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Metadata - author: '\(metadata.author ?? "none")', publishDate: '\(publishDateString)', language: '\(metadata.language ?? "none")'")
+                                        DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Metadata - author: '\(metadata.author ?? "none")', publishDate: '\(publishDateString)', language: '\(metadata.language ?? "none")', tags: \(metadata.tags.count)")
                                     }
                                 }
                         }
@@ -212,13 +254,14 @@ struct EnhancedArticleView: View {
                 let meta = decodedMetadata()
                 let words = (linkRecord.extractedText.isEmpty ? linkRecord.html : linkRecord.extractedText).split(separator: " ").count
                 let reading = max(1, words / 200)
+                DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: Constructing content from DB cache - text: \(linkRecord.extractedText.count) chars, links: \(links.count), images: \(linkRecord.images.count)")
                 self.extractedContent = HTMLContentExtractor.ExtractedContent(
                     title: linkRecord.title,
                     description: linkRecord.articleDescription ?? "",
                     mainText: linkRecord.extractedText,
                     images: linkRecord.images.map { img in
                         HTMLContentExtractor.ExtractedImage(
-                            url: (img.localPath.map { "file://\($0)" }) ?? img.originalUrl,
+                            url: (img.localPath.map { URL(fileURLWithPath: $0).absoluteString }) ?? img.originalUrl,
                             alt: img.altText ?? "",
                             caption: "",
                             width: img.width,
@@ -287,20 +330,35 @@ struct EnhancedArticleView: View {
                 
                 if let imageURL = URL(string: image.url) {
                     do {
-                        let (data, _) = try await URLSession.shared.data(from: imageURL)
-                        fileSize = data.count
-                        
-                        // Save to local file system
-                        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-                        let imagesPath = documentsPath.appendingPathComponent("DailyWebScanner/Images")
-                        try FileManager.default.createDirectory(at: imagesPath, withIntermediateDirectories: true)
-                        
-                        let fileName = "\(linkRecord.id.uuidString)_\(UUID().uuidString).jpg"
-                        let fileURL = imagesPath.appendingPathComponent(fileName)
-                        try data.write(to: fileURL)
-                        localPath = fileURL.path
-                        
-                        DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: Image saved to \(fileURL.path) (\(fileSize) bytes)")
+                        if imageURL.isFileURL {
+                            let data = try Data(contentsOf: imageURL)
+                            fileSize = data.count
+                            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                            let imagesPath = documentsPath.appendingPathComponent("DailyWebScanner/Images")
+                            try FileManager.default.createDirectory(at: imagesPath, withIntermediateDirectories: true)
+                            let fileName = "\(linkRecord.id.uuidString)_\(UUID().uuidString).jpg"
+                            let fileURL = imagesPath.appendingPathComponent(fileName)
+                            try data.write(to: fileURL)
+                            localPath = fileURL.path
+                            DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: Copied local image to \(fileURL.path) (\(fileSize) bytes)")
+                        } else {
+                            let (data, response) = try await URLSession.shared.data(from: imageURL)
+                            fileSize = data.count
+                            if let http = response as? HTTPURLResponse {
+                                DebugLogger.shared.logWebViewAction("📡 EnhancedArticleView: Image HTTP Status \(http.statusCode) for \(image.url)")
+                            }
+                            // Save to local file system
+                            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                            let imagesPath = documentsPath.appendingPathComponent("DailyWebScanner/Images")
+                            try FileManager.default.createDirectory(at: imagesPath, withIntermediateDirectories: true)
+                            
+                            let fileName = "\(linkRecord.id.uuidString)_\(UUID().uuidString).jpg"
+                            let fileURL = imagesPath.appendingPathComponent(fileName)
+                            try data.write(to: fileURL)
+                            localPath = fileURL.path
+                            
+                            DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: Image saved to \(fileURL.path) (\(fileSize) bytes)")
+                        }
                     } catch {
                         DebugLogger.shared.logWebViewAction("❌ EnhancedArticleView: Failed to download image \(image.url): \(error.localizedDescription)")
                     }
@@ -863,7 +921,6 @@ struct ContentTabView: View {
                                     .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                             )
                     )
-                    .frame(maxHeight: 400) // Begrenzte Höhe für bessere UX
                 }
             } else {
                 VStack(spacing: 20) {
@@ -917,6 +974,8 @@ struct ImagesTabView: View {
             }
             .onAppear {
                 DebugLogger.shared.logWebViewAction("🖼️ ImagesTabView: Displaying \(images.count) images")
+                let sample = images.prefix(3).map { $0.url }.joined(separator: ", ")
+                DebugLogger.shared.logWebViewAction("🖼️ ImagesTabView: Sample URLs: [\(sample)]")
             }
         }
     }
@@ -927,6 +986,7 @@ struct ImageCardView: View {
     let onTap: () -> Void
     @State private var imageData: Data?
     @State private var isLoading: Bool = true
+    @State private var loadedByteCount: Int?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -974,6 +1034,22 @@ struct ImageCardView: View {
             .task {
                 await loadImage()
             }
+            .contextMenu {
+                Button("Bild sichern…") {
+                    Task { await saveImage() }
+                }
+                if let url = URL(string: image.url) {
+                    if url.isFileURL {
+                        Button("Im Finder anzeigen") {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        }
+                    } else {
+                        Button("Bild-URL im Browser öffnen") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
+            }
             
             // Image info
             VStack(alignment: .leading, spacing: 4) {
@@ -983,30 +1059,30 @@ struct ImageCardView: View {
                         .fontWeight(.medium)
                         .lineLimit(2)
                 }
-                
                 if !image.caption.isEmpty {
                     Text(image.caption)
                         .font(.caption2)
                         .foregroundColor(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
-                
-                if let width = image.width, let height = image.height {
-                    Text("\(width) × \(height)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                
-                if image.isMainImage {
-                    HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
+                // Größe und Quelle
+                HStack(spacing: 6) {
+                    if let bytes = loadedByteCount {
+                        Text(byteString(bytes))
                             .font(.caption2)
-                            .foregroundColor(.orange)
-                        Text("Main Image")
+                            .foregroundColor(.secondary)
+                    }
+                    if let url = URL(string: image.url) {
+                        Text(url.isFileURL ? "Local" : "Remote")
                             .font(.caption2)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.secondary)
                     }
                 }
+                // Quelle (gekürzt)
+                Text(image.url)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
         }
         .padding()
@@ -1021,20 +1097,93 @@ struct ImageCardView: View {
             await MainActor.run {
                 isLoading = false
             }
+            DebugLogger.shared.logWebViewAction("❌ ImageCardView: Invalid URL: \(image.url)")
             return
         }
         
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            await MainActor.run {
-                self.imageData = data
-                self.isLoading = false
+            if url.isFileURL {
+                let data = try Data(contentsOf: url)
+                await MainActor.run {
+                    self.imageData = data
+                    self.loadedByteCount = data.count
+                    self.isLoading = false
+                }
+                DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded local image (\(data.count) bytes) from \(url.path)")
+            } else {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                await MainActor.run {
+                    self.imageData = data
+                    self.loadedByteCount = data.count
+                    self.isLoading = false
+                }
+                if let http = response as? HTTPURLResponse {
+                    DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded remote image (\(data.count) bytes), HTTP \(http.statusCode) from \(url.absoluteString)")
+                } else {
+                    DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded remote image (\(data.count) bytes) from \(url.absoluteString)")
+                }
             }
         } catch {
             await MainActor.run {
                 self.isLoading = false
             }
+            DebugLogger.shared.logWebViewAction("❌ ImageCardView: Failed to load image \(url.absoluteString) - \(error.localizedDescription)")
         }
+    }
+    
+    private func saveImage() async {
+        // Daten sicherstellen
+        var dataToSave: Data?
+        if let data = imageData {
+            dataToSave = data
+        } else if let url = URL(string: image.url) {
+            do {
+                if url.isFileURL {
+                    dataToSave = try Data(contentsOf: url)
+                } else {
+                    let (data, _) = try await URLSession.shared.data(from: url)
+                    dataToSave = data
+                }
+            } catch {
+                DebugLogger.shared.logWebViewAction("❌ ImageCardView: Failed to fetch image for save - \(error.localizedDescription)")
+            }
+        }
+        guard let finalData = dataToSave else { return }
+        
+        await MainActor.run {
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.jpeg, .png, .tiff]
+            panel.canCreateDirectories = true
+            panel.isExtensionHidden = false
+            let suggested = suggestedFileName()
+            panel.nameFieldStringValue = suggested
+            if panel.runModal() == .OK, let url = panel.url {
+                do {
+                    try finalData.write(to: url)
+                    DebugLogger.shared.logWebViewAction("💾 ImageCardView: Image saved to \(url.path)")
+                } catch {
+                    DebugLogger.shared.logWebViewAction("❌ ImageCardView: Failed to save image - \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private func suggestedFileName() -> String {
+        if let url = URL(string: image.url) {
+            if url.isFileURL {
+                return url.lastPathComponent
+            } else {
+                let name = url.lastPathComponent
+                return name.isEmpty ? "image.jpg" : name
+            }
+        }
+        return "image.jpg"
+    }
+    
+    private func byteString(_ bytes: Int) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(bytes))
     }
 }
 
@@ -1471,6 +1620,22 @@ struct FullScreenImageView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding()
+            .contextMenu {
+                Button("Bild sichern…") {
+                    Task { await saveCurrent() }
+                }
+                if let url = URL(string: images[selectedIndex].url) {
+                    if url.isFileURL {
+                        Button("Im Finder anzeigen") {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        }
+                    } else {
+                        Button("Bild-URL im Browser öffnen") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
+            }
         }
         .task {
             await loadImage()
@@ -1490,6 +1655,7 @@ struct FullScreenImageView: View {
             await MainActor.run {
                 isLoading = false
             }
+            DebugLogger.shared.logWebViewAction("❌ FullScreenImageView: Invalid URL: \(image.url)")
             return
         }
         
@@ -1498,16 +1664,78 @@ struct FullScreenImageView: View {
         }
         
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            await MainActor.run {
-                self.imageData = data
-                self.isLoading = false
+            if url.isFileURL {
+                let data = try Data(contentsOf: url)
+                await MainActor.run {
+                    self.imageData = data
+                    self.isLoading = false
+                }
+                DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded local image (\(data.count) bytes) from \(url.path)")
+            } else {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                await MainActor.run {
+                    self.imageData = data
+                    self.isLoading = false
+                }
+                if let http = response as? HTTPURLResponse {
+                    DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded remote image (\(data.count) bytes), HTTP \(http.statusCode) from \(url.absoluteString)")
+                } else {
+                    DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded remote image (\(data.count) bytes) from \(url.absoluteString)")
+                }
             }
         } catch {
             await MainActor.run {
                 self.isLoading = false
             }
+            DebugLogger.shared.logWebViewAction("❌ FullScreenImageView: Failed to load image \(url.absoluteString) - \(error.localizedDescription)")
         }
+    }
+    
+    private func saveCurrent() async {
+        guard selectedIndex < images.count else { return }
+        let item = images[selectedIndex]
+        var dataToSave: Data?
+        if let data = imageData {
+            dataToSave = data
+        } else if let url = URL(string: item.url) {
+            do {
+                if url.isFileURL {
+                    dataToSave = try Data(contentsOf: url)
+                } else {
+                    let (data, _) = try await URLSession.shared.data(from: url)
+                    dataToSave = data
+                }
+            } catch {
+                DebugLogger.shared.logWebViewAction("❌ FullScreenImageView: Failed to fetch image for save - \(error.localizedDescription)")
+            }
+        }
+        guard let finalData = dataToSave else { return }
+        
+        await MainActor.run {
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.jpeg, .png, .tiff]
+            panel.canCreateDirectories = true
+            panel.isExtensionHidden = false
+            let suggested = suggestedFileName(for: item)
+            panel.nameFieldStringValue = suggested
+            if panel.runModal() == .OK, let url = panel.url {
+                do {
+                    try finalData.write(to: url)
+                    DebugLogger.shared.logWebViewAction("💾 FullScreenImageView: Image saved to \(url.path)")
+                } catch {
+                    DebugLogger.shared.logWebViewAction("❌ FullScreenImageView: Failed to save image - \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private func suggestedFileName(for img: HTMLContentExtractor.ExtractedImage) -> String {
+        if let url = URL(string: img.url) {
+            if url.isFileURL { return url.lastPathComponent }
+            let name = url.lastPathComponent
+            return name.isEmpty ? "image.jpg" : name
+        }
+        return "image.jpg"
     }
 }
 
@@ -1522,7 +1750,7 @@ struct HTMLTabView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
-                Image(systemName: "doc.html")
+                Image(systemName: "doc.text")
                     .font(.caption)
                     .foregroundColor(.orange)
                 Text("HTML Source")
