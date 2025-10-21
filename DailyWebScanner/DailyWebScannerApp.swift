@@ -24,6 +24,7 @@ class SettingsWindowDelegate: NSObject, NSWindowDelegate {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    var modelContainer: ModelContainer?
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // App NICHT beenden, wenn das letzte Fenster geschlossen wurde
         // (Standardverhalten vieler macOS-Apps; verhindert Beenden durch Settings-Fenster)
@@ -64,7 +65,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+        
+        // Debug: Show automated search status after app startup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.logAutomatedSearchStatus()
+        }
     }
+    
+    private func logAutomatedSearchStatus() {
+        DebugLogger.shared.logWebViewAction("🚀 APP STARTUP - AUTOMATED SEARCH STATUS")
+        DebugLogger.shared.logWebViewAction("📊 AUTOMATED SEARCH SUMMARY:")
+        DebugLogger.shared.logWebViewAction("   Debug logging will be available when SearchListView loads")
+        DebugLogger.shared.logWebViewAction("   Use ⌘R to open Automated Search window for detailed status")
+    }
+    
     
     private func checkForExistingInstance() {
         // Prüfe, ob bereits eine andere Instanz der App läuft

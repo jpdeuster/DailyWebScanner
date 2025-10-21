@@ -362,102 +362,52 @@ struct SearchListView: View {
             .frame(minWidth: 300)
         } detail: {
             if let searchRecord = selectedSearchRecord {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Search Details")
-                        .font(.title2)
-                        .fontWeight(.bold)
+                VStack(spacing: 16) {
+                    // Beautiful Search Query Header
+                    SearchQueryHeaderView(searchRecord: searchRecord)
                     
-                    Divider()
-                    
-                    // Search Metadata
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Query:")
-                                .fontWeight(.semibold)
-                            Text(searchRecord.query)
-                                .foregroundColor(.primary)
-                        }
-                        
-                        HStack {
-                            Text("Created:")
-                                .fontWeight(.semibold)
-                            Text(searchRecord.timestamp, format: .dateTime)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        HStack {
-                            Text("Executions:")
-                                .fontWeight(.semibold)
-                            Text("\(searchRecord.executionCount)")
-                                .foregroundColor(.blue)
-                        }
-                        
-                        HStack {
-                            Text("Last Run:")
-                                .fontWeight(.semibold)
-                            Text(searchRecord.lastExecutionDate?.formatted() ?? "Never")
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        HStack {
-                            Text("Results:")
-                                .fontWeight(.semibold)
-                            Text("\(searchRecord.results.count)")
-                                .foregroundColor(.green)
-                        }
-                        
-                        HStack {
-                            Text("Status:")
-                                .fontWeight(.semibold)
-                            Text(searchRecord.isEnabled ? "Enabled" : "Disabled")
-                                .foregroundColor(searchRecord.isEnabled ? .green : .red)
-                        }
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
-                    .cornerRadius(8)
-                    
-                    Divider()
-                    
-                    // Search Results Preview
+                    // Search Results with Enhanced Article View
                     if !searchRecord.results.isEmpty {
-                        Text("Recent Results")
-                            .font(.headline)
-                        
-                        List(searchRecord.results.prefix(5)) { result in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(result.title)
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Search Results (\(searchRecord.results.count))")
                                     .font(.headline)
-                                    .lineLimit(2)
+                                    .foregroundColor(.primary)
                                 
-                                if !result.snippet.isEmpty {
-                                    Text(result.snippet)
-                                        .font(.body)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(3)
-                                }
+                                Spacer()
                                 
-                                Button(action: {
-                                    if let url = URL(string: result.link) {
-                                        NSWorkspace.shared.open(url)
-                                    }
-                                }) {
-                                    Text(result.link)
-                                        .font(.caption)
-                                        .foregroundColor(.blue)
-                                        .lineLimit(1)
-                                        .underline()
+                                Button("View All Articles") {
+                                    // Open articles window
+                                    showArticlesWindow()
                                 }
-                                .buttonStyle(.plain)
+                                .font(.caption)
+                                .buttonStyle(.bordered)
                             }
-                            .padding(.vertical, 4)
+                            
+                            // Results List with Enhanced Views
+                            List(searchRecord.results.prefix(10)) { result in
+                                NavigationLink(destination: EnhancedArticleView(linkRecord: createLinkRecord(from: result, searchRecord: searchRecord), searchRecord: searchRecord)) {
+                                    SearchResultRowView(result: result)
+                                }
+                            }
+                            .listStyle(.plain)
                         }
-                        .listStyle(.plain)
                     } else {
-                        Text("No results yet")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        VStack(spacing: 20) {
+                            Image(systemName: "magnifyingglass.circle")
+                                .font(.system(size: 48))
+                                .foregroundColor(.gray)
+                            
+                            Text("No Results Yet")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            Text("This search hasn't been executed yet or returned no results.")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
                 .padding()
@@ -481,9 +431,89 @@ struct SearchListView: View {
         }
         .onAppear {
             DebugLogger.shared.logWebViewAction("🔍 SearchListView appeared - allSearchRecords count: \(allSearchRecords.count)")
+            
+            // Debug: Show all search records with their status
             for (index, record) in allSearchRecords.enumerated() {
-                DebugLogger.shared.logWebViewAction("🔍 SearchListView: Record \(index): '\(record.query)' (ID: \(record.id))")
+                let status = record.isEnabled ? "✅ ACTIVE" : "⏸️ PAUSED"
+                // Calculate time until next execution
+                let now = Date()
+                let calendar = Calendar.current
+                let scheduledTime = parseScheduledTime(record.scheduledTime)
+                var nextDate = calendar.date(bySettingHour: scheduledTime.hour, minute: scheduledTime.minute, second: 0, of: now) ?? now
+                if nextDate <= now {
+                    nextDate = calendar.date(byAdding: .day, value: 1, to: nextDate) ?? nextDate
+                }
+                let timeInterval = nextDate.timeIntervalSince(now)
+                let hours = Int(timeInterval) / 3600
+                let minutes = Int(timeInterval.truncatingRemainder(dividingBy: 3600)) / 60
+                let seconds = Int(timeInterval.truncatingRemainder(dividingBy: 60))
+                let nextExecution = hours > 0 ? String(format: "%02d:%02d:%02d", hours, minutes, seconds) : String(format: "%02d:%02d", minutes, seconds)
+                DebugLogger.shared.logWebViewAction("🔍 SearchListView: Record \(index): '\(record.query)' (ID: \(record.id)) - \(status)")
+                DebugLogger.shared.logWebViewAction("⏰ Next execution: \(nextExecution)")
+                
+                // Show search parameters
+                DebugLogger.shared.logWebViewAction("📋 Search parameters: Language=\(record.language.isEmpty ? "Any" : record.language), Region=\(record.region.isEmpty ? "Any" : record.region), Location=\(record.location.isEmpty ? "Any" : record.location)")
+                DebugLogger.shared.logWebViewAction("🔧 Additional params: Safe=\(record.safe.isEmpty ? "Off" : record.safe), Type=\(record.tbm.isEmpty ? "All" : record.tbm), TimeRange=\(record.as_qdr.isEmpty ? "Any" : record.as_qdr)")
+                DebugLogger.shared.logWebViewAction("📊 Execution count: \(record.executionCount), Last run: \(record.lastExecutionDate?.formatted() ?? "Never")")
             }
+            
+            // Debug: Show next automated search details
+            let activeRecords = allSearchRecords.filter { $0.isEnabled }
+            if !activeRecords.isEmpty {
+                DebugLogger.shared.logWebViewAction("🚀 ACTIVE AUTOMATED SEARCHES: \(activeRecords.count)")
+                
+                // Find the next search to execute
+                let now = Date()
+                var nextSearch: AutomatedSearchRecord?
+                var nextExecutionTime: Date?
+                
+                for record in activeRecords {
+                    let scheduledTime = parseScheduledTime(record.scheduledTime)
+                    let calendar = Calendar.current
+                    
+                    // Calculate next occurrence of this time today
+                    var nextDate = calendar.date(bySettingHour: scheduledTime.hour, minute: scheduledTime.minute, second: 0, of: now) ?? now
+                    
+                    // If the time has already passed today, move to tomorrow
+                    if nextDate <= now {
+                        nextDate = calendar.date(byAdding: .day, value: 1, to: nextDate) ?? nextDate
+                    }
+                    
+                    if nextExecutionTime == nil || nextDate < nextExecutionTime! {
+                        nextExecutionTime = nextDate
+                        nextSearch = record
+                    }
+                }
+                
+                if let nextSearch = nextSearch, let nextTime = nextExecutionTime {
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateStyle = .short
+                    timeFormatter.timeStyle = .short
+                    
+                    DebugLogger.shared.logWebViewAction("⏭️ NEXT AUTOMATED SEARCH:")
+                    DebugLogger.shared.logWebViewAction("   Query: '\(nextSearch.query)'")
+                    DebugLogger.shared.logWebViewAction("   Scheduled time: \(nextSearch.scheduledTime)")
+                    DebugLogger.shared.logWebViewAction("   Next execution: \(timeFormatter.string(from: nextTime))")
+                    // Calculate time until execution for nextSearch
+                    let nextNow = Date()
+                    let nextCalendar = Calendar.current
+                    let nextScheduledTime = parseScheduledTime(nextSearch.scheduledTime)
+                    var nextNextDate = nextCalendar.date(bySettingHour: nextScheduledTime.hour, minute: nextScheduledTime.minute, second: 0, of: nextNow) ?? nextNow
+                    if nextNextDate <= nextNow {
+                        nextNextDate = nextCalendar.date(byAdding: .day, value: 1, to: nextNextDate) ?? nextNextDate
+                    }
+                    let nextTimeInterval = nextNextDate.timeIntervalSince(nextNow)
+                    let nextHours = Int(nextTimeInterval) / 3600
+                    let nextMinutes = Int(nextTimeInterval.truncatingRemainder(dividingBy: 3600)) / 60
+                    let nextSeconds = Int(nextTimeInterval.truncatingRemainder(dividingBy: 60))
+                    let nextTimeUntilExecution = nextHours > 0 ? String(format: "%02d:%02d:%02d", nextHours, nextMinutes, nextSeconds) : String(format: "%02d:%02d", nextMinutes, nextSeconds)
+                    DebugLogger.shared.logWebViewAction("   Time until execution: \(nextTimeUntilExecution)")
+                    DebugLogger.shared.logWebViewAction("   Search parameters: \(nextSearch.language.isEmpty ? "Any" : nextSearch.language) language, \(nextSearch.region.isEmpty ? "Any" : nextSearch.region) region")
+                }
+            } else {
+                DebugLogger.shared.logWebViewAction("⏸️ NO ACTIVE AUTOMATED SEARCHES")
+            }
+            
             startTimer()
         }
         .onDisappear {
@@ -580,6 +610,39 @@ struct SearchListView: View {
     private func stopGlobalTimer() {
         globalTimer?.invalidate()
         globalTimer = nil
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func createLinkRecord(from result: SearchResult, searchRecord: AutomatedSearchRecord) -> LinkRecord {
+        return LinkRecord(
+            searchRecordId: searchRecord.id,
+            originalUrl: result.link,
+            title: result.title,
+            content: result.snippet,
+            html: "", // Will be fetched by EnhancedArticleView
+            css: "",
+            fetchedAt: Date(),
+            articleDescription: result.snippet,
+            wordCount: result.snippet.split(separator: " ").count,
+            readingTime: max(1, result.snippet.split(separator: " ").count / 200)
+        )
+    }
+    
+    private func showArticlesWindow() {
+        let articlesWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        articlesWindow.title = "Articles"
+        articlesWindow.center()
+        articlesWindow.contentView = NSHostingView(rootView: SearchQueriesView()
+            .environment(\.modelContext, modelContext))
+        
+        articlesWindow.isReleasedWhenClosed = false
+        articlesWindow.makeKeyAndOrderFront(nil)
     }
     
     private func checkAndExecuteAutomatedSearches() {
@@ -973,6 +1036,7 @@ struct SearchListRow: View {
         }
         return (hour: 0, minute: 0)
     }
+    
 }
 
 

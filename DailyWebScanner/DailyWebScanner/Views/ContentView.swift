@@ -397,6 +397,24 @@ struct ContentView: View {
         .onAppear {
             loadAccountInfo()
             DebugLogger.shared.logWebViewAction("ContentView appeared - searchRecords count: \(searchRecords.count)")
+            
+            // Debug: Show automated search status
+            let automatedRecords = try? modelContext.fetch(FetchDescriptor<AutomatedSearchRecord>())
+            if let automatedRecords = automatedRecords {
+                let activeAutomated = automatedRecords.filter { $0.isEnabled }
+                DebugLogger.shared.logWebViewAction("🤖 AUTOMATED SEARCHES STATUS:")
+                DebugLogger.shared.logWebViewAction("   Total automated searches: \(automatedRecords.count)")
+                DebugLogger.shared.logWebViewAction("   Active automated searches: \(activeAutomated.count)")
+                
+                if !activeAutomated.isEmpty {
+                    DebugLogger.shared.logWebViewAction("   Active searches:")
+                    for record in activeAutomated {
+                        DebugLogger.shared.logWebViewAction("     - '\(record.query)' (scheduled: \(record.scheduledTime))")
+                    }
+                } else {
+                    DebugLogger.shared.logWebViewAction("   No active automated searches")
+                }
+            }
         }
     }
     

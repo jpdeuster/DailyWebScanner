@@ -92,32 +92,29 @@ struct SearchQueriesView: View {
             .frame(minWidth: 300)
         } detail: {
             if let linkRecord = selectedLinkRecord {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Title: \(linkRecord.title)")
-                        .font(.subheadline)
-                        .foregroundColor(.primary)
-                    
-                    Text("Selected ID: \(linkRecord.id)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Divider()
-                    
-                    ArticleLinkDetailView(linkRecord: linkRecord)
-                }
-                .padding()
-                .onAppear {
-                    DebugLogger.shared.logWebViewAction("🔍 DEBUG: Selected Article")
-                    DebugLogger.shared.logWebViewAction("📱 SearchQueriesView: Detail view appeared for LinkRecord '\(linkRecord.title)' (ID: \(linkRecord.id))")
-                    DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: LinkRecord has \(linkRecord.images.count) images")
-                }
+                // Use EnhancedArticleView for better display
+                EnhancedArticleView(linkRecord: linkRecord, searchRecord: nil)
+                    .onAppear {
+                        DebugLogger.shared.logWebViewAction("🔍 DEBUG: Selected Article")
+                        DebugLogger.shared.logWebViewAction("📱 SearchQueriesView: Detail view appeared for LinkRecord '\(linkRecord.title)' (ID: \(linkRecord.id))")
+                        DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: LinkRecord has \(linkRecord.images.count) images")
+                    }
             } else {
                 VStack(spacing: 20) {
-                    Text("Select an article from the sidebar")
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 64))
+                        .foregroundColor(.blue)
+                    
+                    Text("Select an Article")
                         .font(.title)
+                        .foregroundColor(.primary)
+                    
+                    Text("Choose an article from the sidebar to view its content")
+                        .font(.body)
                         .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding()
+                .padding(40)
             }
         }
         .onAppear {
