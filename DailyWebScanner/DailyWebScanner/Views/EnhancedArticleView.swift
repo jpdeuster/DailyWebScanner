@@ -1106,23 +1106,39 @@ struct ImageCardView: View {
         do {
             if url.isFileURL {
                 let data = try Data(contentsOf: url)
+                let finalData = decodeOrTranscodeIfNeeded(data, sourceDescription: url.path)
                 await MainActor.run {
-                    self.imageData = data
-                    self.loadedByteCount = data.count
+                    self.imageData = finalData
+                    self.loadedByteCount = finalData.count
                     self.isLoading = false
                 }
-                DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded local image (\(data.count) bytes) from \(url.path)")
+                DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded local image (\(finalData.count) bytes) from \(url.path)")
+            } else if url.scheme?.lowercased() == "data" {
+                // Handle data: URIs (e.g., data:image/webp;base64,...)
+                if let data = dataFromDataURI(image.url) {
+                    let finalData = decodeOrTranscodeIfNeeded(data, sourceDescription: "data: URI")
+                    await MainActor.run {
+                        self.imageData = finalData
+                        self.loadedByteCount = finalData.count
+                        self.isLoading = false
+                    }
+                    DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded embedded data URI image (\(finalData.count) bytes)")
+                } else {
+                    await MainActor.run { self.isLoading = false }
+                    DebugLogger.shared.logWebViewAction("❌ ImageCardView: Failed to parse data URI for image")
+                }
             } else {
                 let (data, response) = try await URLSession.shared.data(from: url)
+                let finalData = decodeOrTranscodeIfNeeded(data, sourceDescription: response.debugDescription)
                 await MainActor.run {
-                    self.imageData = data
-                    self.loadedByteCount = data.count
+                    self.imageData = finalData
+                    self.loadedByteCount = finalData.count
                     self.isLoading = false
                 }
                 if let http = response as? HTTPURLResponse {
-                    DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded remote image (\(data.count) bytes), HTTP \(http.statusCode) from \(url.absoluteString)")
+                    DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded remote image (\(finalData.count) bytes), HTTP \(http.statusCode) from \(url.absoluteString)")
                 } else {
-                    DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded remote image (\(data.count) bytes) from \(url.absoluteString)")
+                    DebugLogger.shared.logWebViewAction("🖼️ ImageCardView: Loaded remote image (\(finalData.count) bytes) from \(url.absoluteString)")
                 }
             }
         } catch {
@@ -1131,6 +1147,38 @@ struct ImageCardView: View {
             }
             DebugLogger.shared.logWebViewAction("❌ ImageCardView: Failed to load image \(url.absoluteString) - \(error.localizedDescription)")
         }
+    }
+
+    // Decode data URIs (base64 or percent-encoded)
+    private func dataFromDataURI(_ uri: String) -> Data? {
+        // Format: data:[<mediatype>][;base64],<data>
+        guard let commaIndex = uri.firstIndex(of: ",") else { return nil }
+        let meta = uri[..<commaIndex]
+        let payload = uri[uri.index(after: commaIndex)...]
+        if meta.lowercased().contains(";base64") {
+            return Data(base64Encoded: String(payload))
+        } else {
+            return String(payload).removingPercentEncoding?.data(using: .utf8)
+        }
+    }
+
+    // If NSImage(data:) fails (e.g., WEBP/AVIF), try ImageIO decode and transcode to PNG
+    private func decodeOrTranscodeIfNeeded(_ data: Data, sourceDescription: String) -> Data {
+        if NSImage(data: data) != nil { return data }
+        // Try ImageIO
+        if let png = transcodeToPNG(data) {
+            DebugLogger.shared.logWebViewAction("🔁 ImageCardView: Transcoded unsupported image to PNG (\(png.count) bytes) from \(sourceDescription)")
+            return png
+        }
+        DebugLogger.shared.logWebViewAction("⚠️ ImageCardView: Could not decode image via NSImage or ImageIO, showing placeholder (source: \(sourceDescription))")
+        return data
+    }
+
+    private func transcodeToPNG(_ data: Data) -> Data? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgimg = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
+        let rep = NSBitmapImageRep(cgImage: cgimg)
+        return rep.representation(using: .png, properties: [:])
     }
     
     private func saveImage() async {
@@ -1668,21 +1716,35 @@ struct FullScreenImageView: View {
         do {
             if url.isFileURL {
                 let data = try Data(contentsOf: url)
+                let finalData = decodeOrTranscodeIfNeeded(data, sourceDescription: url.path)
                 await MainActor.run {
-                    self.imageData = data
+                    self.imageData = finalData
                     self.isLoading = false
                 }
-                DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded local image (\(data.count) bytes) from \(url.path)")
+                DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded local image (\(finalData.count) bytes) from \(url.path)")
+            } else if url.scheme?.lowercased() == "data" {
+                if let data = dataFromDataURI(image.url) {
+                    let finalData = decodeOrTranscodeIfNeeded(data, sourceDescription: "data: URI")
+                    await MainActor.run {
+                        self.imageData = finalData
+                        self.isLoading = false
+                    }
+                    DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded embedded data URI image (\(finalData.count) bytes)")
+                } else {
+                    await MainActor.run { self.isLoading = false }
+                    DebugLogger.shared.logWebViewAction("❌ FullScreenImageView: Failed to parse data URI for image")
+                }
             } else {
                 let (data, response) = try await URLSession.shared.data(from: url)
+                let finalData = decodeOrTranscodeIfNeeded(data, sourceDescription: response.debugDescription)
                 await MainActor.run {
-                    self.imageData = data
+                    self.imageData = finalData
                     self.isLoading = false
                 }
                 if let http = response as? HTTPURLResponse {
-                    DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded remote image (\(data.count) bytes), HTTP \(http.statusCode) from \(url.absoluteString)")
+                    DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded remote image (\(finalData.count) bytes), HTTP \(http.statusCode) from \(url.absoluteString)")
                 } else {
-                    DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded remote image (\(data.count) bytes) from \(url.absoluteString)")
+                    DebugLogger.shared.logWebViewAction("🖼️ FullScreenImageView: Loaded remote image (\(finalData.count) bytes) from \(url.absoluteString)")
                 }
             }
         } catch {
@@ -1691,6 +1753,33 @@ struct FullScreenImageView: View {
             }
             DebugLogger.shared.logWebViewAction("❌ FullScreenImageView: Failed to load image \(url.absoluteString) - \(error.localizedDescription)")
         }
+    }
+
+    // Shared helpers (duplicated here for isolation; could be refactored)
+    private func dataFromDataURI(_ uri: String) -> Data? {
+        guard let commaIndex = uri.firstIndex(of: ",") else { return nil }
+        let meta = uri[..<commaIndex]
+        let payload = uri[uri.index(after: commaIndex)...]
+        if meta.lowercased().contains(";base64") {
+            return Data(base64Encoded: String(payload))
+        } else {
+            return String(payload).removingPercentEncoding?.data(using: .utf8)
+        }
+    }
+    private func decodeOrTranscodeIfNeeded(_ data: Data, sourceDescription: String) -> Data {
+        if NSImage(data: data) != nil { return data }
+        if let png = transcodeToPNG(data) {
+            DebugLogger.shared.logWebViewAction("🔁 FullScreenImageView: Transcoded unsupported image to PNG (\(png.count) bytes) from \(sourceDescription)")
+            return png
+        }
+        DebugLogger.shared.logWebViewAction("⚠️ FullScreenImageView: Could not decode image via NSImage or ImageIO, showing placeholder (source: \(sourceDescription))")
+        return data
+    }
+    private func transcodeToPNG(_ data: Data) -> Data? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgimg = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
+        let rep = NSBitmapImageRep(cgImage: cgimg)
+        return rep.representation(using: .png, properties: [:])
     }
     
     private func saveCurrent() async {
