@@ -71,7 +71,7 @@ struct EnhancedArticleView: View {
                             }
                         }
                     } else {
-                        switch selectedTab {
+        switch selectedTab {
                         case .content:
                             ContentTabView(content: extractedContent, linkRecord: linkRecord)
                                 .onAppear {
@@ -79,8 +79,8 @@ struct EnhancedArticleView: View {
                                     DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Text View appeared - text length: \(textLength) characters")
                                     DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Using extractedText: \(!linkRecord.extractedText.isEmpty), content.mainText: \(extractedContent?.mainText.isEmpty == false)")
                                 }
-                        case .html:
-                            HTMLTabView(html: linkRecord.html, url: linkRecord.originalUrl)
+        case .html:
+            HTMLTabView(html: linkRecord.html, css: linkRecord.css, url: linkRecord.originalUrl)
                                 .onAppear {
                                     DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: HTML tab appeared - HTML length: \(linkRecord.html.count) characters")
                                     if linkRecord.html.isEmpty {
@@ -89,18 +89,19 @@ struct EnhancedArticleView: View {
                                         DebugLogger.shared.logWebViewAction("✅ EnhancedArticleView: HTML content available (\(linkRecord.html.count) chars)")
                                     }
                                 }
-                        case .images:
-                            // Use linkRecord.images (locally saved) if available, otherwise use extractedContent.images
-                            let imagesToShow = linkRecord.images.isEmpty ? (extractedContent?.images ?? []) : linkRecord.images.map { imageRecord in
-                                HTMLContentExtractor.ExtractedImage(
-                                    url: imageRecord.originalUrl,
-                                    alt: imageRecord.altText ?? "",
-                                    caption: "",
-                                    width: nil,
-                                    height: nil,
-                                    isMainImage: false
-                                )
-                            }
+        case .images:
+            // Prefer locally saved images; map localPath to file:// URL for offline rendering
+            let imagesToShow = !linkRecord.images.isEmpty ? linkRecord.images.map { imageRecord in
+                let url = (imageRecord.localPath.map { "file://\($0)" }) ?? imageRecord.originalUrl
+                return HTMLContentExtractor.ExtractedImage(
+                    url: url,
+                    alt: imageRecord.altText ?? "",
+                    caption: "",
+                    width: nil,
+                    height: nil,
+                    isMainImage: false
+                )
+            } : (extractedContent?.images ?? [])
                             
                             ImagesTabView(
                                 images: imagesToShow,
@@ -117,12 +118,12 @@ struct EnhancedArticleView: View {
                                     DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: No extracted images, but \(linkRecordImages) images in linkRecord")
                                 }
                             }
-                        case .videos:
-                            VideosTabView(videos: extractedContent?.videos ?? [])
-                        case .links:
-                            LinksTabView(links: extractedContent?.links ?? [])
-                        case .metadata:
-                            MetadataTabView(metadata: extractedContent?.metadata)
+        case .videos:
+            VideosTabView(videos: extractedContent?.videos ?? [])
+        case .links:
+            LinksTabView(links: decodedLinks() ?? (extractedContent?.links ?? []))
+        case .metadata:
+            MetadataTabView(metadata: decodedMetadata() ?? extractedContent?.metadata)
                                 .onAppear {
                                     DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Info tab appeared - metadata available: \(extractedContent?.metadata != nil)")
                                     if let metadata = extractedContent?.metadata {
@@ -205,13 +206,53 @@ struct EnhancedArticleView: View {
                 throw NSError(domain: "ContentExtraction", code: 1, userInfo: [NSLocalizedDescriptionKey: "No HTML content available"])
             }
             
+            // If DB already contains most data, construct content from DB to avoid re-extraction
+            if !linkRecord.extractedText.isEmpty || !linkRecord.extractedLinksJSON.isEmpty || !linkRecord.extractedMetadataJSON.isEmpty || !linkRecord.images.isEmpty {
+                let links = decodedLinks() ?? []
+                let meta = decodedMetadata()
+                let words = (linkRecord.extractedText.isEmpty ? linkRecord.html : linkRecord.extractedText).split(separator: " ").count
+                let reading = max(1, words / 200)
+                self.extractedContent = HTMLContentExtractor.ExtractedContent(
+                    title: linkRecord.title,
+                    description: linkRecord.articleDescription ?? "",
+                    mainText: linkRecord.extractedText,
+                    images: linkRecord.images.map { img in
+                        HTMLContentExtractor.ExtractedImage(
+                            url: (img.localPath.map { "file://\($0)" }) ?? img.originalUrl,
+                            alt: img.altText ?? "",
+                            caption: "",
+                            width: img.width,
+                            height: img.height,
+                            isMainImage: false
+                        )
+                    },
+                    videos: [],
+                    links: links,
+                    metadata: HTMLContentExtractor.ContentMetadata(
+                        author: meta?.author,
+                        publishDate: meta?.publishDate,
+                        category: meta?.category,
+                        tags: meta?.tags ?? [],
+                        language: meta?.language,
+                        wordCount: words,
+                        readingTime: reading
+                    ),
+                    readingTime: reading,
+                    wordCount: words
+                )
+                self.isLoading = false
+                DebugLogger.shared.logWebViewAction("✅ EnhancedArticleView: Loaded content from local database cache")
+                return
+            }
+
+            // Otherwise extract now
             let extractor = HTMLContentExtractor()
             let content = await extractor.extractContent(
                 from: htmlContent,
                 baseURL: linkRecord.originalUrl
             )
             
-            // Save ALL extracted content to database for fast access
+            // Save extracted text for future fast access
             linkRecord.extractedText = content.mainText
             
             // Save links as JSON (skip for now - need to make ExtractedLink Encodable)
@@ -235,8 +276,9 @@ struct EnhancedArticleView: View {
             //     DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Saved metadata to database")
             // }
             
-            // Download and save images to ImageRecord relationships
-            for image in content.images {
+            // Download and save images to ImageRecord relationships (only if not present yet)
+            if linkRecord.images.isEmpty {
+                for image in content.images {
                 DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Downloading image: \(image.url)")
                 
                 // Download image data
@@ -275,8 +317,11 @@ struct EnhancedArticleView: View {
                     downloadedAt: Date()
                 )
                 linkRecord.images.append(imageRecord)
+                }
+                DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Downloaded and saved \(content.images.count) images to database")
+            } else {
+                DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Using \(linkRecord.images.count) cached images from database")
             }
-            DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Downloaded and saved \(content.images.count) images to database")
             
             await MainActor.run {
                 self.extractedContent = content
@@ -1116,6 +1161,44 @@ struct LinksTabView: View {
     }
 }
 
+// MARK: - DB Decoders
+extension EnhancedArticleView {
+    private struct DecodedMetadata: Codable {
+        let author: String?
+        let publishDate: String?
+        let category: String?
+        let tags: [String]
+        let language: String?
+    }
+    private struct DecodedLink: Codable {
+        let url: String
+        let title: String
+        let description: String
+        let isExternal: Bool
+    }
+    private func decodedLinks() -> [HTMLContentExtractor.ExtractedLink]? {
+        guard !linkRecord.extractedLinksJSON.isEmpty,
+              let data = linkRecord.extractedLinksJSON.data(using: .utf8),
+              let simple = try? JSONDecoder().decode([DecodedLink].self, from: data) else { return nil }
+        return simple.map { link in
+            HTMLContentExtractor.ExtractedLink(
+                url: link.url,
+                title: link.title,
+                description: link.description,
+                isExternal: link.isExternal
+            )
+        }
+    }
+    private func decodedMetadata() -> HTMLContentExtractor.ContentMetadata? {
+        guard !linkRecord.extractedMetadataJSON.isEmpty,
+              let data = linkRecord.extractedMetadataJSON.data(using: .utf8),
+              let meta = try? JSONDecoder().decode(DecodedMetadata.self, from: data) else { return nil }
+        let iso = ISO8601DateFormatter()
+        let date = meta.publishDate.flatMap { iso.date(from: $0) }
+        return .init(author: meta.author, publishDate: date, category: meta.category, tags: meta.tags, language: meta.language, wordCount: 0, readingTime: 0)
+    }
+}
+
 struct LinkCardView: View {
     let link: HTMLContentExtractor.ExtractedLink
     
@@ -1432,6 +1515,7 @@ struct FullScreenImageView: View {
 
 struct HTMLTabView: View {
     let html: String
+    let css: String
     let url: String
     
     var body: some View {
@@ -1474,7 +1558,7 @@ struct HTMLTabView: View {
                 .help("Copy HTML source to clipboard")
             }
             
-            // HTML Content
+            // HTML Content (inline CSS if present)
             ScrollView {
                 if html.isEmpty {
                     VStack(spacing: 16) {
@@ -1492,7 +1576,7 @@ struct HTMLTabView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(40)
                 } else {
-                    Text(html)
+                    Text(css.isEmpty ? html : "<style>\n\(css)\n</style>\n\n" + html)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.primary)
                         .lineSpacing(4)

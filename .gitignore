@@ -114,3 +114,6 @@ secrets.json
 *.ipa
 *.dmg
 *.pkg
+ 
+# Project docs not to be versioned
+INFO_DELETE_DB.md

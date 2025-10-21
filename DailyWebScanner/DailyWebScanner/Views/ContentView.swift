@@ -468,30 +468,35 @@ struct ContentView: View {
                         
                         DebugLogger.shared.logWebViewAction("📊 ContentView: Extracted content - Text: \(extractedContent.mainText.count) chars, Links: \(extractedContent.links.count), Videos: \(extractedContent.videos.count), Images: \(extractedContent.images.count)")
                         
-        // Save links as JSON (skip for now - need to make ExtractedLink Encodable)
-        _ = "" // (try? JSONEncoder().encode(extractedContent.links)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        
-        // Save videos as JSON (references only) - skip for now
-        _ = "" // (try? JSONEncoder().encode(extractedContent.videos)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        
-        // Save metadata as JSON - skip for now
-        _ = "" // (try? JSONEncoder().encode(extractedContent.metadata)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                        // Build JSON payloads (links/videos/metadata)
+                        let linksJSON = encodeLinksJSON(extractedContent.links)
+                        let videosJSON = encodeVideosJSON(extractedContent.videos)
+                        let metadataJSON = encodeMetadataJSON(extractedContent.metadata)
+                        
+                        // Extract CSS: inline + a few small linked stylesheets
+                        let inlineCSS = extractInlineCSS(from: htmlContent)
+                        let linkedCSS = await fetchLinkedCSSResources(fromHTML: htmlContent, baseURL: searchResult.link, maxFiles: 3, maxTotalBytes: 200_000)
+                        let combinedCSS = [inlineCSS, linkedCSS].joined(separator: "\n\n")
                         
                         let linkRecord = LinkRecord(
                             searchRecordId: record.id,
                             originalUrl: searchResult.link,
                             title: searchResult.title,
                             content: searchResult.snippet,
-                            html: htmlContent,  // ← HTML wird sofort geladen!
-                            css: "",
-                            extractedText: extractedContent.mainText,  // ← Extracted text wird gespeichert!
+                            html: htmlContent,
+                            css: combinedCSS,
+                            extractedText: extractedContent.mainText,
                             fetchedAt: Date(),
                             articleDescription: searchResult.snippet,
                             wordCount: searchResult.snippet.split(separator: " ").count,
                             readingTime: max(1, searchResult.snippet.split(separator: " ").count / 200)
                         )
+                        linkRecord.extractedLinksJSON = linksJSON
+                        linkRecord.extractedVideosJSON = videosJSON
+                        linkRecord.extractedMetadataJSON = metadataJSON
                         
                         // Download and save images to ImageRecord relationships
+                        var totalImageBytes = 0
                         for image in extractedContent.images {
                             DebugLogger.shared.logWebViewAction("🖼️ ContentView: Downloading image: \(image.url)")
                             
@@ -503,6 +508,7 @@ struct ContentView: View {
                                 do {
                                     let (data, _) = try await URLSession.shared.data(from: imageURL)
                                     fileSize = data.count
+                                    totalImageBytes += fileSize
                                     
                                     // Save to local file system
                                     let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -532,6 +538,8 @@ struct ContentView: View {
                             )
                             linkRecord.images.append(imageRecord)
                         }
+                        linkRecord.imageCount = linkRecord.images.count
+                        linkRecord.totalImageSize = totalImageBytes
                         
                         DebugLogger.shared.logWebViewAction("💾 ContentView: Saved complete content to database for '\(searchResult.title)'")
                         modelContext.insert(linkRecord)
@@ -567,6 +575,103 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Encoding Helpers
+    private struct SimpleLink: Codable {
+        let url: String
+        let title: String
+        let description: String
+        let isExternal: Bool
+    }
+    private struct SimpleVideo: Codable {
+        let url: String
+        let title: String
+        let thumbnail: String?
+        let duration: String?
+        let platform: String
+    }
+    private struct MetadataDTO: Codable {
+        let author: String?
+        let publishDate: String?
+        let category: String?
+        let tags: [String]
+        let language: String?
+    }
+    private func encodeLinksJSON(_ links: [HTMLContentExtractor.ExtractedLink]) -> String {
+        let simple = links.map { SimpleLink(url: $0.url, title: $0.title, description: $0.description, isExternal: $0.isExternal) }
+        let enc = JSONEncoder()
+        return (try? enc.encode(simple)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+    private func encodeVideosJSON(_ videos: [HTMLContentExtractor.ExtractedVideo]) -> String {
+        let simple = videos.map { SimpleVideo(url: $0.url, title: $0.title, thumbnail: $0.thumbnail, duration: $0.duration, platform: platformString($0.platform)) }
+        let enc = JSONEncoder()
+        return (try? enc.encode(simple)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+    private func encodeMetadataJSON(_ meta: HTMLContentExtractor.ContentMetadata) -> String {
+        let iso = ISO8601DateFormatter()
+        let dto = MetadataDTO(author: meta.author, publishDate: meta.publishDate.map { iso.string(from: $0) }, category: meta.category, tags: meta.tags, language: meta.language)
+        let enc = JSONEncoder()
+        return (try? enc.encode(dto)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+    private func platformString(_ p: HTMLContentExtractor.VideoPlatform) -> String {
+        switch p {
+        case .youtube: return "youtube"
+        case .vimeo: return "vimeo"
+        case .direct: return "direct"
+        case .other(let s): return s
+        }
+    }
+    
+    // MARK: - CSS Helpers
+    private func extractInlineCSS(from html: String) -> String {
+        // very simple extraction of <style> blocks
+        let pattern = "<style[^>]*>([\\s\\S]*?)</style>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return "" }
+        let range = NSRange(html.startIndex..., in: html)
+        let matches = regex.matches(in: html, options: [], range: range)
+        var parts: [String] = []
+        for m in matches {
+            if let r = Range(m.range(at: 1), in: html) { parts.append(String(html[r])) }
+        }
+        return parts.joined(separator: "\n\n")
+    }
+    private func fetchLinkedCSSResources(fromHTML html: String, baseURL: String, maxFiles: Int, maxTotalBytes: Int) async -> String {
+        // find <link rel="stylesheet" href="...">
+        let pattern = "<link[^>]*rel=\\\"stylesheet\\\"[^>]*href=\\\"([^\\\"]+)\\\"[^>]*>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return "" }
+        let ns = html as NSString
+        let results = regex.matches(in: html, options: [], range: NSRange(location: 0, length: ns.length))
+        var downloaded = 0
+        var totalBytes = 0
+        var aggregated: [String] = []
+        for m in results {
+            if downloaded >= maxFiles || totalBytes >= maxTotalBytes { break }
+            let hrefRange = m.range(at: 1)
+            guard hrefRange.location != NSNotFound,
+                  let r = Range(hrefRange, in: html) else { continue }
+            let href = String(html[r])
+            let resolved = resolveCSSURL(href, baseURL: baseURL)
+            guard let u = URL(string: resolved) else { continue }
+            do {
+                let (data, _) = try await URLSession.shared.data(from: u)
+                if totalBytes + data.count > maxTotalBytes { break }
+                if let css = String(data: data, encoding: .utf8) {
+                    aggregated.append(css)
+                    totalBytes += data.count
+                    downloaded += 1
+                }
+            } catch {
+                continue
+            }
+        }
+        return aggregated.joined(separator: "\n\n")
+    }
+    private func resolveCSSURL(_ url: String, baseURL: String) -> String {
+        if url.hasPrefix("http://") || url.hasPrefix("https://") { return url }
+        if url.hasPrefix("//") { return "https:" + url }
+        if url.hasPrefix("/") { return baseURL + url }
+        return baseURL + "/" + url
     }
     
     private func loadAccountInfo() {
