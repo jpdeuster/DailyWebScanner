@@ -181,17 +181,26 @@ struct ContentView: View {
                 .padding(.bottom, 8)
                 
                 // Search Records List
-                List(selection: $selectedSearchRecord) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Manual Search")
+                            .font(.headline)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    
+                    List(selection: $selectedSearchRecord) {
                     ForEach(filteredSearchRecords) { record in
                         NavigationLink(value: record) {
                             SearchQueryRow(record: record) {
                                 deleteSearchRecord(record)
                             }
                         }
-                        .onTapGesture {
-                            DebugLogger.shared.logWebViewAction("🖱️ ContentView: NavigationLink tapped for SearchRecord '\(record.query)' (ID: \(record.id))")
-                            selectedSearchRecord = record
-                            DebugLogger.shared.logWebViewAction("🖱️ ContentView: selectedSearchRecord set to '\(record.query)'")
+                        .onChange(of: selectedSearchRecord) { oldValue, newValue in
+                            if let newRecord = newValue {
+                                DebugLogger.shared.logWebViewAction("🖱️ ContentView: Selection changed to SearchRecord '\(newRecord.query)' (ID: \(newRecord.id))")
+                            }
                         }
                         .swipeActions {
                             Button(role: .destructive) {
@@ -203,150 +212,48 @@ struct ContentView: View {
                     }
                 }
                 .listStyle(.sidebar)
+                }
             }
             .frame(minWidth: 300)
         } detail: {
             if let searchRecord = selectedSearchRecord {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Query: \(searchRecord.query)")
-                        .font(.title2)
-                        .fontWeight(.bold)
+                VStack(spacing: 16) {
+                    // Beautiful Search Query Header (same as Automated Search)
+                    SearchQueryHeaderView(searchRecord: searchRecord)
                     
-                    Text("Results: \(searchRecord.results.count)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    // Search Parameters for Selected Search
-                    VStack(spacing: 8) {
-                        HStack {
-                            Image(systemName: "gear")
-                                .font(.caption2)
-                                .foregroundColor(.blue)
-                            Text("Search Parameters")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                            Spacer()
-                        }
-                        
-                        HStack(spacing: 12) {
-                            // Language
-                            HStack(spacing: 4) {
-                                Image(systemName: "globe")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("Lang: \(searchRecord.language.isEmpty ? "Any" : searchRecord.language)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            // Region
-                            HStack(spacing: 4) {
-                                Image(systemName: "map")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("Region: \(searchRecord.region.isEmpty ? "Any" : searchRecord.region)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            // Safe Search
-                            HStack(spacing: 4) {
-                                Image(systemName: "shield")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("Safe: \(searchRecord.safe.isEmpty ? "Off" : searchRecord.safe)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                        }
-                        
-                        HStack(spacing: 12) {
-                            // Search Type
-                            HStack(spacing: 4) {
-                                Image(systemName: "magnifyingglass")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("Type: \(searchRecord.tbm.isEmpty ? "All" : searchRecord.tbm)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            // Time Range
-                            HStack(spacing: 4) {
-                                Image(systemName: "clock")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("Time: \(searchRecord.as_qdr.isEmpty ? "Any" : searchRecord.as_qdr)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            // Location
-                            if !searchRecord.location.isEmpty {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "location")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                    Text("Loc: \(searchRecord.location)")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            
-                            Spacer()
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(NSColor.controlBackgroundColor).opacity(0.4))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Color.blue.opacity(0.15), lineWidth: 0.5)
-                            )
-                    )
-                    
-                    Divider()
-                    
+                    // Search Results (non-clickable)
                     if !searchRecord.results.isEmpty {
-                        List(searchRecord.results) { result in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(result.title)
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Search Results (\(searchRecord.results.count))")
                                     .font(.headline)
-                                    .lineLimit(2)
+                                    .foregroundColor(.primary)
                                 
-                                if !result.snippet.isEmpty {
-                                    Text(result.snippet)
-                                        .font(.body)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(3)
-                                }
-                                
-                                Button(action: {
-                                    if let url = URL(string: result.link) {
-                                        NSWorkspace.shared.open(url)
-                                    }
-                                }) {
-                                    Text(result.link)
-                                        .font(.caption)
-                                        .foregroundColor(.blue)
-                                        .lineLimit(1)
-                                        .underline()
-                                }
-                                .buttonStyle(.plain)
+                                Spacer()
                             }
-                            .padding(.vertical, 4)
+                            
+                            // Results List (non-clickable)
+                            List(searchRecord.results.prefix(10)) { result in
+                                SearchResultRowView(result: result)
+                            }
+                            .listStyle(.plain)
                         }
-                        .listStyle(.plain)
                     } else {
-                        Text("No results available")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        VStack(spacing: 20) {
+                            Image(systemName: "magnifyingglass.circle")
+                                .font(.system(size: 48))
+                                .foregroundColor(.gray)
+                            
+                            Text("No Results Yet")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            Text("This search returned no results.")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
                 .padding()
@@ -521,6 +428,21 @@ struct ContentView: View {
         // Configure window to not close the app when closed
         searchQueriesWindow.isReleasedWhenClosed = false
         searchQueriesWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func createLinkRecord(from result: SearchResult, searchRecord: ManualSearchRecord) -> LinkRecord {
+        return LinkRecord(
+            searchRecordId: searchRecord.id,
+            originalUrl: result.link,
+            title: result.title,
+            content: result.snippet,
+            html: "", // Will be fetched by EnhancedArticleView
+            css: "",
+            fetchedAt: Date(),
+            articleDescription: result.snippet,
+            wordCount: result.snippet.split(separator: " ").count,
+            readingTime: max(1, result.snippet.split(separator: " ").count / 200)
+        )
     }
 }
 

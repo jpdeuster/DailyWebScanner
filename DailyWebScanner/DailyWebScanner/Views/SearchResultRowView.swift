@@ -7,12 +7,6 @@ struct SearchResultRowView: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Result Icon
-            Image(systemName: "link.circle.fill")
-                .font(.title3)
-                .foregroundColor(.blue)
-                .frame(width: 24, height: 24)
-            
             // Content
             VStack(alignment: .leading, spacing: 6) {
                 // Title
@@ -71,19 +65,6 @@ struct SearchResultRowView: View {
             }
             
             Spacer()
-            
-            // Action Button
-            Button(action: {
-                if let url = URL(string: result.link) {
-                    NSWorkspace.shared.open(url)
-                }
-            }) {
-                Image(systemName: "arrow.up.right.square")
-                    .font(.title3)
-                    .foregroundColor(.blue)
-            }
-            .buttonStyle(.plain)
-            .opacity(isHovered ? 1.0 : 0.6)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)

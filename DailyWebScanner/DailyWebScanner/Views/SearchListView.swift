@@ -311,9 +311,6 @@ struct SearchListView: View {
                 // Search List
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("Search History")
-                            .font(.headline)
-                        
                         Spacer()
                         
                         TextField("Filter searches...", text: $filterText)
@@ -366,7 +363,7 @@ struct SearchListView: View {
                     // Beautiful Search Query Header
                     SearchQueryHeaderView(searchRecord: searchRecord)
                     
-                    // Search Results with Enhanced Article View
+                    // Search Results (non-clickable)
                     if !searchRecord.results.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -375,20 +372,11 @@ struct SearchListView: View {
                                     .foregroundColor(.primary)
                                 
                                 Spacer()
-                                
-                                Button("View All Articles") {
-                                    // Open articles window
-                                    showArticlesWindow()
-                                }
-                                .font(.caption)
-                                .buttonStyle(.bordered)
                             }
                             
-                            // Results List with Enhanced Views
+                            // Results List (non-clickable)
                             List(searchRecord.results.prefix(10)) { result in
-                                NavigationLink(destination: EnhancedArticleView(linkRecord: createLinkRecord(from: result, searchRecord: searchRecord), searchRecord: searchRecord)) {
-                                    SearchResultRowView(result: result)
-                                }
+                                SearchResultRowView(result: result)
                             }
                             .listStyle(.plain)
                         }
@@ -411,26 +399,88 @@ struct SearchListView: View {
                     }
                 }
                 .padding()
-            } else {
-                VStack(spacing: 20) {
-                    Image(systemName: "magnifyingglass.circle")
-                        .font(.system(size: 64))
-                        .foregroundColor(.blue)
-                    
-                    Text("Select a search from the sidebar")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
-                    Text("View search details and execution history")
-                        .font(.body)
-                        .foregroundColor(.secondary)
+                } else {
+                    VStack(spacing: 20) {
+                        Image(systemName: "magnifyingglass.circle")
+                            .font(.system(size: 64))
+                            .foregroundColor(.blue)
+                        
+                        Text("Welcome to DailyWebScanner")
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                        
+                        Text("Select a search from the sidebar to view results")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                        
+                        VStack(spacing: 16) {
+                            InfoCard(
+                                icon: "clock.arrow.circlepath",
+                                title: "Automated Searches",
+                                description: "View and manage your automated search schedules"
+                            )
+                            
+                            InfoCard(
+                                icon: "list.bullet",
+                                title: "Search Results",
+                                description: "See comprehensive search results with AI summaries"
+                            )
+                            
+                            InfoCard(
+                                icon: "link",
+                                title: "Article Links",
+                                description: "Access saved articles and extracted content"
+                            )
+                        }
+                    }
+                    .padding(40)
                 }
-                .padding()
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 8) {
+                    Spacer()
+                    
+                    Button(action: {
+                        showManualSearchWindow()
+                    }) {
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .font(.caption)
+                            Text("Manual Search")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open Manual Search (⌘F)")
+                    
+                    Button(action: {
+                        showArticlesWindow()
+                    }) {
+                        HStack {
+                            Image(systemName: "doc.text")
+                                .font(.caption)
+                            Text("Show Saved Articles")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open Articles List (⌘⇧S)")
+                }
             }
         }
         .onAppear {
-            DebugLogger.shared.logWebViewAction("🔍 SearchListView appeared - allSearchRecords count: \(allSearchRecords.count)")
+            DebugLogger.shared.logWebViewAction("🚀 DailyWebScanner - SearchListView appeared - allSearchRecords count: \(allSearchRecords.count)")
             
             // Debug: Show all search records with their status
             for (index, record) in allSearchRecords.enumerated() {
@@ -627,6 +677,22 @@ struct SearchListView: View {
             wordCount: result.snippet.split(separator: " ").count,
             readingTime: max(1, result.snippet.split(separator: " ").count / 200)
         )
+    }
+    
+    private func showManualSearchWindow() {
+        let manualSearchWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        manualSearchWindow.title = "Manual Search"
+        manualSearchWindow.center()
+        manualSearchWindow.contentView = NSHostingView(rootView: ContentView()
+            .environment(\.modelContext, modelContext))
+        
+        manualSearchWindow.isReleasedWhenClosed = false
+        manualSearchWindow.makeKeyAndOrderFront(nil)
     }
     
     private func showArticlesWindow() {
