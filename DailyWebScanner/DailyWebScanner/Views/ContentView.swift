@@ -190,7 +190,7 @@ struct ContentView: View {
                     }
                     .padding(.horizontal)
                     
-                    List(selection: $selectedSearchRecord) {
+                List(selection: $selectedSearchRecord) {
                     ForEach(filteredSearchRecords) { record in
                         NavigationLink(value: record) {
                             SearchQueryRow(record: record) {
@@ -432,13 +432,13 @@ struct ContentView: View {
                         DebugLogger.shared.logWebViewAction("📊 ContentView: Extracted content - Text: \(extractedContent.mainText.count) chars, Links: \(extractedContent.links.count), Videos: \(extractedContent.videos.count), Images: \(extractedContent.images.count)")
                         
         // Save links as JSON (skip for now - need to make ExtractedLink Encodable)
-        let linksJSON = "" // (try? JSONEncoder().encode(extractedContent.links)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        _ = "" // (try? JSONEncoder().encode(extractedContent.links)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
         
         // Save videos as JSON (references only) - skip for now
-        let videosJSON = "" // (try? JSONEncoder().encode(extractedContent.videos)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        _ = "" // (try? JSONEncoder().encode(extractedContent.videos)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
         
         // Save metadata as JSON - skip for now
-        let metadataJSON = "" // (try? JSONEncoder().encode(extractedContent.metadata)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        _ = "" // (try? JSONEncoder().encode(extractedContent.metadata)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
                         
                         let linkRecord = LinkRecord(
                             searchRecordId: record.id,
@@ -464,7 +464,7 @@ struct ContentView: View {
                             
                             if let imageURL = URL(string: image.url) {
                                 do {
-                                    let (data, response) = try await URLSession.shared.data(from: imageURL)
+                                    let (data, _) = try await URLSession.shared.data(from: imageURL)
                                     fileSize = data.count
                                     
                                     // Save to local file system

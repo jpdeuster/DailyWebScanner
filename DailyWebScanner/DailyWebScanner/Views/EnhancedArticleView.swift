@@ -14,6 +14,7 @@ struct EnhancedArticleView: View {
     
     enum ArticleTab: String, CaseIterable {
         case content = "Text View"
+        case html = "HTML View"
         case images = "Images"
         case videos = "Videos"
         case links = "Links"
@@ -73,9 +74,36 @@ struct EnhancedArticleView: View {
                         switch selectedTab {
                         case .content:
                             ContentTabView(content: extractedContent, linkRecord: linkRecord)
+                                .onAppear {
+                                    let textLength = linkRecord.extractedText.isEmpty ? (extractedContent?.mainText.count ?? 0) : linkRecord.extractedText.count
+                                    DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Text View appeared - text length: \(textLength) characters")
+                                    DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Using extractedText: \(!linkRecord.extractedText.isEmpty), content.mainText: \(extractedContent?.mainText.isEmpty == false)")
+                                }
+                        case .html:
+                            HTMLTabView(html: linkRecord.html, url: linkRecord.originalUrl)
+                                .onAppear {
+                                    DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: HTML tab appeared - HTML length: \(linkRecord.html.count) characters")
+                                    if linkRecord.html.isEmpty {
+                                        DebugLogger.shared.logWebViewAction("⚠️ EnhancedArticleView: HTML content is empty!")
+                                    } else {
+                                        DebugLogger.shared.logWebViewAction("✅ EnhancedArticleView: HTML content available (\(linkRecord.html.count) chars)")
+                                    }
+                                }
                         case .images:
+                            // Use linkRecord.images (locally saved) if available, otherwise use extractedContent.images
+                            let imagesToShow = linkRecord.images.isEmpty ? (extractedContent?.images ?? []) : linkRecord.images.map { imageRecord in
+                                HTMLContentExtractor.ExtractedImage(
+                                    url: imageRecord.originalUrl,
+                                    alt: imageRecord.altText ?? "",
+                                    caption: "",
+                                    width: nil,
+                                    height: nil,
+                                    isMainImage: false
+                                )
+                            }
+                            
                             ImagesTabView(
-                                images: extractedContent?.images ?? [],
+                                images: imagesToShow,
                                 showFullImage: $showFullImage,
                                 selectedImageIndex: $selectedImageIndex
                             )
@@ -701,119 +729,117 @@ struct ContentTabView: View {
     let linkRecord: LinkRecord
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                if let content = content {
-                    // Enhanced Description
-                    if !content.description.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "text.quote")
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
-                                Text("Summary")
-                                    .font(.headline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.primary)
-                                Spacer()
-                            }
-                            
-                            Text(content.description)
-                                .font(.body)
-                                .foregroundColor(.primary)
-                                .lineSpacing(6)
-                                .padding(16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.blue.opacity(0.05))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-                                        )
-                                )
-                        }
-                    }
-                    
-                    // Enhanced Main Content
-                    VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 24) {
+            if let content = content {
+                // Enhanced Description
+                if !content.description.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Image(systemName: "doc.text")
+                            Image(systemName: "text.quote")
                                 .font(.caption)
-                                .foregroundColor(.green)
-                            Text("Article Content")
+                                .foregroundColor(.blue)
+                            Text("Summary")
                                 .font(.headline)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.primary)
                             Spacer()
-                            
-                            // Copy Button
-                            Button(action: {
-                                let pasteboard = NSPasteboard.general
-                                let textToCopy = linkRecord.extractedText.isEmpty ? content.mainText : linkRecord.extractedText
-                                pasteboard.clearContents()
-                                pasteboard.setString(textToCopy, forType: .string)
-                                print("📋 Text copied to clipboard: \(textToCopy.prefix(50))...")
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "doc.on.doc.fill")
-                                        .font(.system(size: 12))
-                                    Text("Copy All")
-                                        .font(.system(size: 12, weight: .medium))
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.blue.opacity(0.15))
-                                .foregroundColor(.blue)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .help("Copy entire article text to clipboard")
                         }
                         
-                        ScrollView {
-                            Text(linkRecord.extractedText.isEmpty ? content.mainText : linkRecord.extractedText)
-                                .font(.body)
-                                .foregroundColor(.primary)
-                                .lineSpacing(8)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled) // ← Macht den Text kopierbar!
-                                .padding(20)
-                        }
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                )
-                        )
-                        .frame(maxHeight: 400) // Begrenzte Höhe für bessere UX
-                    }
-                } else {
-                    VStack(spacing: 20) {
-                        Image(systemName: "doc.text.magnifyingglass")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray)
-                        
-                        Text("No Content Available")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        
-                        Text("The article content could not be extracted or is not available.")
+                        Text(content.description)
                             .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                            .foregroundColor(.primary)
+                            .lineSpacing(6)
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.blue.opacity(0.05))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(40)
                 }
+                
+                // Enhanced Main Content
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Image(systemName: "doc.text")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Text("Article Content")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        Spacer()
+                        
+                        // Copy Button
+                        Button(action: {
+                            let pasteboard = NSPasteboard.general
+                            let textToCopy = linkRecord.extractedText.isEmpty ? content.mainText : linkRecord.extractedText
+                            pasteboard.clearContents()
+                            pasteboard.setString(textToCopy, forType: .string)
+                            print("📋 Text copied to clipboard: \(textToCopy.prefix(50))...")
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "doc.on.doc.fill")
+                                    .font(.system(size: 12))
+                                Text("Copy All")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.15))
+                            .foregroundColor(.blue)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .help("Copy entire article text to clipboard")
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(linkRecord.extractedText.isEmpty ? content.mainText : linkRecord.extractedText)
+                            .font(.body)
+                            .foregroundColor(.primary)
+                            .lineSpacing(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled) // ← Macht den Text kopierbar!
+                            .padding(20)
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+                    )
+                    .frame(maxHeight: 400) // Begrenzte Höhe für bessere UX
+                }
+            } else {
+                VStack(spacing: 20) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    
+                    Text("No Content Available")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text("The article content could not be extracted or is not available.")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(40)
             }
-            .padding()
         }
+        .padding()
     }
 }
 
@@ -844,6 +870,9 @@ struct ImagesTabView: View {
                     )
                 }
             }
+            .onAppear {
+                DebugLogger.shared.logWebViewAction("🖼️ ImagesTabView: Displaying \(images.count) images")
+            }
         }
     }
 }
@@ -851,26 +880,55 @@ struct ImagesTabView: View {
 struct ImageCardView: View {
     let image: HTMLContentExtractor.ExtractedImage
     let onTap: () -> Void
+    @State private var imageData: Data?
+    @State private var isLoading: Bool = true
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Image placeholder (in real implementation, load actual image)
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.gray.opacity(0.2))
-                .frame(height: 120)
-                .overlay(
-                    VStack {
-                        Image(systemName: "photo")
-                            .font(.title2)
-                            .foregroundColor(.gray)
-                        Text("Image")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                )
-                .onTapGesture {
-                    onTap()
+            // Try to load actual image from URL
+            Group {
+                if let imageData = imageData, let nsImage = NSImage(data: imageData) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(height: 120)
+                        .clipped()
+                } else if isLoading {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 120)
+                        .overlay(
+                            VStack {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Loading...")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        )
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 120)
+                        .overlay(
+                            VStack {
+                                Image(systemName: "photo")
+                                    .font(.title2)
+                                    .foregroundColor(.gray)
+                                Text("Image")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        )
                 }
+            }
+            .cornerRadius(8)
+            .onTapGesture {
+                onTap()
+            }
+            .task {
+                await loadImage()
+            }
             
             // Image info
             VStack(alignment: .leading, spacing: 4) {
@@ -911,6 +969,27 @@ struct ImageCardView: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
         )
+    }
+    
+    private func loadImage() async {
+        guard let url = URL(string: image.url) else {
+            await MainActor.run {
+                isLoading = false
+            }
+            return
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            await MainActor.run {
+                self.imageData = data
+                self.isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                self.isLoading = false
+            }
+        }
     }
 }
 
@@ -1259,6 +1338,8 @@ struct FullScreenImageView: View {
     let images: [HTMLContentExtractor.ExtractedImage]
     @Binding var selectedIndex: Int
     @Environment(\.dismiss) private var dismiss
+    @State private var imageData: Data?
+    @State private var isLoading: Bool = true
     
     var body: some View {
         VStack {
@@ -1276,10 +1357,24 @@ struct FullScreenImageView: View {
             }
             .padding()
             
-            // Image display (simplified)
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.gray.opacity(0.2))
-                .overlay(
+            // Image display with actual image loading
+            Group {
+                if let imageData = imageData, let nsImage = NSImage(data: imageData) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                } else if isLoading {
+                    VStack {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Loading image...")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
                     VStack {
                         Image(systemName: "photo")
                             .font(.system(size: 64))
@@ -1288,9 +1383,133 @@ struct FullScreenImageView: View {
                             .font(.headline)
                             .foregroundColor(.primary)
                     }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding()
+        }
+        .task {
+            await loadImage()
+        }
+        .onChange(of: selectedIndex) { _, _ in
+            Task {
+                await loadImage()
+            }
+        }
+    }
+    
+    private func loadImage() async {
+        guard selectedIndex < images.count else { return }
+        
+        let image = images[selectedIndex]
+        guard let url = URL(string: image.url) else {
+            await MainActor.run {
+                isLoading = false
+            }
+            return
+        }
+        
+        await MainActor.run {
+            isLoading = true
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            await MainActor.run {
+                self.imageData = data
+                self.isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                self.isLoading = false
+            }
+        }
+    }
+}
+
+// MARK: - HTML Tab View
+
+struct HTMLTabView: View {
+    let html: String
+    let url: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                Image(systemName: "doc.html")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                Text("HTML Source")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                Spacer()
+                
+                // Copy HTML Button
+                Button(action: {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(html, forType: .string)
+                    print("📋 HTML copied to clipboard")
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.on.doc.fill")
+                            .font(.system(size: 12))
+                        Text("Copy HTML")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.orange.opacity(0.15))
+                    .foregroundColor(.orange)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("Copy HTML source to clipboard")
+            }
+            
+            // HTML Content
+            ScrollView {
+                if html.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "doc.html")
+                            .font(.system(size: 48))
+                            .foregroundColor(.gray)
+                        Text("No HTML Content Available")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        Text("The HTML content for this article is not available.")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(40)
+                } else {
+                    Text(html)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.primary)
+                        .lineSpacing(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .padding(16)
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            .frame(maxHeight: 500)
         }
     }
 }

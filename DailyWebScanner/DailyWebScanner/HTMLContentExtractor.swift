@@ -569,8 +569,29 @@ class HTMLElement {
     }
     
     var textContent: String? {
-        // Extract text content from HTML
-        return html.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        // Extract text content from HTML and remove CSS/JS
+        var cleanText = html
+        
+        // Remove HTML tags
+        cleanText = cleanText.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        
+        // Remove CSS blocks
+        cleanText = cleanText.replacingOccurrences(of: "<style[^>]*>.*?</style>", with: "", options: [.regularExpression, .caseInsensitive])
+        
+        // Remove script blocks
+        cleanText = cleanText.replacingOccurrences(of: "<script[^>]*>.*?</script>", with: "", options: [.regularExpression, .caseInsensitive])
+        
+        // Remove CSS rules (standalone CSS)
+        cleanText = cleanText.replacingOccurrences(of: "\\{[^}]*\\}", with: "", options: .regularExpression)
+        
+        // Remove CSS selectors
+        cleanText = cleanText.replacingOccurrences(of: "\\.[a-zA-Z0-9_-]+", with: "", options: .regularExpression)
+        
+        // Clean up multiple spaces and newlines
+        cleanText = cleanText.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        cleanText = cleanText.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        return cleanText
     }
     
     var className: String {
