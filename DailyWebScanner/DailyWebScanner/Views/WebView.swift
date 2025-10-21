@@ -19,29 +19,29 @@ struct WebView: NSViewRepresentable {
         DebugLogger.shared.logWebKitStart()
 
         let config = WKWebViewConfiguration()
-        // JavaScript standardmäßig an; bei Bedarf deaktivieren:
+        // JavaScript enabled by default; disable here if needed
         // config.preferences.javaScriptEnabled = false
 
-        // App-Bound-Domains nicht einschränken (Standard); hier nur explizit gesetzt
+        // Do not restrict to app-bound domains (default); explicitly set here
         config.limitsNavigationsToAppBoundDomains = false
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
 
-        // Gesten explizit deaktivieren (Default ist false, zur Klarheit)
+        // Explicitly disable back/forward gestures (default is false; keep explicit)
         webView.allowsBackForwardNavigationGestures = false
 
-        // Transparenter Hintergrund (macOS)
-        // Variante 1 (bewährt): KVC -> zeichnet keinen Hintergrund
+        // Transparent background (macOS)
+        // Option 1: KVC disables background drawing
         webView.setValue(false, forKey: "drawsBackground")
-        // Variante 2 (ergänzend): Layer-Hintergrund transparent
+        // Option 2: transparent layer background
         webView.wantsLayer = true
         webView.layer?.backgroundColor = NSColor.clear.cgColor
 
-        // Erstinitialisierung laden
+        // Initial load
         context.coordinator.currentHTMLHash = html.hashValue
 
-        // BaseURL setzen, falls spätere relative Ressourcen dazukommen (hier: nil -> about:blank)
+        // Set baseURL in case of relative resources later (nil -> about:blank)
         webView.loadHTMLString(html, baseURL: nil)
 
         DebugLogger.shared.logWebViewAction("WKWebView created and initial HTML loaded")
@@ -77,15 +77,15 @@ struct WebView: NSViewRepresentable {
                 return
             }
 
-            // about:blank oder interne Anker erlauben
+            // Allow about:blank or internal anchors
             if url.scheme == "about" {
                 decisionHandler(.allow)
                 return
             }
 
-            // Je nach Konfiguration externe Links behandeln
+            // Handle external links per configuration
             if allowExternalLinks {
-                // Externe http/https-Links im Standardbrowser öffnen
+                // Open external http/https links in default browser
                 if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
                     DebugLogger.shared.logWebViewAction("Opening external link in default browser: \(url.absoluteString)")
                     NSWorkspace.shared.open(url)
@@ -93,13 +93,13 @@ struct WebView: NSViewRepresentable {
                     return
                 }
             } else {
-                // Alle externen Links blockieren (für HTML-Vorschau)
+                // Block all external links (for HTML preview)
                 DebugLogger.shared.logWebViewAction("Blocking external navigation: \(url.absoluteString)")
                 decisionHandler(.cancel)
                 return
             }
 
-            // data:, file: etc. können je nach Bedarf restriktiver behandelt werden
+            // data:, file:, etc. can be handled more strictly if needed
             decisionHandler(.allow)
         }
 

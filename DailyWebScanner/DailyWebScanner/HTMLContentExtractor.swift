@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import WebKit
+import NaturalLanguage
 
 /// Powerful HTML content extractor that captures text, images, videos, and metadata
 class HTMLContentExtractor: NSObject {
@@ -85,7 +86,17 @@ class HTMLContentExtractor: NSObject {
         let description = extractDescription(from: document)
         DebugLogger.shared.logWebViewAction("📄 HTMLContentExtractor: Description extracted: \(description.count) characters")
         
-        let mainText = extractMainText(from: document)
+        var mainText = extractMainText(from: document)
+        if mainText.count < 50 {
+            // Fallback: erneut mit vollständigem HTML parsen (ohne Isolierung)
+            let fullDoc = parser.parse(html)
+            let fallbackText = extractMainText(from: fullDoc)
+            if fallbackText.count > mainText.count { mainText = fallbackText }
+            // Letzter Fallback: plain Text aus gesamtem HTML
+            if mainText.count < 20 {
+                mainText = HTMLElement(html: html).textContent ?? ""
+            }
+        }
         DebugLogger.shared.logWebViewAction("📖 HTMLContentExtractor: Main text extracted: \(mainText.count) characters")
         
         let images = extractImagesFromHTML(articleHTML, baseURL: baseURL)
@@ -97,7 +108,19 @@ class HTMLContentExtractor: NSObject {
         let links = extractLinks(from: document, baseURL: baseURL)
         DebugLogger.shared.logWebViewAction("🔗 HTMLContentExtractor: Links found: \(links.count)")
         
-        let metadata = extractMetadata(from: document)
+        var metadata = extractMetadata(from: document)
+        // Sprach-Fallback via NLLanguageRecognizer
+        if (metadata.language == nil || metadata.language?.isEmpty == true) && !mainText.isEmpty {
+            metadata = ContentMetadata(
+                author: metadata.author,
+                publishDate: metadata.publishDate,
+                category: metadata.category,
+                tags: metadata.tags,
+                language: detectLanguageCode(from: mainText),
+                wordCount: metadata.wordCount,
+                readingTime: metadata.readingTime
+            )
+        }
         DebugLogger.shared.logWebViewAction("📊 HTMLContentExtractor: Metadata extracted - Author: \(metadata.author ?? "None"), Language: \(metadata.language ?? "None"), Tags: \(metadata.tags.count)")
         
         // Calculate reading metrics
@@ -263,19 +286,45 @@ class HTMLContentExtractor: NSObject {
                 return nil
             }
             
-            guard var src = attr("src"), !src.isEmpty else { continue }
-            let alt = attr("alt") ?? ""
-            let title = attr("title") ?? ""
-            let width = Int(attr("width") ?? "")
-            let height = Int(attr("height") ?? "")
-            
-            // Resolve relative and protocol-relative URLs; allow data URLs as-is
-            if !src.lowercased().hasPrefix("data:") {
-                src = resolveURL(src, baseURL: baseURL)
+            // Prefer srcset largest <= 1600w, else largest available
+            var chosenURL: String?
+            var chosenWidth: Int?
+            if let srcset = attr("srcset"), !srcset.isEmpty {
+                let candidates = parseSrcset(srcset, baseURL: baseURL)
+                if !candidates.isEmpty {
+                    // w-Deskriptor priorisieren, Grenze 1600px
+                    let withW = candidates.compactMap { $0.width != nil ? $0 : nil }
+                    if !withW.isEmpty {
+                        let suitable = withW.filter { ($0.width ?? 0) <= 1600 }
+                        let pick = (suitable.max { ($0.width ?? 0) < ($1.width ?? 0) }) ?? (withW.max { ($0.width ?? 0) < ($1.width ?? 0) })
+                        chosenURL = pick?.url
+                        chosenWidth = pick?.width
+                    } else {
+                        // Fallback: höchstes x (DPR)
+                        let byScale = candidates.sorted { ($0.scale ?? 1.0) > ($1.scale ?? 1.0) }
+                        chosenURL = byScale.first?.url
+                    }
+                }
             }
             
+            // Fallback auf src
+            if chosenURL == nil, let src = attr("src"), !src.isEmpty {
+                chosenURL = src
+            }
+            guard var srcFinal = chosenURL, !srcFinal.isEmpty else { continue }
+            
+            // Resolve relative and protocol-relative URLs; allow data URLs as-is
+            if !srcFinal.lowercased().hasPrefix("data:") {
+                srcFinal = resolveURL(srcFinal, baseURL: baseURL)
+            }
+            
+            let alt = attr("alt") ?? ""
+            let title = attr("title") ?? ""
+            let width = chosenWidth ?? Int(attr("width") ?? "")
+            let height = Int(attr("height") ?? "")
+            
             results.append(ExtractedImage(
-                url: src,
+                url: srcFinal,
                 alt: alt,
                 caption: title,
                 width: width,
@@ -283,6 +332,22 @@ class HTMLContentExtractor: NSObject {
                 isMainImage: false
             ))
         }
+        
+        // Meta-Fallbacks (og:image, twitter:image, link rel=image_src)
+        func addMetaImageIfPresent(_ pattern: String) {
+            if let rx = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+               let m = rx.firstMatch(in: html, options: [], range: fullRange),
+               m.numberOfRanges > 1, let rr = Range(m.range(at: 1), in: html) {
+                var url = String(html[rr])
+                if !url.lowercased().hasPrefix("data:") { url = resolveURL(url, baseURL: baseURL) }
+                if !results.contains(where: { $0.url == url }) {
+                    results.append(ExtractedImage(url: url, alt: "", caption: "", width: nil, height: nil, isMainImage: true))
+                }
+            }
+        }
+        addMetaImageIfPresent(#"<meta[^>]*property=\"og:image\"[^>]*content=\"([^\"]+)\"[^>]*>"#)
+        addMetaImageIfPresent(#"<meta[^>]*name=\"twitter:image\"[^>]*content=\"([^\"]+)\"[^>]*>"#)
+        addMetaImageIfPresent(#"<link[^>]*rel=\"image_src\"[^>]*href=\"([^\"]+)\"[^>]*>"#)
         
         // Deduplicate by URL
         var seen: Set<String> = []
@@ -293,6 +358,27 @@ class HTMLContentExtractor: NSObject {
         }
         
         return results
+    }
+    
+    // Parse srcset into candidate list (url, width?, scale?)
+    private func parseSrcset(_ srcset: String, baseURL: String) -> [(url: String, width: Int?, scale: Double?)] {
+        let parts = srcset.split(separator: ",")
+        var out: [(String, Int?, Double?)] = []
+        for p in parts {
+            let comp = p.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ")
+            guard let first = comp.first else { continue }
+            var url = String(first)
+            if !url.lowercased().hasPrefix("data:") { url = resolveURL(url, baseURL: baseURL) }
+            var w: Int?
+            var s: Double?
+            if comp.count >= 2 {
+                let d = comp[1]
+                if d.hasSuffix("w"), let val = Int(d.dropLast()) { w = val }
+                else if d.hasSuffix("x"), let val = Double(d.dropLast()) { s = val }
+            }
+            out.append((url, w, s))
+        }
+        return out
     }
     
     // MARK: - Video Extraction
@@ -524,7 +610,20 @@ class HTMLContentExtractor: NSObject {
         // Basic character check
         let allowed = CharacterSet.letters.union(.whitespaces).union(CharacterSet(charactersIn: "-'’"))
         if s.unicodeScalars.contains(where: { !allowed.contains($0) }) { return false }
+        // Ausschluss typischer Organisationsbegriffe
+        let lower = s.lowercased()
+        let orgHints = ["verlag", "media", "news", "press", "diario", "hoy", "zeitung", "gazette", "daily", "sur", "abc", "tribune", "agency", "agencia", "redaction", "redaktion"]
+        if orgHints.contains(where: { lower.contains($0) }) { return false }
         return true
+    }
+
+    private func detectLanguageCode(from text: String) -> String? {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        if let lang = recognizer.dominantLanguage {
+            return lang.rawValue
+        }
+        return nil
     }
     
     private func extractAuthor(from document: HTMLDocument) -> String? {

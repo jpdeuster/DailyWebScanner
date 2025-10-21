@@ -117,3 +117,5 @@ secrets.json
  
 # Project docs not to be versioned
 INFO_DELETE_DB.md
+_DerivedDataDebug/
+_DerivedDataDebug/**

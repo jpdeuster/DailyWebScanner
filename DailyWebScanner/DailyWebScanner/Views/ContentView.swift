@@ -222,10 +222,10 @@ struct ContentView: View {
                     HStack(spacing: 8) {
                         if let value = progressValue {
                             ProgressView(value: value)
-                                .frame(width: 160)
+                                .frame(width: 160, height: 4)
                         } else {
                             ProgressView()
-                                .frame(width: 160)
+                                .frame(width: 160, height: 4)
                         }
                         Text(progressText.isEmpty ? "Suche läuft…" : progressText)
                             .font(.caption)
@@ -506,7 +506,7 @@ struct ContentView: View {
                             
                             if let imageURL = URL(string: image.url) {
                                 do {
-                                    let (data, _) = try await URLSession.shared.data(from: imageURL)
+                                    let (data, response) = try await URLSession.shared.data(from: imageURL)
                                     fileSize = data.count
                                     totalImageBytes += fileSize
                                     
@@ -514,8 +514,18 @@ struct ContentView: View {
                                     let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
                                     let imagesPath = documentsPath.appendingPathComponent("DailyWebScanner/Images")
                                     try FileManager.default.createDirectory(at: imagesPath, withIntermediateDirectories: true)
-                                    
-                                    let fileName = "\(linkRecord.id.uuidString)_\(UUID().uuidString).jpg"
+                                    // Determine extension by MIME type
+                                    let ext: String = {
+                                        if let mime = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")?.lowercased() {
+                                            if mime.contains("image/png") { return "png" }
+                                            if mime.contains("image/webp") { return "webp" }
+                                            if mime.contains("image/gif") { return "gif" }
+                                            if mime.contains("image/tiff") { return "tiff" }
+                                            if mime.contains("image/heic") { return "heic" }
+                                        }
+                                        return "jpg"
+                                    }()
+                                    let fileName = "\(linkRecord.id.uuidString)_\(UUID().uuidString).\(ext)"
                                     let fileURL = imagesPath.appendingPathComponent(fileName)
                                     try data.write(to: fileURL)
                                     localPath = fileURL.path

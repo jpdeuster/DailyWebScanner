@@ -239,26 +239,38 @@ struct SearchQueriesView: View {
     // Get the actual database file path
     private func getDatabasePath() -> String {
         let containerURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        
-        // Get the actual bundle identifier dynamically
         let bundleIdentifier = Bundle.main.bundleIdentifier ?? "de.deusterdevelopment.DailyWebScanner"
         let appContainerURL = containerURL.appendingPathComponent(bundleIdentifier)
-        let databaseURL = appContainerURL.appendingPathComponent("default.store")
-        
-        DebugLogger.shared.logWebViewAction("📁 SearchQueriesView: Database path: \(databaseURL.path)")
-        return databaseURL.path
+        DebugLogger.shared.logWebViewAction("📁 SearchQueriesView: Database path: \(appContainerURL.path)")
+        return appContainerURL.path
     }
     
-    // Get file size in bytes
+    // Get total size of directory or single file in bytes
     private func getFileSize(at path: String) -> Int64 {
-        do {
-            let attributes = try FileManager.default.attributesOfItem(atPath: path)
-            if let fileSize = attributes[.size] as? NSNumber {
-                return fileSize.int64Value
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        if fm.fileExists(atPath: path, isDirectory: &isDir) {
+            if isDir.boolValue {
+                // Sum all files in directory (e.g., default.store, .wal, .shm)
+                let url = URL(fileURLWithPath: path)
+                if let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey], options: [.skipsHiddenFiles]) {
+                    var total: Int64 = 0
+                    for case let fileURL as URL in enumerator {
+                        do {
+                            let res = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+                            if res.isRegularFile == true, let fs = res.fileSize { total += Int64(fs) }
+                        } catch { continue }
+                    }
+                    return total
+                }
+            } else {
+                do {
+                    let attributes = try fm.attributesOfItem(atPath: path)
+                    if let fileSize = attributes[.size] as? NSNumber { return fileSize.int64Value }
+                } catch { }
             }
-        } catch {
-            DebugLogger.shared.logWebViewAction("⚠️ SearchQueriesView: Could not get database file size: \(error.localizedDescription)")
         }
+        DebugLogger.shared.logWebViewAction("⚠️ SearchQueriesView: Could not get database file size: Path missing or unreadable")
         return 0
     }
     
