@@ -8,6 +8,9 @@ struct ContentView: View {
     @State private var searchText: String = ""
     @State private var selectedSearchRecord: ManualSearchRecord?
     @State private var filterText: String = ""
+    @State private var isSearching: Bool = false
+    @State private var progressValue: Double? = nil
+    @State private var progressText: String = ""
     // Search parameters using @AppStorage
     @AppStorage("searchLanguage") var language: String = ""
     @AppStorage("searchRegion") var region: String = ""
@@ -213,6 +216,25 @@ struct ContentView: View {
                 }
                 .listStyle(.sidebar)
                 }
+                // Statusleiste (Fortschritt)
+                if isSearching {
+                    Divider()
+                    HStack(spacing: 8) {
+                        if let value = progressValue {
+                            ProgressView(value: value)
+                                .frame(width: 160)
+                        } else {
+                            ProgressView()
+                                .frame(width: 160)
+                        }
+                        Text(progressText.isEmpty ? "Suche läuft…" : progressText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                }
             }
             .frame(minWidth: 300)
         } detail: {
@@ -389,6 +411,11 @@ struct ContentView: View {
         if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         Task {
             do {
+                    await MainActor.run {
+                        isSearching = true
+                        progressValue = nil
+                        progressText = "Suche läuft…"
+                    }
                     let viewModel = SearchViewModel()
                     viewModel.modelContext = modelContext
                     let searchResults = try await viewModel.runSearchForResults(
@@ -403,6 +430,16 @@ struct ContentView: View {
                         nfpr: "",
                         filter: ""
                     )
+                    let total = searchResults.count
+                    await MainActor.run {
+                        if total > 0 {
+                            progressValue = 0.0
+                            progressText = "Inhalte extrahieren (0/\(total))…"
+                        } else {
+                            progressValue = nil
+                            progressText = "Keine Ergebnisse"
+                        }
+                    }
                     
                     // Create ManualSearchRecord
                     let record = ManualSearchRecord(
@@ -420,7 +457,7 @@ struct ContentView: View {
                     record.results = searchResults
                     
                     // Convert SearchResults to LinkRecords for the article list
-                    for (_, searchResult) in searchResults.enumerated() {
+                    for (idx, searchResult) in searchResults.enumerated() {
                         // Fetch HTML content immediately to avoid network requests later
                         let htmlContent = await fetchHTMLFromURL(searchResult.link)
                         
@@ -499,6 +536,15 @@ struct ContentView: View {
                         DebugLogger.shared.logWebViewAction("💾 ContentView: Saved complete content to database for '\(searchResult.title)'")
                         modelContext.insert(linkRecord)
                         DebugLogger.shared.logWebViewAction("Created LinkRecord with HTML: \(searchResult.title) (HTML length: \(htmlContent.count))")
+
+                        // Fortschritt aktualisieren
+                        await MainActor.run {
+                            if total > 0 {
+                                let current = idx + 1
+                                progressValue = Double(current) / Double(total)
+                                progressText = "Inhalte extrahieren (\(current)/\(total))…"
+                            }
+                        }
                     }
                 
                 await MainActor.run {
@@ -507,9 +553,17 @@ struct ContentView: View {
                         searchText = "" // Clear search text after successful search
                         DebugLogger.shared.logWebViewAction("Manual search completed - searchRecords count: \(searchRecords.count)")
                         DebugLogger.shared.logWebViewAction("Created \(searchResults.count) LinkRecords for article list")
+                        isSearching = false
+                        progressValue = nil
+                        progressText = ""
                 }
             } catch {
                     DebugLogger.shared.logWebViewAction("Search failed: \(error)")
+                await MainActor.run {
+                        progressText = "Fehler: \(error.localizedDescription)"
+                        progressValue = nil
+                        isSearching = false
+                    }
                 }
             }
         }
