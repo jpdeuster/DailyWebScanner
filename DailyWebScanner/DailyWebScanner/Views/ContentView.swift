@@ -264,6 +264,48 @@ struct ContentView: View {
                 }
                 } else {
                 VStack(spacing: 20) {
+                    // Navigation Buttons (top-right)
+                    HStack {
+                        Spacer()
+                        
+                        Button(action: {
+                            showAutomatedSearchWindow()
+                        }) {
+                            HStack {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.caption)
+                                Text("Automated Search")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open Automated Search (⌘A)")
+                        .keyboardShortcut("a", modifiers: .command)
+                        
+                        Button(action: {
+                            showArticlesWindow()
+                        }) {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                    .font(.caption)
+                                Text("Show Saved Articles")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open Articles List (⌘L)")
+                        .keyboardShortcut("l", modifiers: .command)
+                    }
+                    .padding(.horizontal)
+                    
                     Image(systemName: "magnifyingglass.circle")
                         .font(.system(size: 64))
                         .foregroundColor(.blue)
@@ -379,12 +421,15 @@ struct ContentView: View {
                     
                     // Convert SearchResults to LinkRecords for the article list
                     for (_, searchResult) in searchResults.enumerated() {
+                        // Fetch HTML content immediately to avoid network requests later
+                        let htmlContent = await fetchHTMLFromURL(searchResult.link)
+                        
                         let linkRecord = LinkRecord(
                             searchRecordId: record.id,
                             originalUrl: searchResult.link,
                             title: searchResult.title,
                             content: searchResult.snippet,
-                            html: "",
+                            html: htmlContent,  // ← HTML wird sofort geladen!
                             css: "",
                             fetchedAt: Date(),
                             articleDescription: searchResult.snippet,
@@ -392,7 +437,7 @@ struct ContentView: View {
                             readingTime: max(1, searchResult.snippet.split(separator: " ").count / 200)
                         )
                         modelContext.insert(linkRecord)
-                        DebugLogger.shared.logWebViewAction("Created LinkRecord: \(searchResult.title)")
+                        DebugLogger.shared.logWebViewAction("Created LinkRecord with HTML: \(searchResult.title) (HTML length: \(htmlContent.count))")
                     }
                 
                 await MainActor.run {
@@ -834,6 +879,63 @@ struct ParameterTag: View {
         .padding(.vertical, 2)
         .background(color.opacity(0.1))
         .cornerRadius(4)
+    }
+}
+
+extension ContentView {
+    private func showAutomatedSearchWindow() {
+        let automatedSearchWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        automatedSearchWindow.title = "Automated Search"
+        automatedSearchWindow.center()
+        automatedSearchWindow.contentView = NSHostingView(rootView: SearchListView()
+            .environment(\.modelContext, modelContext))
+        
+        automatedSearchWindow.isReleasedWhenClosed = false
+        automatedSearchWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showArticlesWindow() {
+        let articlesWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        articlesWindow.title = "Articles"
+        articlesWindow.center()
+        articlesWindow.contentView = NSHostingView(rootView: SearchQueriesView()
+            .environment(\.modelContext, modelContext))
+        
+        articlesWindow.isReleasedWhenClosed = false
+        articlesWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func fetchHTMLFromURL(_ urlString: String) async -> String {
+        guard let url = URL(string: urlString) else {
+            DebugLogger.shared.logWebViewAction("❌ ContentView: Invalid URL: \(urlString)")
+            return ""
+        }
+        
+        do {
+            DebugLogger.shared.logWebViewAction("🌐 ContentView: Fetching HTML from \(urlString)")
+            let (data, response) = try await URLSession.shared.data(from: url)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                DebugLogger.shared.logWebViewAction("📡 ContentView: HTTP Status: \(httpResponse.statusCode)")
+            }
+            
+            let html = String(data: data, encoding: .utf8) ?? ""
+            DebugLogger.shared.logWebViewAction("📄 ContentView: Fetched HTML length: \(html.count) characters")
+            return html
+        } catch {
+            DebugLogger.shared.logWebViewAction("❌ ContentView: Failed to fetch HTML - \(error.localizedDescription)")
+            return ""
+        }
     }
 }
 

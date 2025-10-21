@@ -132,53 +132,14 @@ struct DailyWebScannerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        HStack(spacing: 8) {
-                            Button(action: {
-                                showSearchListView()
-                            }) {
-                                HStack {
-                                    Image(systemName: "clock.arrow.circlepath")
-                                        .font(.caption)
-                                    Text("Automated Search")
-                                        .font(.caption)
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.green.opacity(0.1))
-                                .cornerRadius(6)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Open Automated Search (⌘R)")
-                            
-                            Button(action: {
-                                showSearchQueriesWindow()
-                            }) {
-                                HStack {
-                                    Image(systemName: "doc.text")
-                                        .font(.caption)
-                                    Text("Show Saved Articles")
-                                        .font(.caption)
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.blue.opacity(0.1))
-                                .cornerRadius(6)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Open Articles List (⌘⇧S)")
-                        }
-                    }
-                }
         }
         .modelContainer(sharedModelContainer)
         .commands {
         CommandMenu("Search") {
-            Button("Search…") {
-                    NotificationCenter.default.post(name: .focusSearchField, object: nil)
+            Button("Advanced Search…") {
+                    showComingSoonWindow()
             }
-            .keyboardShortcut("f", modifiers: [.command]) // ⌘F: Focus search field
+            .keyboardShortcut("f", modifiers: [.command]) // ⌘F: Advanced Search - Coming Soon
 
             Button("Automated Search") {
                 showSearchListWindow()
@@ -449,6 +410,30 @@ struct DailyWebScannerApp: App {
         appWindow.isReleasedWhenClosed = false
         
         appWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showComingSoonWindow() {
+        let comingSoonWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        comingSoonWindow.title = "Coming Soon"
+        comingSoonWindow.center()
+        comingSoonWindow.contentView = NSHostingView(rootView: ComingSoonView(
+            feature: "Advanced Search",
+            description: "Enhanced search capabilities with custom filters, date ranges, and content type selection.",
+            icon: "magnifyingglass.circle"
+        ))
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        comingSoonWindow.delegate = appWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        comingSoonWindow.isReleasedWhenClosed = false
+        
+        comingSoonWindow.makeKeyAndOrderFront(nil)
     }
     
 }

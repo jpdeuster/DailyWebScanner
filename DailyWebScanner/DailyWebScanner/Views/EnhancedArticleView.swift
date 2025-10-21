@@ -13,7 +13,7 @@ struct EnhancedArticleView: View {
     @State private var selectedImageIndex: Int = 0
     
     enum ArticleTab: String, CaseIterable {
-        case content = "Content"
+        case content = "Text View"
         case images = "Images"
         case videos = "Videos"
         case links = "Links"
@@ -72,6 +72,18 @@ struct EnhancedArticleView: View {
         .task {
             await loadContent()
         }
+        .onChange(of: linkRecord.id) { _, _ in
+            // Reset state when linkRecord changes
+            extractedContent = nil
+            isLoading = true
+            extractionError = nil
+            selectedTab = .content
+            
+            // Reload content for new article
+            Task {
+                await loadContent()
+            }
+        }
         .sheet(isPresented: $showFullImage) {
             if let images = extractedContent?.images, !images.isEmpty {
                 FullScreenImageView(
@@ -97,6 +109,17 @@ struct EnhancedArticleView: View {
             if htmlContent.isEmpty {
                 DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: HTML is empty, attempting to fetch from URL")
                 htmlContent = await fetchHTMLFromURL(linkRecord.originalUrl)
+                
+                // Save the fetched HTML back to the database
+                if !htmlContent.isEmpty {
+                    await MainActor.run {
+                        linkRecord.html = htmlContent
+                        try? linkRecord.modelContext?.save()
+                        DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: HTML saved to database (\(htmlContent.count) characters)")
+                    }
+                }
+            } else {
+                DebugLogger.shared.logWebViewAction("📄 EnhancedArticleView: Using cached HTML from database (\(htmlContent.count) characters)")
             }
             
             if htmlContent.isEmpty {
@@ -599,21 +622,52 @@ struct ContentTabView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(.primary)
                             Spacer()
+                            
+                            // Copy Button
+                            Button(action: {
+                                let pasteboard = NSPasteboard.general
+                                pasteboard.clearContents()
+                                pasteboard.setString(content.mainText, forType: .string)
+                                print("📋 Text copied to clipboard: \(content.mainText.prefix(50))...")
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "doc.on.doc.fill")
+                                        .font(.system(size: 12))
+                                    Text("Copy All")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue.opacity(0.15))
+                                .foregroundColor(.blue)
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .help("Copy entire article text to clipboard")
                         }
                         
-                        Text(content.mainText)
-                            .font(.body)
-                            .foregroundColor(.primary)
-                            .lineSpacing(8)
-                            .padding(20)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                    )
-                            )
+                        ScrollView {
+                            Text(content.mainText)
+                                .font(.body)
+                                .foregroundColor(.primary)
+                                .lineSpacing(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled) // ← Macht den Text kopierbar!
+                                .padding(20)
+                        }
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                )
+                        )
+                        .frame(maxHeight: 400) // Begrenzte Höhe für bessere UX
                     }
                 } else {
                     VStack(spacing: 20) {

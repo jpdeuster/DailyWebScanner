@@ -401,6 +401,48 @@ struct SearchListView: View {
                 .padding()
                 } else {
                     VStack(spacing: 20) {
+                        // Navigation Buttons (top-right)
+                        HStack {
+                            Spacer()
+                            
+                            Button(action: {
+                                showManualSearchWindow()
+                            }) {
+                                HStack {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.caption)
+                                    Text("Manual Search")
+                                        .font(.caption)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Open Manual Search (⌘M)")
+                            .keyboardShortcut("m", modifiers: .command)
+                            
+                            Button(action: {
+                                showArticlesWindow()
+                            }) {
+                                HStack {
+                                    Image(systemName: "doc.text")
+                                        .font(.caption)
+                                    Text("Show Saved Articles")
+                                        .font(.caption)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Open Articles List (⌘L)")
+                            .keyboardShortcut("l", modifiers: .command)
+                        }
+                        .padding(.horizontal)
+                        
                         Image(systemName: "magnifyingglass.circle")
                             .font(.system(size: 64))
                             .foregroundColor(.blue)
@@ -437,47 +479,6 @@ struct SearchListView: View {
                     }
                     .padding(40)
                 }
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 8) {
-                    Spacer()
-                    
-                    Button(action: {
-                        showManualSearchWindow()
-                    }) {
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .font(.caption)
-                            Text("Manual Search")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Open Manual Search (⌘F)")
-                    
-                    Button(action: {
-                        showArticlesWindow()
-                    }) {
-                        HStack {
-                            Image(systemName: "doc.text")
-                                .font(.caption)
-                            Text("Show Saved Articles")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Open Articles List (⌘⇧S)")
-                }
-            }
         }
         .onAppear {
             DebugLogger.shared.logWebViewAction("🚀 DailyWebScanner - SearchListView appeared - allSearchRecords count: \(allSearchRecords.count)")
