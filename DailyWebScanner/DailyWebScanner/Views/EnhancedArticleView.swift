@@ -2158,7 +2158,7 @@ struct OfflineHTMLWebView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptEnabled = false
         // Block network resources via content rule list
-        let rules = #"[{"trigger":{"url-filter":".*","resource-type":["image","style-sheet","script","font","media","svg-document","raw"]},"action":{"type":"block"}}]"#
+        let rules = #"[{"trigger":{"url-filter": "https?://.*","resource-type":["image","style-sheet","script","font","media","svg-document","raw"]},"action":{"type":"block"}}]"#
         WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "blockAllNet", encodedContentRuleList: rules) { list, _ in
             if let list = list { config.userContentController.add(list) }
         }
