@@ -547,6 +547,8 @@ struct ContentView: View {
                                 downloadedAt: Date()
                             )
                             linkRecord.images.append(imageRecord)
+                            // Ensure the image record is persisted
+                            modelContext.insert(imageRecord)
                         }
                         linkRecord.imageCount = linkRecord.images.count
                         linkRecord.totalImageSize = totalImageBytes
@@ -554,6 +556,8 @@ struct ContentView: View {
                         DebugLogger.shared.logWebViewAction("💾 ContentView: Saved complete content to database for '\(searchResult.title)'")
                         modelContext.insert(linkRecord)
                         DebugLogger.shared.logWebViewAction("Created LinkRecord with HTML: \(searchResult.title) (HTML length: \(htmlContent.count))")
+                        // Save after inserting images and link
+                        do { try modelContext.save() } catch { DebugLogger.shared.logWebViewAction("❌ ContentView: modelContext.save() failed: \(error.localizedDescription)") }
 
                         // Fortschritt aktualisieren
                         await MainActor.run {

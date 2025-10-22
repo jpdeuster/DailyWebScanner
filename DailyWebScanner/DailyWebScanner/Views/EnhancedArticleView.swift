@@ -152,6 +152,20 @@ struct EnhancedArticleView: View {
                 let linkRecordImages = linkRecord.images.count
                 let sample = imagesToShow.prefix(3).map { $0.url }.joined(separator: ", ")
                 DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: Images tab appeared - toShow: \(imageCount), linkRecord images: \(linkRecordImages), sample: [\(sample)]")
+                // Diagnose each image path
+                for (idx, item) in imagesToShow.enumerated() {
+                    if let u = URL(string: item.url) {
+                        if u.isFileURL {
+                            let exists = FileManager.default.fileExists(atPath: u.path)
+                            let size = (try? Data(contentsOf: u).count) ?? -1
+                            DebugLogger.shared.logWebViewAction("🧪 EnhancedArticleView: [\(idx)] local file exists=\(exists) size=\(size) path=\(u.path)")
+                        } else {
+                            DebugLogger.shared.logWebViewAction("🧪 EnhancedArticleView: [\(idx)] remote url=\(u.absoluteString)")
+                        }
+                    } else {
+                        DebugLogger.shared.logWebViewAction("🧪 EnhancedArticleView: [\(idx)] invalid URL string=\(item.url)")
+                    }
+                }
                 
                 if imageCount == 0 && linkRecordImages > 0 {
                     DebugLogger.shared.logWebViewAction("🖼️ EnhancedArticleView: No extracted images, but \(linkRecordImages) images in linkRecord")
@@ -201,7 +215,7 @@ struct EnhancedArticleView: View {
                 
                 // Log total loading time
                 let loadTime = Date().timeIntervalSince(startTime)
-                DebugLogger.shared.logWebViewAction("⏱️ EnhancedArticleView: Article loaded in \(String(format: "%.2f", loadTime)) seconds")
+                DebugLogger.shared.logWebViewAction("⏱️ EnhancedArticleView: Article loaded in \(String(format: "%.2f", loadTime)) seconds - title='\(linkRecord.title)'")
             }
         }
         .sheet(isPresented: $showFullImage) {
@@ -221,6 +235,7 @@ struct EnhancedArticleView: View {
         extractionError = nil
         
         DebugLogger.shared.logWebViewAction("🔄 EnhancedArticleView: Starting content loading for '\(linkRecord.title)'")
+        DebugLogger.shared.logWebViewAction("🧾 EnhancedArticleView: Article title: '\(linkRecord.title)' URL: \(linkRecord.originalUrl)")
         DebugLogger.shared.logWebViewAction("📄 EnhancedArticleView: HTML content length: \(linkRecord.html.count) characters")
         DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Extracted text length: \(linkRecord.extractedText.count) characters")
         DebugLogger.shared.logWebViewAction("🔗 EnhancedArticleView: Links JSON length: \(linkRecord.extractedLinksJSON.count) characters")
@@ -300,26 +315,23 @@ struct EnhancedArticleView: View {
             // Save extracted text for future fast access
             linkRecord.extractedText = content.mainText
             
-            // Save links as JSON (skip for now - need to make ExtractedLink Encodable)
-            // if let linksData = try? JSONEncoder().encode(content.links),
-            //    let linksJSON = String(data: linksData, encoding: .utf8) {
-            //     linkRecord.extractedLinksJSON = linksJSON
-            //     DebugLogger.shared.logWebViewAction("🔗 EnhancedArticleView: Saved \(content.links.count) links to database")
-            // }
+            if let linksData = try? JSONEncoder().encode(content.links),
+               let linksJSON = String(data: linksData, encoding: .utf8) {
+                linkRecord.extractedLinksJSON = linksJSON
+                DebugLogger.shared.logWebViewAction("🔗 EnhancedArticleView: Saved \(content.links.count) links to database")
+            }
             
-            // Save videos as JSON (references only, not downloaded) - skip for now
-            // if let videosData = try? JSONEncoder().encode(content.videos),
-            //    let videosJSON = String(data: videosData, encoding: .utf8) {
-            //     linkRecord.extractedVideosJSON = videosJSON
-            //     DebugLogger.shared.logWebViewAction("🎥 EnhancedArticleView: Saved \(content.videos.count) video references to database")
-            // }
+            if let videosData = try? JSONEncoder().encode(content.videos),
+               let videosJSON = String(data: videosData, encoding: .utf8) {
+                linkRecord.extractedVideosJSON = videosJSON
+                DebugLogger.shared.logWebViewAction("🎥 EnhancedArticleView: Saved \(content.videos.count) video references to database")
+            }
             
-            // Save metadata as JSON - skip for now
-            // if let metadataData = try? JSONEncoder().encode(content.metadata),
-            //    let metadataJSON = String(data: metadataData, encoding: .utf8) {
-            //     linkRecord.extractedMetadataJSON = metadataJSON
-            //     DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Saved metadata to database")
-            // }
+            if let metadataData = try? JSONEncoder().encode(content.metadata),
+               let metadataJSON = String(data: metadataData, encoding: .utf8) {
+                linkRecord.extractedMetadataJSON = metadataJSON
+                DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Saved metadata to database")
+            }
             
             // Download and save images to ImageRecord relationships (only if not present yet)
             if linkRecord.images.isEmpty {

@@ -125,7 +125,18 @@ struct DailyWebScannerApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // Present a user-friendly error dialog and terminate gracefully
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.alertStyle = .critical
+                alert.messageText = "Database Initialization Failed"
+                alert.informativeText = "DailyWebScanner could not initialize its local database. Please try restarting the app.\n\nError: \(error.localizedDescription)"
+                alert.addButton(withTitle: "Quit")
+                alert.runModal()
+                NSApplication.shared.terminate(nil)
+            }
+            // Return an in-memory fallback to satisfy compiler; app will terminate
+            return try! ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
         }
     }()
 

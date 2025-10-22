@@ -7,7 +7,7 @@ import NaturalLanguage
 class HTMLContentExtractor: NSObject {
     
     // MARK: - Content Types
-    struct ExtractedContent {
+    struct ExtractedContent: Codable {
         let title: String
         let description: String
         let mainText: String
@@ -19,7 +19,7 @@ class HTMLContentExtractor: NSObject {
         let wordCount: Int
     }
     
-    struct ExtractedImage {
+    struct ExtractedImage: Codable {
         let url: String
         let alt: String
         let caption: String
@@ -28,7 +28,7 @@ class HTMLContentExtractor: NSObject {
         let isMainImage: Bool
     }
     
-    struct ExtractedVideo {
+    struct ExtractedVideo: Codable {
         let url: String
         let title: String
         let thumbnail: String?
@@ -36,14 +36,14 @@ class HTMLContentExtractor: NSObject {
         let platform: VideoPlatform
     }
     
-    struct ExtractedLink {
+    struct ExtractedLink: Codable {
         let url: String
         let title: String
         let description: String
         let isExternal: Bool
     }
     
-    struct ContentMetadata {
+    struct ContentMetadata: Codable {
         let author: String?
         let publishDate: Date?
         let category: String?
@@ -53,11 +53,37 @@ class HTMLContentExtractor: NSObject {
         let readingTime: Int
     }
     
-    enum VideoPlatform {
+    enum VideoPlatform: Codable {
         case youtube
         case vimeo
         case direct
         case other(String)
+        
+        private enum CodingKeys: String, CodingKey { case type, value }
+        
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            let t = try c.decode(String.self, forKey: .type)
+            switch t {
+            case "youtube": self = .youtube
+            case "vimeo": self = .vimeo
+            case "direct": self = .direct
+            case "other": self = .other(try c.decode(String.self, forKey: .value))
+            default: self = .other(t)
+            }
+        }
+        
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .youtube: try c.encode("youtube", forKey: .type)
+            case .vimeo: try c.encode("vimeo", forKey: .type)
+            case .direct: try c.encode("direct", forKey: .type)
+            case .other(let s):
+                try c.encode("other", forKey: .type)
+                try c.encode(s, forKey: .value)
+            }
+        }
     }
     
     // MARK: - Extraction Methods

@@ -204,9 +204,11 @@ struct SearchQueriesView: View {
             var totalSize: Int64 = 0
             var totalImagesSize: Int64 = 0
             
-            // Get real database file size
-            let databasePath = getDatabasePath()
-            let realDatabaseSize = getFileSize(at: databasePath)
+            // Resolve app support directory and default.store file
+            let (appSupportDir, defaultStoreFile) = getDatabasePaths()
+            let realDatabaseSizeDir = getFileSize(at: appSupportDir)
+            let realDatabaseSizeFile = getFileSize(at: defaultStoreFile)
+            let realDatabaseSize = realDatabaseSizeDir > 0 ? realDatabaseSizeDir : realDatabaseSizeFile
             
             // Calculate LinkRecord sizes (approximation)
             for record in linkRecords {
@@ -231,18 +233,29 @@ struct SearchQueriesView: View {
                 let finalDatabaseSize = realDatabaseSize > 0 ? realDatabaseSize : totalSize
                 databaseSize = formatBytes(finalDatabaseSize)
                 self.totalImagesSize = formatBytes(totalImagesSize)
-                DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: Real DB size: \(formatBytes(realDatabaseSize)), Calculated: \(formatBytes(totalSize)), Images: \(imageRecords.count) (\(self.totalImagesSize))")
+                DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: AppSupport=\(appSupportDir), default.store=\(defaultStoreFile)")
+                DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: Real DB size (dir/file): \(formatBytes(realDatabaseSizeDir))/\(formatBytes(realDatabaseSizeFile)), Calculated: \(formatBytes(totalSize)), Images: \(imageRecords.count) (\(self.totalImagesSize))")
             }
         }
     }
     
-    // Get the actual database file path
-    private func getDatabasePath() -> String {
-        let containerURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    // Get App Support directory for bundle and default.store file path; ensure directory exists
+    private func getDatabasePaths() -> (dirPath: String, storeFilePath: String) {
+        let fm = FileManager.default
+        let baseURL: URL
+        if let url = try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true) {
+            baseURL = url
+        } else {
+            baseURL = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        }
         let bundleIdentifier = Bundle.main.bundleIdentifier ?? "de.deusterdevelopment.DailyWebScanner"
-        let appContainerURL = containerURL.appendingPathComponent(bundleIdentifier)
-        DebugLogger.shared.logWebViewAction("📁 SearchQueriesView: Database path: \(appContainerURL.path)")
-        return appContainerURL.path
+        let appSupportURL = baseURL.appendingPathComponent(bundleIdentifier, isDirectory: true)
+        // Ensure directory exists
+        if !fm.fileExists(atPath: appSupportURL.path) {
+            try? fm.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        }
+        let storeURL = appSupportURL.appendingPathComponent("default.store")
+        return (appSupportURL.path, storeURL.path)
     }
     
     // Get total size of directory or single file in bytes
@@ -270,7 +283,7 @@ struct SearchQueriesView: View {
                 } catch { }
             }
         }
-        DebugLogger.shared.logWebViewAction("⚠️ SearchQueriesView: Could not get database file size: Path missing or unreadable")
+        DebugLogger.shared.logWebViewAction("⚠️ SearchQueriesView: Could not get size for path (missing/unreadable): \(path)")
         return 0
     }
     
@@ -410,10 +423,32 @@ struct ArticleLinkDetailView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        // TODO: Parse and display AI Overview JSON
-                        Text("AI Overview content available")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        if let overview = decodeAIOverview(linkRecord.aiOverviewJSON) {
+                            if !overview.summary.isEmpty {
+                                Text(overview.summary)
+                                    .font(.body)
+                            }
+                            if !overview.keyPoints.isEmpty {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    ForEach(overview.keyPoints, id: \.self) { p in
+                                        HStack(alignment: .top, spacing: 6) {
+                                            Text("•").foregroundColor(.blue)
+                                            Text(p).font(.subheadline)
+                                        }
+                                    }
+                                }
+                                .padding(.top, 4)
+                            }
+                            if let confidence = overview.confidence {
+                                Text(String(format: "Confidence: %.0f%%", confidence * 100))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            Text("AI Overview content available")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .padding()
                     .background(Color.blue.opacity(0.1))
@@ -423,6 +458,17 @@ struct ArticleLinkDetailView: View {
             .padding()
         }
         .navigationTitle("Article Details")
+    }
+    
+    // MARK: - AI Overview Decoder
+    private struct AIOverview: Codable {
+        let summary: String
+        let keyPoints: [String]
+        let confidence: Double?
+    }
+    private func decodeAIOverview(_ json: String) -> AIOverview? {
+        guard let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(AIOverview.self, from: data)
     }
 }
 
