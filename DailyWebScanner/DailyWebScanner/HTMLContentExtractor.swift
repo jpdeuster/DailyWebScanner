@@ -344,9 +344,12 @@ class HTMLContentExtractor: NSObject {
                 }
             }
             
-            // Fallback auf src
-            if chosenURL == nil, let src = attr("src"), !src.isEmpty {
-                chosenURL = src
+            // Fallbacks auf src / data-src / data-original / data-lazy-src
+            if chosenURL == nil {
+                if let src = attr("src"), !src.isEmpty { chosenURL = src }
+                else if let dsrc = attr("data-src"), !dsrc.isEmpty { chosenURL = dsrc }
+                else if let dorig = attr("data-original"), !dorig.isEmpty { chosenURL = dorig }
+                else if let dlazy = attr("data-lazy-src"), !dlazy.isEmpty { chosenURL = dlazy }
             }
             guard var srcFinal = chosenURL, !srcFinal.isEmpty else { continue }
             
