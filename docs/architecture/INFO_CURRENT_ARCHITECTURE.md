@@ -4,7 +4,7 @@
 
 This document describes the current architecture of DailyWebScanner, a macOS application for comprehensive web search, content analysis, and article storage using SwiftData and modern SwiftUI.
 
-## 📊 Current Status (Updated 2024-12-19)
+## 📊 Current Status (Updated 2025-10-22)
 - ✅ **SwiftData Integration** - Fully implemented
 - ✅ **SearchRecord System** - Complete search session management
 - ✅ **LinkRecord System** - Individual article storage and analysis
@@ -12,6 +12,10 @@ This document describes the current architecture of DailyWebScanner, a macOS app
 - ✅ **AI Integration** - OpenAI and Google AI Overview
 - ✅ **Per-Search Parameters** - Dynamic search configuration
 - ✅ **Multi-Window UI** - Separate windows for different views
+- ✅ **API Status Bar** - SerpAPI/OpenAI status + credits display
+- ✅ **JSON Persistence** - Links/Videos/Metadata saved as JSON strings
+- ✅ **Robust DB Size** - Detects store/sqlite + WAL/SHM
+- ✅ **Auto-Open Articles** - App setting to open Articles on launch
 
 ## 🏗️ Architecture Overview
 
@@ -178,6 +182,7 @@ var sharedModelContainer: ModelContainer = {
     do {
         return try ModelContainer(for: schema, configurations: [modelConfiguration])
     } catch {
+        // In app, a user-friendly alert is shown and the app exits gracefully.
         fatalError("Could not create ModelContainer: \(error)")
     }
 }()

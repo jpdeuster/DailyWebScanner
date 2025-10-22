@@ -12,12 +12,12 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 - ✅ **Learning together** - Use as a learning resource
 - ✅ **Shape development** - Your input guides priorities
 
-## 📊 Current Status: Beta 0.5
+## 📊 Current Status: Beta 0.5.5
 
 **Status**: ✅ **Fully Functional**  
-**Focus**: Core features working, ready for enhancements
+**Focus**: Core features working, incremental UX and reliability enhancements
 
-### ✅ **Completed (Beta 0.5)**
+### ✅ **Completed (Beta 0.5.5)**
 - **Google Search Integration** - Via SerpAPI
 - **AI Summaries** - Optional OpenAI integration
 - **Search History** - SwiftData persistence
@@ -25,14 +25,19 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 - **Per-Search Parameters** - Dynamic search configuration
 - **Content Analysis** - Full article storage with images
 - **Security** - Sandbox + Keychain storage
+- **API Status Bar** - SerpAPI/OpenAI status, quick test, credits
+- **Auto-Open Articles on Launch** - App setting toggle
+- **Robust DB Size Detection** - Store/sqlite + WAL/SHM aggregation
+- **Info Tab Thumbnails** - Inline preview or "No pics available"
+- **JSON Persistence** - Links/Videos/Metadata saved in DB
 
 ---
 
 ## 🚀 **Next Releases**
 
 ### **v0.6.0 - HTML Viewer for Articles**
-- **HTML Article Viewer** - Dedicated viewer for article content
-- **Enhanced Article Display** - Better formatting and readability
+- **Enhanced Article Display** - Better formatting and readability (ongoing)
+- **HTML Viewer polish** - Minor layout/typography refinements
 - **Content Navigation** - Easy browsing through article list
 - **Search Integration** - Seamless connection with search results
 

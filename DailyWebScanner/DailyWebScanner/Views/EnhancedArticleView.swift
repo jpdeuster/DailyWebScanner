@@ -181,7 +181,18 @@ struct EnhancedArticleView: View {
                     DebugLogger.shared.logWebViewAction("🔗 EnhancedArticleView: Links tab appeared - count: \(count), sample: [\(sample)]")
                 }
         case .metadata:
-            MetadataTabView(metadata: decodedMetadata() ?? extractedContent?.metadata)
+            // Prefer images from LinkRecord (local), fallback to extracted images
+            let metaImages: [HTMLContentExtractor.ExtractedImage] = !linkRecord.images.isEmpty ? linkRecord.images.map { img in
+                HTMLContentExtractor.ExtractedImage(
+                    url: (img.localPath.map { URL(fileURLWithPath: $0).absoluteString }) ?? img.originalUrl,
+                    alt: img.altText ?? "",
+                    caption: "",
+                    width: img.width,
+                    height: img.height,
+                    isMainImage: false
+                )
+            } : (extractedContent?.images ?? [])
+            MetadataTabView(metadata: decodedMetadata() ?? extractedContent?.metadata, images: metaImages)
                                 .onAppear {
                                     DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Info tab appeared - metadata available: \(extractedContent?.metadata != nil)")
                                     if let metadata = decodedMetadata() ?? extractedContent?.metadata {
@@ -486,13 +497,16 @@ struct ArticleHeaderView: View {
             // Enhanced Title with Gradient Background
             VStack(spacing: 16) {
                 // Article Title
-                Text(title)
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(3)
+                HStack(alignment: .top) {
+                    Text(title)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(3)
+                    HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
+                }
                 
                 // URL with Enhanced Styling
                 Button(action: {
@@ -1458,6 +1472,7 @@ struct LinkCardView: View {
 
 struct MetadataTabView: View {
     let metadata: HTMLContentExtractor.ContentMetadata?
+    let images: [HTMLContentExtractor.ExtractedImage]
     
     var body: some View {
         if let metadata = metadata {
@@ -1470,6 +1485,22 @@ struct MetadataTabView: View {
                     }
                 }
                 
+                MetadataSection(title: "Images") {
+                    if images.isEmpty {
+                        Text("No pics available")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        LazyVGrid(columns: [
+                            GridItem(.fixed(70)), GridItem(.fixed(70)), GridItem(.fixed(70)), GridItem(.fixed(70))
+                        ], spacing: 8) {
+                            ForEach(Array(images.prefix(8).indices), id: \.self) { idx in
+                                InlineThumbView(image: images[idx])
+                            }
+                        }
+                    }
+                }
+
                 if let author = metadata.author {
                     MetadataSection(title: "Author") {
                         MetadataRow(label: "Name", value: author)
@@ -1926,6 +1957,60 @@ struct HTMLTabView: View {
             )
             .frame(maxHeight: 500)
         }
+    }
+}
+
+// Small thumbnail view for inline previews in Info tab
+struct InlineThumbView: View {
+    let image: HTMLContentExtractor.ExtractedImage
+    @State private var data: Data?
+    @State private var isLoading: Bool = true
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.gray.opacity(0.15))
+                .frame(width: 70, height: 70)
+            if let data = data, let ns = NSImage(data: data) {
+                Image(nsImage: ns)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 70, height: 70)
+                    .clipped()
+                    .cornerRadius(6)
+            } else if isLoading {
+                ProgressView().scaleEffect(0.6)
+            } else {
+                Image(systemName: "photo")
+                    .foregroundColor(.gray)
+            }
+        }
+        .task { await load() }
+    }
+    
+    private func load() async {
+        guard let url = URL(string: image.url) else { isLoading = false; return }
+        do {
+            let d: Data
+            if url.isFileURL {
+                d = try Data(contentsOf: url)
+            } else if url.scheme?.lowercased() == "data" {
+                d = dataFromDataURI(image.url) ?? Data()
+            } else {
+                let (dd, _) = try await URLSession.shared.data(from: url)
+                d = dd
+            }
+            await MainActor.run { self.data = d; self.isLoading = false }
+        } catch {
+            await MainActor.run { self.isLoading = false }
+        }
+    }
+    private func dataFromDataURI(_ uri: String) -> Data? {
+        guard let commaIndex = uri.firstIndex(of: ",") else { return nil }
+        let meta = uri[..<commaIndex]
+        let payload = uri[uri.index(after: commaIndex)...]
+        if meta.lowercased().contains(";base64") { return Data(base64Encoded: String(payload)) }
+        return String(payload).removingPercentEncoding?.data(using: .utf8)
     }
 }
 

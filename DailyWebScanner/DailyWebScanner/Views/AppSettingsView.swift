@@ -8,8 +8,14 @@
 import SwiftUI
 
 struct AppSettingsView: View {
-    @AppStorage("maxSearchHistory") private var maxSearchHistory: Int = 0 // 0 = Unlimited
     @AppStorage("appearanceMode") private var appearanceMode: String = "system" // system, light, dark
+    @AppStorage("openArticlesOnLaunch") private var openArticlesOnLaunch: Bool = true
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+    }
+    private var appBuild: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+    }
     
     var body: some View {
         VStack(spacing: 20) {
@@ -22,6 +28,7 @@ struct AppSettingsView: View {
                 Text("General settings for the DailyWebScanner app")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                HStack { Spacer(); HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme") }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 10)
@@ -60,20 +67,18 @@ struct AppSettingsView: View {
                                 }
                             }
                             
-                            HStack {
-                                Text("History Limit:")
-                                    .fontWeight(.medium)
-                                
-                                Picker("", selection: $maxSearchHistory) {
-                                    Text("Unlimited").tag(0)
-                                    Text("100").tag(100)
-                                    Text("500").tag(500)
-                                    Text("1000").tag(1000)
-                                    Text("5000").tag(5000)
+                            Toggle(isOn: $openArticlesOnLaunch) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Open Articles on Launch")
+                                        .fontWeight(.medium)
+                                    Text("Automatically open the Articles window after app start")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
-                                .pickerStyle(.menu)
-                                .frame(width: 120)
                             }
+                            .toggleStyle(.switch)
+                            
+                            // History Limit removed as not useful in current UX
                         }
                     }
                     .padding()
@@ -98,14 +103,14 @@ struct AppSettingsView: View {
                             HStack {
                                 Text("Version:")
                                     .fontWeight(.medium)
-                                Text("0.5-beta")
+                                Text(appVersion)
                                     .foregroundColor(.secondary)
                             }
                             
                             HStack {
                                 Text("Build:")
                                     .fontWeight(.medium)
-                                Text("Debug")
+                                Text(appBuild)
                                     .foregroundColor(.secondary)
                             }
                             
@@ -158,8 +163,8 @@ struct AppSettingsView: View {
     }
     
     private func resetAllSettings() {
-        maxSearchHistory = 0 // Unlimited
         appearanceMode = "system"
+        openArticlesOnLaunch = true
     }
     
     private func applyAppearanceMode(_ mode: String) {

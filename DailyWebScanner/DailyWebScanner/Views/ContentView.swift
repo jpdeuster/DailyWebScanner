@@ -19,6 +19,15 @@ struct ContentView: View {
     @AppStorage("searchType") var searchType: String = ""
     @AppStorage("searchTimeRange") var timeRange: String = ""
     @AppStorage("searchDateRange") var dateRange: String = ""
+    // API keys for status bar
+    @AppStorage("serpAPIKey") private var serpKey: String = ""
+    @AppStorage("openAIKey") private var openAIKey: String = ""
+    @State private var isTestingSerpAPI: Bool = false
+    @State private var serpAPIStatusText: String = ""
+    @State private var serpAPIStatusOK: Bool? = nil
+    @State private var openAIStatusOK: Bool? = nil
+    @State private var serpCreditsText: String = ""
+    @State private var serpPlanText: String = ""
     
     // Computed property for filtered manual search records (alphabetically sorted)
     private var filteredSearchRecords: [ManualSearchRecord] {
@@ -50,6 +59,7 @@ struct ContentView: View {
                             .fontWeight(.medium)
                             .foregroundColor(.primary)
                         Spacer()
+                        HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
                     }
                     
                     // Language and Region Row
@@ -216,7 +226,7 @@ struct ContentView: View {
                 }
                 .listStyle(.sidebar)
                 }
-                // Statusleiste (Fortschritt)
+                // Status bar (progress)
                 if isSearching {
                     Divider()
                     HStack(spacing: 8) {
@@ -227,7 +237,7 @@ struct ContentView: View {
                             ProgressView()
                                 .frame(width: 160, height: 4)
                         }
-                        Text(progressText.isEmpty ? "Suche läuft…" : progressText)
+                        Text(progressText.isEmpty ? "Searching…" : progressText)
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
@@ -235,6 +245,64 @@ struct ContentView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
                 }
+                // API Status bar (always visible) - two lines
+                Divider()
+                VStack(alignment: .leading, spacing: 4) {
+                    // Line 1: SerpAPI
+                    HStack(spacing: 10) {
+                        HStack(spacing: 6) {
+                            Image(systemName: serpAPIStatusOK == true ? "checkmark.circle.fill" : (serpKey.isEmpty ? "questionmark.circle.fill" : "xmark.circle.fill"))
+                                .foregroundColor(serpKey.isEmpty ? .blue : (serpAPIStatusOK == true ? .green : .red))
+                                .font(.caption)
+                            Text("SerpAPI")
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                            if !serpAPIStatusText.isEmpty {
+                                Text(serpAPIStatusText)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            if !serpPlanText.isEmpty {
+                                Text(serpPlanText)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            if !serpCreditsText.isEmpty {
+                                Text(serpCreditsText)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        Button(action: { testSerpAPIStatus() }) {
+                            HStack(spacing: 4) {
+                                if isTestingSerpAPI { ProgressView().scaleEffect(0.6) }
+                                Text("Test SerpAPI")
+                                    .font(.caption)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(serpKey.isEmpty || isTestingSerpAPI)
+                        .help(serpKey.isEmpty ? "Enter SerpAPI key in Settings" : "Quick connectivity test")
+                        Spacer()
+                    }
+                    // Line 2: OpenAI
+                    HStack(spacing: 10) {
+                        HStack(spacing: 6) {
+                            Image(systemName: openAIKey.isEmpty ? "questionmark.circle.fill" : "checkmark.circle.fill")
+                                .foregroundColor(openAIKey.isEmpty ? .blue : .green)
+                                .font(.caption)
+                            Text("OpenAI")
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                            Text(openAIKey.isEmpty ? "Not configured" : "Configured")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
             }
             .frame(minWidth: 300)
         } detail: {
@@ -368,6 +436,38 @@ struct ContentView: View {
         .onAppear {
             loadAccountInfo()
             DebugLogger.shared.logWebViewAction("ContentView appeared - searchRecords count: \(searchRecords.count)")
+            // Initialize API status
+            openAIStatusOK = openAIKey.isEmpty ? nil : true
+            serpAPIStatusOK = serpKey.isEmpty ? nil : true
+            if !serpKey.isEmpty {
+                Task {
+                    do {
+                        let client = SerpAPIClient(apiKeyProvider: { serpKey })
+                        let info = try await client.getAccountInfo()
+                        await MainActor.run {
+                            serpAPIStatusOK = true
+                            let plan = (info.plan ?? "").isEmpty ? nil : info.plan
+                            let rem = info.credits_remaining
+                            let lim = info.credits_limit
+                            serpPlanText = plan.map { "Plan: \($0)" } ?? ""
+                            if let rem = rem, let lim = lim {
+                                serpCreditsText = "Credits: \(rem)/\(lim)"
+                            } else if let rem = rem {
+                                serpCreditsText = "Credits: \(rem)"
+                            } else {
+                                serpCreditsText = ""
+                            }
+                            serpAPIStatusText = "OK"
+                        }
+                    } catch {
+                        await MainActor.run {
+                            serpAPIStatusOK = false
+                            serpAPIStatusText = error.localizedDescription
+                        }
+                        // ignore credit fetch errors silently
+                    }
+                }
+            }
             
             // Debug: Show automated search status
             let automatedRecords = try? modelContext.fetch(FetchDescriptor<AutomatedSearchRecord>())
@@ -389,6 +489,27 @@ struct ContentView: View {
         }
     }
     
+    private func testSerpAPIStatus() {
+        isTestingSerpAPI = true
+        serpAPIStatusText = ""
+        Task {
+            defer { Task { await MainActor.run { isTestingSerpAPI = false } } }
+            do {
+                let client = SerpAPIClient(apiKeyProvider: { serpKey })
+                _ = try await client.fetchTopResults(query: "status", count: 1)
+                await MainActor.run {
+                    serpAPIStatusOK = true
+                    serpAPIStatusText = "OK"
+                }
+            } catch {
+                await MainActor.run {
+                    serpAPIStatusOK = false
+                    serpAPIStatusText = error.localizedDescription
+                }
+            }
+        }
+    }
+
     private func deleteSearchRecord(_ record: ManualSearchRecord) {
         DebugLogger.shared.logWebViewAction("🗑️ ContentView: Starting delete for SearchRecord '\(record.query)' (ID: \(record.id))")
         
@@ -414,7 +535,7 @@ struct ContentView: View {
                     await MainActor.run {
                         isSearching = true
                         progressValue = nil
-                        progressText = "Suche läuft…"
+                        progressText = "Searching…"
                     }
                     let viewModel = SearchViewModel()
                     viewModel.modelContext = modelContext
@@ -434,10 +555,10 @@ struct ContentView: View {
                     await MainActor.run {
                         if total > 0 {
                             progressValue = 0.0
-                            progressText = "Inhalte extrahieren (0/\(total))…"
+                            progressText = "Extracting content (0/\(total))…"
                         } else {
                             progressValue = nil
-                            progressText = "Keine Ergebnisse"
+                            progressText = "No results"
                         }
                     }
                     
@@ -559,12 +680,12 @@ struct ContentView: View {
                         // Save after inserting images and link
                         do { try modelContext.save() } catch { DebugLogger.shared.logWebViewAction("❌ ContentView: modelContext.save() failed: \(error.localizedDescription)") }
 
-                        // Fortschritt aktualisieren
+                        // Update progress
                         await MainActor.run {
                             if total > 0 {
                                 let current = idx + 1
                                 progressValue = Double(current) / Double(total)
-                                progressText = "Inhalte extrahieren (\(current)/\(total))…"
+                                progressText = "Extracting content (\(current)/\(total))…"
                             }
                         }
                     }
@@ -582,7 +703,7 @@ struct ContentView: View {
             } catch {
                     DebugLogger.shared.logWebViewAction("Search failed: \(error)")
                 await MainActor.run {
-                        progressText = "Fehler: \(error.localizedDescription)"
+                        progressText = "Error: \(error.localizedDescription)"
                         progressValue = nil
                         isSearching = false
                     }

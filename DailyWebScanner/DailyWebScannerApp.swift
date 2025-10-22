@@ -70,6 +70,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.logAutomatedSearchStatus()
         }
+
+        // Automatically open the Articles window shortly after launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            let openOnLaunch = (UserDefaults.standard.object(forKey: "openArticlesOnLaunch") as? Bool) ?? true
+            guard openOnLaunch else { return }
+            // Ensure we have a model container for this window
+            if self.modelContainer == nil {
+                let schema = Schema([
+                    SearchRecord.self,
+                    ManualSearchRecord.self,
+                    AutomatedSearchRecord.self,
+                    SearchResult.self,
+                    LinkRecord.self,
+                    ImageRecord.self
+                ])
+                let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+                self.modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
+            }
+            let searchQueriesWindow = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+                styleMask: [.titled, .closable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            searchQueriesWindow.title = "Search Queries"
+            searchQueriesWindow.center()
+            if let container = self.modelContainer {
+                searchQueriesWindow.contentView = NSHostingView(rootView: SearchQueriesView()
+                    .modelContainer(container))
+            } else {
+                searchQueriesWindow.contentView = NSHostingView(rootView: SearchQueriesView())
+            }
+            searchQueriesWindow.isReleasedWhenClosed = false
+            searchQueriesWindow.makeKeyAndOrderFront(nil)
+        }
     }
     
     private func logAutomatedSearchStatus() {

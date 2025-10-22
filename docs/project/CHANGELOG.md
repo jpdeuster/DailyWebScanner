@@ -58,6 +58,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5] - 2025-10-22
+
+### Added
+- API Status Bar in ContentView (SerpAPI/OpenAI) with quick test and SerpAPI credits
+- App Settings toggle to open Articles window automatically on launch
+- Images in Info tab: thumbnails preview or "No pics available"
+- JSON persistence for extracted links, videos and metadata
+
+### Improved
+- Robust SwiftData size detection (store/sqlite + WAL/SHM); logs downgraded to info on missing paths
+- Progress UI wording and localized English strings
+
+### Fixed
+- Graceful handling for ModelContainer initialization error (alert + exit)
+- Image display reliability (data: URIs, unsupported formats transcoded)
+
+### Notes
+- This is still a Beta; OpenAI client present but not fully exercised.
+
 ### v0.7.0 - Automated Search System
 - [x] **Enable/Disable Toggle**: Individual control for each automated search
 - [x] **Real-time Timer Display**: Live countdown to next search execution

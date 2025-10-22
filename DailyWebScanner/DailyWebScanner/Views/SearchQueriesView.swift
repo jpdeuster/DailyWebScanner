@@ -38,6 +38,7 @@ struct SearchQueriesView: View {
                     Text("\(filteredLinkRecords.count) articles")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
                 }
                 .padding()
                 
@@ -109,12 +110,12 @@ struct SearchQueriesView: View {
                         .foregroundColor(.blue)
                     
                     Text("Select an Article")
-                        .font(.title)
+                    .font(.title)
                         .foregroundColor(.primary)
                     
                     Text("Choose an article from the sidebar to view its content")
                         .font(.body)
-                        .foregroundColor(.secondary)
+                    .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(40)
@@ -209,6 +210,11 @@ struct SearchQueriesView: View {
             let realDatabaseSizeDir = getFileSize(at: appSupportDir)
             let realDatabaseSizeFile = getFileSize(at: defaultStoreFile)
             let realDatabaseSize = realDatabaseSizeDir > 0 ? realDatabaseSizeDir : realDatabaseSizeFile
+
+            // Discover actual SwiftData store files (store/sqlite + WAL/SHM) as a robust fallback
+            let discoveredFiles = discoverSwiftDataStoreFiles(preferredDirPath: appSupportDir)
+            let discoveredSize = sumFileSizes(discoveredFiles)
+            let effectiveDatabaseSize = max(realDatabaseSize, discoveredSize)
             
             // Calculate LinkRecord sizes (approximation)
             for record in linkRecords {
@@ -229,12 +235,12 @@ struct SearchQueriesView: View {
             }
             
             await MainActor.run {
-                // Use real database size if available, otherwise calculated size
-                let finalDatabaseSize = realDatabaseSize > 0 ? realDatabaseSize : totalSize
+                // Use real/discovered database size if available, otherwise calculated size
+                let finalDatabaseSize = effectiveDatabaseSize > 0 ? effectiveDatabaseSize : totalSize
                 databaseSize = formatBytes(finalDatabaseSize)
                 self.totalImagesSize = formatBytes(totalImagesSize)
                 DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: AppSupport=\(appSupportDir), default.store=\(defaultStoreFile)")
-                DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: Real DB size (dir/file): \(formatBytes(realDatabaseSizeDir))/\(formatBytes(realDatabaseSizeFile)), Calculated: \(formatBytes(totalSize)), Images: \(imageRecords.count) (\(self.totalImagesSize))")
+                DebugLogger.shared.logWebViewAction("📊 SearchQueriesView: Real DB size (dir/file): \(formatBytes(realDatabaseSizeDir))/\(formatBytes(realDatabaseSizeFile)), Discovered: \(formatBytes(discoveredSize)), Calculated: \(formatBytes(totalSize)), Images: \(imageRecords.count) (\(self.totalImagesSize))")
             }
         }
     }
@@ -258,6 +264,43 @@ struct SearchQueriesView: View {
         return (appSupportURL.path, storeURL.path)
     }
     
+    // Discover SwiftData store-related files (.store/.sqlite and WAL/SHM companions) in preferred dir and fallbacks
+    private func discoverSwiftDataStoreFiles(preferredDirPath: String) -> [URL] {
+        let fm = FileManager.default
+        var candidates: Set<URL> = []
+        let preferredDir = URL(fileURLWithPath: preferredDirPath)
+        let appSupportBase = (try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)) ?? preferredDir.deletingLastPathComponent()
+        let searchBases: [URL] = [preferredDir, appSupportBase]
+        let suffixes = [
+            ".store", ".sqlite", ".store-wal", ".store-shm", ".sqlite-wal", ".sqlite-shm"
+        ]
+        for base in searchBases {
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: base.path, isDirectory: &isDir), isDir.boolValue else { continue }
+            if let enumerator = fm.enumerator(at: base, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
+                for case let fileURL as URL in enumerator {
+                    let name = fileURL.lastPathComponent.lowercased()
+                    if suffixes.contains(where: { name.hasSuffix($0) }) {
+                        candidates.insert(fileURL)
+                    }
+                }
+            }
+        }
+        return Array(candidates)
+    }
+
+    private func sumFileSizes(_ urls: [URL]) -> Int64 {
+        let fm = FileManager.default
+        var total: Int64 = 0
+        for u in urls {
+            do {
+                let attrs = try fm.attributesOfItem(atPath: u.path)
+                if let s = attrs[.size] as? NSNumber { total += s.int64Value }
+            } catch { continue }
+        }
+        return total
+    }
+
     // Get total size of directory or single file in bytes
     private func getFileSize(at path: String) -> Int64 {
         let fm = FileManager.default
@@ -283,7 +326,7 @@ struct SearchQueriesView: View {
                 } catch { }
             }
         }
-        DebugLogger.shared.logWebViewAction("⚠️ SearchQueriesView: Could not get size for path (missing/unreadable): \(path)")
+        DebugLogger.shared.logWebViewAction("ℹ️ SearchQueriesView: Could not get size for path (missing/unreadable): \(path)")
         return 0
     }
     
@@ -317,29 +360,29 @@ struct ArticleLinkRow: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(record.title)
-                    .font(.headline)
-                    .lineLimit(2)
-                
-                Text(record.fetchedAt, format: .dateTime)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
-                // Article Metadata als Tags
-                HStack {
-                    if let author = record.author, !author.isEmpty {
-                        ParameterTag(label: "Author", value: author)
-                    }
-                    if let language = record.language, !language.isEmpty {
-                        ParameterTag(label: "Lang", value: language)
-                    }
-                    ParameterTag(label: "Words", value: "\(record.wordCount)")
-                    ParameterTag(label: "Read", value: "\(record.readingTime)min")
-                    if record.imageCount > 0 {
-                        ParameterTag(label: "Images", value: "\(record.imageCount)")
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            Text(record.title)
+                .font(.headline)
+                .lineLimit(2)
+            
+            Text(record.fetchedAt, format: .dateTime)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            // Article Metadata als Tags
+            HStack {
+                if let author = record.author, !author.isEmpty {
+                    ParameterTag(label: "Author", value: author)
                 }
+                if let language = record.language, !language.isEmpty {
+                    ParameterTag(label: "Lang", value: language)
+                }
+                ParameterTag(label: "Words", value: "\(record.wordCount)")
+                ParameterTag(label: "Read", value: "\(record.readingTime)min")
+                if record.imageCount > 0 {
+                    ParameterTag(label: "Images", value: "\(record.imageCount)")
+                }
+            }
             }
             
             Spacer()
@@ -445,9 +488,9 @@ struct ArticleLinkDetailView: View {
                                     .foregroundColor(.secondary)
                             }
                         } else {
-                            Text("AI Overview content available")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        Text("AI Overview content available")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                         }
                     }
                     .padding()

@@ -3,7 +3,7 @@
 ## 🎯 Overview
 DailyWebScanner's current content analysis and search functionality using SwiftData for comprehensive search result storage and analysis.
 
-## 📊 Current Status (Updated 2024-12-19)
+## 📊 Current Status (Updated 2025-10-22)
 - ✅ Search functionality works
 - ✅ Results are saved in SwiftData
 - ✅ HTML summary is displayed
@@ -11,6 +11,8 @@ DailyWebScanner's current content analysis and search functionality using SwiftD
 - ✅ **IMPLEMENTED:** Per-search parameter configuration
 - ✅ **IMPLEMENTED:** AI Overview integration
 - ✅ **IMPLEMENTED:** Full article content extraction with images
+- ✅ **IMPLEMENTED:** JSON persistence of links/videos/metadata
+- ✅ **IMPLEMENTED:** Image thumbnails shown in Info tab (or "No pics available")
 
 ## 🔍 Current Implementation
 
@@ -83,6 +85,7 @@ final class LinkRecord {
 - **CSS styling** preservation
 - **Image downloading** and storage
 - **Metadata extraction** (author, publish date, language)
+- **JSON persistence** (links, videos, metadata) for fast UI access
 
 #### **3. AI Integration**
 - **AI Overview** from Google search results
@@ -192,6 +195,7 @@ final class ImageRecord {
 │  🖼️ Images         │
 └─ HTML Preview ─────┘
 ```
+Additionally, the Info tab shows up to 8 thumbnails or a "No pics available" message.
 
 ## 🚀 Current Benefits
 
@@ -229,6 +233,6 @@ final class ImageRecord {
 
 ---
 
-*Updated: 2024-12-19*
+*Updated: 2025-10-22*
 *Status: FULLY IMPLEMENTED - SwiftData + LinkRecord System*
 *Architecture: Modern SwiftData with comprehensive content analysis*

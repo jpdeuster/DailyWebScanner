@@ -32,6 +32,7 @@ struct APISettingsView: View {
                     .fontWeight(.bold)
                 
                 Spacer()
+                HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
             }
             .padding(.horizontal)
             

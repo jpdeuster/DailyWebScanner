@@ -1,6 +1,6 @@
 # DailyWebScanner
 
-[![Version](https://img.shields.io/badge/version-0.5.0-orange.svg)](https://github.com/jpdeuster/DailyWebScanner)
+[![Version](https://img.shields.io/badge/version-0.5.5-orange.svg)](https://github.com/jpdeuster/DailyWebScanner)
 [![macOS](https://img.shields.io/badge/macOS-14.0+-green.svg)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange.svg)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -73,13 +73,18 @@ open DailyWebScanner.xcodeproj
 
 ## 📊 Current Features
 
-### **✅ Implemented (Beta 0.5)**
+### **✅ Implemented (Beta 0.5.5)**
 - **Google Search Integration** - Via SerpAPI
 - **Content Analysis** - Full article extraction with images
 - **AI Integration** - OpenAI client code present (not tested)
 - **Per-Search Parameters** - Dynamic search configuration
 - **Multi-Window Interface** - Separate windows for different views
 - **Search History** - Basic search record storage
+- **API Status Bar** - In ContentView: SerpAPI/OpenAI status + quick test and SerpAPI credits
+- **Auto-Open Articles** - Toggle in App Settings to open Articles window on launch
+- **Robust DB Size** - Detect SwiftData store/sqlite with WAL/SHM and report accurately
+- **Info Tab Images** - Show thumbnails or "No pics available" in article Info tab
+- **JSON Persistence** - Persist extracted links, videos, and metadata as JSON
 
 ### **🔄 Planned Features**
 - **HTML Article Viewer** - Enhanced article display and navigation (v0.6.0)
@@ -110,9 +115,9 @@ DailyWebScanner/
 
 ## 📈 Development Status
 
-- **Current Version**: Beta 0.5
+- **Current Version**: Beta 0.5.5
 - **Status**: Fully functional with core features
-- **Next Release**: v0.6.0 (HTML Viewer for Articles)
+- **Next Release**: v0.6.0 (Enhanced HTML Viewer for Articles)
 - **Target**: App Store v1.0.0
 
 ## 📖 Documentation
