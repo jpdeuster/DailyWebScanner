@@ -35,15 +35,26 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
 
-      - name: Build Debug (no codesign)
+      - name: Show project details
+        run: |
+          xcodebuild -list -project DailyWebScanner.xcodeproj
+
+      - name: Build Debug (scheme first, fallback to target; no codesign)
         run: |
           set -o pipefail
-          xcodebuild -project DailyWebScanner.xcodeproj \
-            -scheme DailyWebScanner \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO \
-            | tee xcodebuild-debug.log
+          {
+            xcodebuild -project DailyWebScanner.xcodeproj \
+              -scheme DailyWebScanner \
+              -configuration Debug \
+              -destination 'platform=macOS' \
+              CODE_SIGNING_ALLOWED=NO \
+            || \
+            xcodebuild -project DailyWebScanner.xcodeproj \
+              -target DailyWebScanner \
+              -configuration Debug \
+              -destination 'platform=macOS' \
+              CODE_SIGNING_ALLOWED=NO; \
+          } | tee xcodebuild-debug.log
 
       - name: Upload Build Log
         if: always()
