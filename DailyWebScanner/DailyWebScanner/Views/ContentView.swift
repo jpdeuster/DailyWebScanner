@@ -59,7 +59,6 @@ struct ContentView: View {
                             .fontWeight(.medium)
                             .foregroundColor(.primary)
                         Spacer()
-                        HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
                     }
                     
                     // Language and Region Row
@@ -251,8 +250,8 @@ struct ContentView: View {
                     // Line 1: SerpAPI
                     HStack(spacing: 10) {
                         HStack(spacing: 6) {
-                            Image(systemName: serpAPIStatusOK == true ? "checkmark.circle.fill" : (serpKey.isEmpty ? "questionmark.circle.fill" : "xmark.circle.fill"))
-                                .foregroundColor(serpKey.isEmpty ? .blue : (serpAPIStatusOK == true ? .green : .red))
+                            Image(systemName: serpAPIStatusOK == true ? "checkmark.circle.fill" : (resolveSerpKey().isEmpty ? "questionmark.circle.fill" : "xmark.circle.fill"))
+                                .foregroundColor(resolveSerpKey().isEmpty ? .blue : (serpAPIStatusOK == true ? .green : .red))
                                 .font(.caption)
                             Text("SerpAPI")
                                 .font(.caption)
@@ -281,8 +280,8 @@ struct ContentView: View {
                             }
                         }
                         .buttonStyle(.plain)
-                        .disabled(serpKey.isEmpty || isTestingSerpAPI)
-                        .help(serpKey.isEmpty ? "Enter SerpAPI key in Settings" : "Quick connectivity test")
+                        .disabled(resolveSerpKey().isEmpty || isTestingSerpAPI)
+                        .help(resolveSerpKey().isEmpty ? "Enter SerpAPI key in Settings" : "Quick connectivity test")
                         Spacer()
                     }
                     // Line 2: OpenAI
@@ -308,6 +307,14 @@ struct ContentView: View {
         } detail: {
             if let searchRecord = selectedSearchRecord {
                 VStack(spacing: 16) {
+                    // Detail top status bar with Help
+                    HStack {
+                        Spacer()
+                        HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
+                    
                     // Beautiful Search Query Header (same as Automated Search)
                     SearchQueryHeaderView(searchRecord: searchRecord)
                     
@@ -328,7 +335,7 @@ struct ContentView: View {
                             }
                             .listStyle(.plain)
                         }
-                    } else {
+                } else {
                         VStack(spacing: 20) {
                             Image(systemName: "magnifyingglass.circle")
                                 .font(.system(size: 48))
@@ -393,6 +400,8 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                         .help("Open Articles List (⌘L)")
                         .keyboardShortcut("l", modifiers: .command)
+
+                        HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
                     }
                     .padding(.horizontal)
                     
@@ -438,11 +447,14 @@ struct ContentView: View {
             DebugLogger.shared.logWebViewAction("ContentView appeared - searchRecords count: \(searchRecords.count)")
             // Initialize API status
             openAIStatusOK = openAIKey.isEmpty ? nil : true
-            serpAPIStatusOK = serpKey.isEmpty ? nil : true
-            if !serpKey.isEmpty {
+            // Sync AppStorage from Keychain if needed
+            if let kc = KeychainHelper.get(.serpAPIKey), !kc.isEmpty { serpKey = kc }
+            let effectiveKey = resolveSerpKey()
+            serpAPIStatusOK = effectiveKey.isEmpty ? nil : true
+            if !effectiveKey.isEmpty {
                 Task {
                     do {
-                        let client = SerpAPIClient(apiKeyProvider: { serpKey })
+                        let client = SerpAPIClient(apiKeyProvider: { resolveSerpKey() })
                         let info = try await client.getAccountInfo()
                         await MainActor.run {
                             serpAPIStatusOK = true
@@ -495,7 +507,7 @@ struct ContentView: View {
         Task {
             defer { Task { await MainActor.run { isTestingSerpAPI = false } } }
             do {
-                let client = SerpAPIClient(apiKeyProvider: { serpKey })
+                let client = SerpAPIClient(apiKeyProvider: { resolveSerpKey() })
                 _ = try await client.fetchTopResults(query: "status", count: 1)
                 await MainActor.run {
                     serpAPIStatusOK = true
@@ -681,7 +693,7 @@ struct ContentView: View {
                         do { try modelContext.save() } catch { DebugLogger.shared.logWebViewAction("❌ ContentView: modelContext.save() failed: \(error.localizedDescription)") }
 
                         // Update progress
-                        await MainActor.run {
+                await MainActor.run {
                             if total > 0 {
                                 let current = idx + 1
                                 progressValue = Double(current) / Double(total)
@@ -844,6 +856,11 @@ struct ContentView: View {
             readingTime: max(1, result.snippet.split(separator: " ").count / 200)
         )
     }
+
+    private func resolveSerpKey() -> String {
+        if let key = KeychainHelper.get(.serpAPIKey), !key.isEmpty { return key }
+        return serpKey
+    }
 }
 
 struct SearchQueryRow: View {
@@ -904,8 +921,8 @@ struct SearchQueryRow: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.blue.opacity(0.2), lineWidth: 1)
                 )
         )

@@ -64,6 +64,13 @@ struct APISettingsView: View {
                                     .textFieldStyle(.roundedBorder)
                                     .frame(width: 300)
                             }
+                            HStack(spacing: 6) {
+                                Text("No key?")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Link("Create a key here", destination: URL(string: "https://serpapi.com/users/welcome")!)
+                                    .font(.caption)
+                            }
                             
                             HStack {
                                 Spacer()
@@ -127,6 +134,13 @@ struct APISettingsView: View {
                                     .textFieldStyle(.roundedBorder)
                                     .frame(width: 300)
                             }
+                            HStack(spacing: 6) {
+                                Text("No key?")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Link("Create a key here", destination: URL(string: "https://platform.openai.com/api-keys")!)
+                                    .font(.caption)
+                            }
                             
                             HStack {
                                 Spacer()
@@ -184,6 +198,12 @@ struct APISettingsView: View {
         }
         .onAppear {
             loadAccountInfo()
+            // Load from Keychain into AppStorage for consistent UI
+            if let kc = KeychainHelper.get(.serpAPIKey), !kc.isEmpty { serpKey = kc }
+        }
+        .onChange(of: serpKey) { _, newValue in
+            // Mirror to Keychain for global usage
+            _ = KeychainHelper.set(newValue, for: .serpAPIKey)
         }
     }
     
