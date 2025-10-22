@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import WebKit
 
-struct MainView: View {
+struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ManualSearchRecord.query, order: .forward) private var searchRecords: [ManualSearchRecord]
     @State private var searchText: String = ""
@@ -1142,7 +1142,7 @@ struct ParameterTag: View {
     }
 }
 
-extension MainView {
+extension ContentView {
     private func showAutomatedSearchWindow() {
         let automatedSearchWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
@@ -1235,7 +1235,7 @@ struct InfoCard: View {
     }
 }
 
-extension MainView {
+extension ContentView {
     private func deleteSearchResult(_ result: SearchResult, from searchRecord: SearchRecord) {
         // Remove from the relationship
         if let index = searchRecord.results.firstIndex(where: { $0.id == result.id }) {

@@ -49,7 +49,7 @@ struct MainDetailView: View {
             .padding()
         } else {
             VStack(spacing: 20) {
-                // Top-right actions + Help live weiterhin in Main/ContentView
+                // Top-right actions + Help live weiterhin in Main/MainDetailView
                 HStack {
                     Spacer()
                     

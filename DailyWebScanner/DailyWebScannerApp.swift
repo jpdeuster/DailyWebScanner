@@ -176,9 +176,9 @@ struct DailyWebScannerApp: App {
     }()
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(makeContent: {
             MainView()
-        }
+        })
         .modelContainer(sharedModelContainer)
         .commands {
         CommandMenu("Search") {
@@ -363,7 +363,8 @@ struct DailyWebScannerApp: App {
         )
         searchListWindow.title = "Search List - Automated Searches"
         searchListWindow.center()
-        searchListWindow.contentView = NSHostingView(rootView: SearchListView())
+        searchListWindow.contentView = NSHostingView(rootView: SearchListView()
+            .modelContainer(sharedModelContainer))
         
         // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
         searchListWindow.delegate = apiWindowDelegate

@@ -276,7 +276,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSMinimumSystemVersion = 26.0;
 				INFOPLIST_KEY_NSHighResolutionCapable = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -286,6 +286,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = de.deusterdevelopment.DailyWebScanner;
 				PRODUCT_NAME = DailyWebScanner;
@@ -337,7 +338,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSMinimumSystemVersion = 26.0;
 				INFOPLIST_KEY_NSHighResolutionCapable = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -347,6 +348,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = de.deusterdevelopment.DailyWebScanner;
 				PRODUCT_NAME = DailyWebScanner;
