@@ -28,6 +28,7 @@ struct ContentView: View {
     @State private var openAIStatusOK: Bool? = nil
     @State private var serpCreditsText: String = ""
     @State private var serpPlanText: String = ""
+    @State private var hasActiveAutomatedSearches: Bool = true
     
     // Computed property for filtered manual search records (alphabetically sorted)
     private var filteredSearchRecords: [ManualSearchRecord] {
@@ -191,6 +192,32 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
+
+                // Suggest automated searches if none active
+                if !hasActiveAutomatedSearches {
+                    HStack(spacing: 12) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("Would you like to add daily automated searches?")
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                        Button(action: { showAutomatedSearchWindow() }) {
+                            Text("Open Automated Search")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.blue.opacity(0.08))
+                    )
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                }
                 
                 // Search Records List
                 VStack(alignment: .leading, spacing: 8) {
@@ -272,16 +299,7 @@ struct ContentView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
-                        Button(action: { testSerpAPIStatus() }) {
-                            HStack(spacing: 4) {
-                                if isTestingSerpAPI { ProgressView().scaleEffect(0.6) }
-                                Text("Test SerpAPI")
-                                    .font(.caption)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(resolveSerpKey().isEmpty || isTestingSerpAPI)
-                        .help(resolveSerpKey().isEmpty ? "Enter SerpAPI key in Settings" : "Quick connectivity test")
+                        // Test button removed; testing available in API Settings
                         Spacer()
                     }
                     // Line 2: OpenAI
@@ -488,6 +506,7 @@ struct ContentView: View {
                 DebugLogger.shared.logWebViewAction("🤖 AUTOMATED SEARCHES STATUS:")
                 DebugLogger.shared.logWebViewAction("   Total automated searches: \(automatedRecords.count)")
                 DebugLogger.shared.logWebViewAction("   Active automated searches: \(activeAutomated.count)")
+                hasActiveAutomatedSearches = !activeAutomated.isEmpty
                 
                 if !activeAutomated.isEmpty {
                     DebugLogger.shared.logWebViewAction("   Active searches:")
