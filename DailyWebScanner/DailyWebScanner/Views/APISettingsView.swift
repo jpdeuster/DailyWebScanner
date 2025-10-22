@@ -15,8 +15,6 @@ struct APISettingsView: View {
     @State private var isTestingOpenAI = false
     @State private var serpAPIResult = ""
     @State private var openAIResult = ""
-    @State private var accountInfo = ""
-    @State private var isLoadingAccountInfo = false
     
     var body: some View {
         VStack(spacing: 16) {
@@ -97,11 +95,12 @@ struct APISettingsView: View {
                                     .padding(.top, 4)
                             }
                             
-                            if !accountInfo.isEmpty {
-                                Text(accountInfo)
+                            HStack(spacing: 6) {
+                                Text("Check usage/credits:")
                                     .font(.caption)
-                                    .foregroundColor(.blue)
-                                    .padding(.top, 4)
+                                    .foregroundColor(.secondary)
+                                Link("Open SerpAPI Dashboard", destination: URL(string: "https://serpapi.com/dashboard")!)
+                                    .font(.caption)
                             }
                         }
                     }
@@ -197,7 +196,6 @@ struct APISettingsView: View {
             }
         }
         .onAppear {
-            loadAccountInfo()
             // Load from Keychain into AppStorage for consistent UI
             if let kc = KeychainHelper.get(.serpAPIKey), !kc.isEmpty { serpKey = kc }
         }
@@ -241,29 +239,6 @@ struct APISettingsView: View {
             await MainActor.run {
                 isTestingOpenAI = false
                 openAIResult = "Success: OpenAI is working correctly"
-            }
-        }
-    }
-    
-    private func loadAccountInfo() {
-        guard !serpKey.isEmpty else { return }
-        
-        isLoadingAccountInfo = true
-        
-        Task {
-            do {
-                let client = SerpAPIClient(apiKeyProvider: { serpKey })
-                let info = try await client.getAccountInfo()
-                
-                await MainActor.run {
-                    isLoadingAccountInfo = false
-                    accountInfo = "Credits remaining: \(info.credits_remaining ?? 0)"
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingAccountInfo = false
-                    accountInfo = ""
-                }
             }
         }
     }

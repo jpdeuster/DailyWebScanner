@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import WebKit
 
 /// Enhanced article view with powerful content extraction and beautiful display
 struct EnhancedArticleView: View {
@@ -83,7 +84,7 @@ struct EnhancedArticleView: View {
                                     DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Using extractedText: \(!linkRecord.extractedText.isEmpty), content.mainText: \(extractedContent?.mainText.isEmpty == false)")
                                 }
         case .html:
-            HTMLTabView(html: linkRecord.html, css: linkRecord.css, url: linkRecord.originalUrl)
+            HTMLTabView(html: linkRecord.html, css: linkRecord.css, linkRecord: linkRecord)
                                 .onAppear {
                                     DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: HTML tab appeared - HTML length: \(linkRecord.html.count) characters, CSS length: \(linkRecord.css.count) characters, baseURL: \(linkRecord.originalUrl)")
                                     if linkRecord.html.isEmpty {
@@ -1940,85 +1941,116 @@ struct FullScreenImageView: View {
 struct HTMLTabView: View {
     let html: String
     let css: String
-    let url: String
+    let linkRecord: LinkRecord
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: "doc.text")
+                Image(systemName: "safari")
                     .font(.caption)
                     .foregroundColor(.orange)
-                Text("HTML Source")
+                Text("HTML View (Offline Render)")
                     .font(.headline)
-                    .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 Spacer()
-                
-                // Copy HTML Button
-                Button(action: {
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(html, forType: .string)
-                    print("📋 HTML copied to clipboard")
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "doc.on.doc.fill")
-                            .font(.system(size: 12))
-                        Text("Copy HTML")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.orange.opacity(0.15))
-                    .foregroundColor(.orange)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-                .help("Copy HTML source to clipboard")
+                Button("Copy HTML") {
+                    let pb = NSPasteboard.general
+                    pb.clearContents(); pb.setString(html, forType: .string)
+                }.buttonStyle(.plain)
             }
+            .padding(.horizontal, 2)
             
-            // HTML Content (inline CSS if present)
-            ScrollView {
-                if html.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray)
-                        Text("No HTML Content Available")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        Text("The HTML content for this article is not available.")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(40)
-                } else {
-                    Text(css.isEmpty ? html : "<style>\n\(css)\n</style>\n\n" + html)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundColor(.primary)
-                        .lineSpacing(4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                        .padding(16)
+            OfflineHTMLWebView(
+                offlineHTML: makeOfflineHTML(),
+                basePath: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("DailyWebScanner").path ?? ""
+            )
+            .frame(minHeight: 300)
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
+            .cornerRadius(10)
+        }
+    }
+    
+    private func makeOfflineHTML() -> String {
+        // Prefer generated preview if available
+        let source = linkRecord.htmlPreview.isEmpty ? html : linkRecord.htmlPreview
+        var sanitized = source
+        // Strip scripts and external styles
+        sanitized = sanitized.replacingOccurrences(of: "<script[\\s\\S]*?>[\\s\\S]*?</script>", with: "", options: [.regularExpression, .caseInsensitive])
+        sanitized = sanitized.replacingOccurrences(of: "<link[^>]*rel=\\\"stylesheet\\\"[^>]*>", with: "", options: [.regularExpression, .caseInsensitive])
+        // Inline our CSS, ensure basic styling
+        let inline = """
+        <meta charset=\"utf-8\">
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+        <style>
+        :root { color-scheme: light dark; }
+        body { font-family: -apple-system, Helvetica, Arial, sans-serif; margin: 0; padding: 0; line-height: 1.5; }
+        .dws-container { max-width: 820px; margin: 0 auto; padding: 16px 20px; }
+        img, video, audio, iframe { max-width: 100%; height: auto; }
+        a { color: #1e6bb8; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        h1 { font-size: 1.8rem; margin: 0.8em 0 0.4em; }
+        h2 { font-size: 1.5rem; margin: 0.8em 0 0.4em; }
+        h3 { font-size: 1.2rem; margin: 0.8em 0 0.4em; }
+        p { margin: 0.6em 0; }
+        ul, ol { margin: 0.6em 0 0.6em 1.25em; }
+        blockquote { margin: 1em 0; padding: 0.5em 0.9em; border-left: 4px solid rgba(0,0,0,0.15); background: rgba(0,0,0,0.04); }
+        code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+        pre { padding: 10px 12px; background: rgba(0,0,0,0.04); border-radius: 6px; overflow: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+        th, td { border: 1px solid rgba(0,0,0,0.15); padding: 6px 8px; text-align: left; }
+        hr { border: none; border-top: 1px solid rgba(0,0,0,0.15); margin: 1.2em 0; }
+        figure { margin: 0.8em 0; }
+        figcaption { color: rgba(0,0,0,0.6); font-size: 0.9em; text-align: center; margin-top: 6px; }
+        /* Hide empty iframes/media (blocked) to avoid big gaps */
+        iframe:not([src]), img:not([src]) { display: none; }
+        /* Author CSS from DB (if any) */
+        
+        \(css)
+        </style>
+        """
+        sanitized = inline + "<div class=\"dws-container\">" + sanitized + "</div>"
+        // Replace known image URLs with local file paths
+        for img in linkRecord.images {
+            if let local = img.localPath, !local.isEmpty {
+                let fileURL = URL(fileURLWithPath: local).absoluteString
+                let original = img.originalUrl
+                if !original.isEmpty {
+                    sanitized = sanitized.replacingOccurrences(of: original, with: fileURL)
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                    )
-            )
-            .frame(maxHeight: 500)
         }
+        // Disable external resources by removing remaining http(s) src attributes
+        sanitized = sanitized.replacingOccurrences(of: "src=\"http[s]?://[^\"]+\"", with: "", options: .regularExpression)
+        return sanitized
+    }
+}
+
+struct OfflineHTMLWebView: NSViewRepresentable {
+    let offlineHTML: String
+    let basePath: String
+    
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.preferences.javaScriptEnabled = false
+        // Block network resources via content rule list
+        let rules = """
+        [{"trigger":{"url-filter":".*","resource-type":["image","style-sheet","script","font","media","svg-document","raw"]},"action":{"type":"block"}}]
+        """
+        WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "blockAllNet", encodedContentRuleList: rules) { list, _ in
+            if let list = list { config.userContentController.add(list) }
+        }
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.allowsBackForwardNavigationGestures = false
+        webView.setValue(false, forKey: "drawsBackground")
+        // Load HTML from string with local base
+        let baseURL = URL(fileURLWithPath: basePath, isDirectory: true)
+        webView.loadHTMLString(offlineHTML, baseURL: baseURL)
+        return webView
+    }
+    
+    func updateNSView(_ nsView: WKWebView, context: Context) {
+        let baseURL = URL(fileURLWithPath: basePath, isDirectory: true)
+        nsView.loadHTMLString(offlineHTML, baseURL: baseURL)
     }
 }
 
