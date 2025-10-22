@@ -545,7 +545,21 @@ struct MainView: View {
     private func fetchHTMLFromURL(_ urlString: String) async -> String {
         guard let url = URL(string: urlString) else { return "" }
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            if UserDefaults.standard.bool(forKey: "acceptAllCookies") {
+                let consentPairs: [String] = [
+                    "CookieConsent=allow",
+                    "cookieconsent_status=allow",
+                    "cookie_consent=accepted",
+                    "borlabs-cookie=all",
+                    "OptanonConsent=isIABGlobal=false&datestamp=now&version=6.33.0&hosts=&consentId=anonymous&interactionCount=1&landingPath=\/",
+                    "CONSENT=YES+1",
+                    "euconsent-v2=",
+                    "gdprApplies=1"
+                ]
+                request.setValue(consentPairs.joined(separator: "; "), forHTTPHeaderField: "Cookie")
+            }
+            let (data, _) = try await URLSession.shared.data(for: request)
             return String(data: data, encoding: .utf8) ?? ""
         } catch { return "" }
     }

@@ -10,6 +10,7 @@ import SwiftUI
 struct AppSettingsView: View {
     @AppStorage("appearanceMode") private var appearanceMode: String = "system" // system, light, dark
     @AppStorage("openArticlesOnLaunch") private var openArticlesOnLaunch: Bool = true
+    @AppStorage("acceptAllCookies") private var acceptAllCookies: Bool = true
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
     }
@@ -78,6 +79,17 @@ struct AppSettingsView: View {
                             }
                             .toggleStyle(.switch)
                             
+                            Toggle(isOn: $acceptAllCookies) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Accept All Cookies (Best‑Effort)")
+                                        .fontWeight(.medium)
+                                    Text("Send generic consent cookies and hide common cookie banners in HTML view")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .toggleStyle(.switch)
+
                             // History Limit removed as not useful in current UX
                         }
                     }
@@ -165,6 +177,7 @@ struct AppSettingsView: View {
     private func resetAllSettings() {
         appearanceMode = "system"
         openArticlesOnLaunch = true
+        acceptAllCookies = true
     }
     
     private func applyAppearanceMode(_ mode: String) {

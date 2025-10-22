@@ -458,7 +458,22 @@ struct EnhancedArticleView: View {
         
         do {
             DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: Fetching HTML from \(urlString)")
-            let (data, response) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            // Best-effort consent cookies if enabled in settings
+            if UserDefaults.standard.bool(forKey: "acceptAllCookies") {
+                let consentPairs: [String] = [
+                    "CookieConsent=allow",
+                    "cookieconsent_status=allow",
+                    "cookie_consent=accepted",
+                    "borlabs-cookie=all",
+                    "OptanonConsent=isIABGlobal=false&datestamp=now&version=6.33.0&hosts=&consentId=anonymous&interactionCount=1&landingPath=\/",
+                    "CONSENT=YES+1",
+                    "euconsent-v2=",
+                    "gdprApplies=1"
+                ]
+                request.setValue(consentPairs.joined(separator: "; "), forHTTPHeaderField: "Cookie")
+            }
+            let (data, response) = try await URLSession.shared.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse {
                 DebugLogger.shared.logWebViewAction("📡 EnhancedArticleView: HTTP Status: \(httpResponse.statusCode)")
@@ -2132,7 +2147,9 @@ struct HTMLTabView: View {
         let baseCSS = ":root { color-scheme: light dark; }\nbody { font-family: -apple-system, Helvetica, Arial, sans-serif; margin: 0; padding: 0; line-height: 1.5; }\n.dws-container { max-width: 820px; margin: 0 auto; padding: 16px 20px; }\nimg, video, audio, iframe { max-width: 100%; height: auto; }\na { color: #1e6bb8; text-decoration: none; }\na:hover { text-decoration: underline; }\nh1 { font-size: 1.8rem; margin: 0.8em 0 0.4em; }\nh2 { font-size: 1.5rem; margin: 0.8em 0 0.4em; }\nh3 { font-size: 1.2rem; margin: 0.8em 0 0.4em; }\np { margin: 0.6em 0; }\nul, ol { margin: 0.6em 0 0.6em 1.25em; }\nblockquote { margin: 1em 0; padding: 0.5em 0.9em; border-left: 4px solid rgba(0,0,0,0.15); background: rgba(0,0,0,0.04); }\ncode, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }\npre { padding: 10px 12px; background: rgba(0,0,0,0.04); border-radius: 6px; overflow: auto; }\ntable { border-collapse: collapse; width: 100%; margin: 0.8em 0; }\nth, td { border: 1px solid rgba(0,0,0,0.15); padding: 6px 8px; text-align: left; }\nhr { border: none; border-top: 1px solid rgba(0,0,0,0.15); margin: 1.2em 0; }\nfigure { margin: 0.8em 0; }\nfigcaption { color: rgba(0,0,0,0.6); font-size: 0.9em; text-align: center; margin-top: 6px; }\niframe:not([src]), img:not([src]) { display: none; }"
         let original = useOriginalCSS ? sanitizeExternalCSS(css) : ""
         let normalize = enableNormalize ? normalizeCSS : ""
-        let inline = "<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<style>\\n\(baseCSS)\\n\\n\(normalize)\\n\\n\(original)\\n</style>\\n"
+        // Hide common cookie banners/overlays if acceptAllCookies is enabled
+        let cookieHide = UserDefaults.standard.bool(forKey: "acceptAllCookies") ? "[class*=cookie i], [id*=cookie i], [class*=consent i], [id*=consent i], .cc-window, .cookie-banner, .cookie-consent, .consent-banner, .qc-cmp2-container, .qc-cmp-ui-container, #sp_message_container, #notice, #truste-consent-track, #onetrust-banner-sdk { display: none !important; visibility: hidden !important; opacity: 0 !important; } body { overflow: auto !important; }" : ""
+        let inline = "<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<style>\\n\(baseCSS)\\n\\n\(normalize)\\n\\n\(cookieHide)\\n\\n\(original)\\n</style>\\n"
         sanitized = inline + "<div class=\"dws-container\">" + sanitized + "</div>"
         // Replace known image URLs with local file paths
         for img in linkRecord.images {
