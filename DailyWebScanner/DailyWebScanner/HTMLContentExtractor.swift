@@ -13,6 +13,7 @@ class HTMLContentExtractor: NSObject {
         let mainText: String
         let images: [ExtractedImage]
         let videos: [ExtractedVideo]
+        let audios: [ExtractedAudio]
         let links: [ExtractedLink]
         let metadata: ContentMetadata
         let readingTime: Int
@@ -34,6 +35,12 @@ class HTMLContentExtractor: NSObject {
         let thumbnail: String?
         let duration: String?
         let platform: VideoPlatform
+    }
+    
+    struct ExtractedAudio: Codable {
+        let url: String
+        let title: String
+        let duration: String?
     }
     
     struct ExtractedLink: Codable {
@@ -131,6 +138,9 @@ class HTMLContentExtractor: NSObject {
         let videos = extractVideos(from: document, baseURL: baseURL)
         DebugLogger.shared.logWebViewAction("🎥 HTMLContentExtractor: Videos found: \(videos.count)")
         
+        let audios = extractAudiosFromHTML(articleHTML, baseURL: baseURL)
+        DebugLogger.shared.logWebViewAction("🔊 HTMLContentExtractor: Audios found: \(audios.count)")
+        
         let links = extractLinks(from: document, baseURL: baseURL)
         DebugLogger.shared.logWebViewAction("🔗 HTMLContentExtractor: Links found: \(links.count)")
         
@@ -165,6 +175,7 @@ class HTMLContentExtractor: NSObject {
             mainText: mainText,
             images: images,
             videos: videos,
+            audios: audios,
             links: links,
             metadata: ContentMetadata(
                 author: smartAuthor ?? metadata.author,
@@ -446,6 +457,100 @@ class HTMLContentExtractor: NSObject {
         }
         
         return videos
+    }
+    
+    // MARK: - Audio Extraction
+    private func extractAudiosFromHTML(_ html: String, baseURL: String) -> [ExtractedAudio] {
+        var results: [ExtractedAudio] = []
+        let fullRange = NSRange(html.startIndex..., in: html)
+        
+        // 1) <audio src> and <audio><source src></audio>
+        if let audioTagRx = try? NSRegularExpression(pattern: "<audio[\\s\\S]*?>[\\s\\S]*?</audio>|<audio[^>]*>", options: [.caseInsensitive]) {
+            let matches = audioTagRx.matches(in: html, options: [], range: fullRange)
+            for m in matches {
+                guard let r = Range(m.range, in: html) else { continue }
+                let block = String(html[r])
+                // Try src on audio
+                if let src = firstAttr("src", in: block) {
+                    let url = resolveCandidateURL(src, baseURL: baseURL)
+                    results.append(ExtractedAudio(url: url, title: firstAttr("title", in: block) ?? "Audio", duration: firstAttr("duration", in: block)))
+                }
+                // Try <source src=...>
+                if let sourceRx = try? NSRegularExpression(pattern: "<source[^>]*>", options: [.caseInsensitive]) {
+                    let innerRange = NSRange(block.startIndex..., in: block)
+                    let inner = sourceRx.matches(in: block, options: [], range: innerRange)
+                    for sm in inner {
+                        guard let rr = Range(sm.range, in: block) else { continue }
+                        let tag = String(block[rr])
+                        if let src = firstAttr("src", in: tag) {
+                            let url = resolveCandidateURL(src, baseURL: baseURL)
+                            results.append(ExtractedAudio(url: url, title: firstAttr("title", in: tag) ?? "Audio", duration: firstAttr("duration", in: tag)))
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 2) Anchor links to common audio file extensions
+        let audioExt = "(mp3|wav|m4a|aac|ogg|oga|opus)"
+        if let linkRx = try? NSRegularExpression(pattern: "<a[^>]*href=\\\"([^\\\"]+\\.\(audioExt))\\\"[^>]*>([\\s\\S]*?)</a>", options: [.caseInsensitive]) {
+            for m in linkRx.matches(in: html, options: [], range: fullRange) {
+                if m.numberOfRanges >= 3, let r1 = Range(m.range(at: 1), in: html) {
+                    var url = String(html[r1])
+                    url = resolveCandidateURL(url, baseURL: baseURL)
+                    var title = "Audio"
+                    if let r2 = Range(m.range(at: 2), in: html) {
+                        title = HTMLElement(html: String(html[r2])).textContent ?? title
+                    }
+                    results.append(ExtractedAudio(url: url, title: title, duration: nil))
+                }
+            }
+        }
+        
+        // 3) Meta tags (og:audio)
+        func addMetaAudio(_ pattern: String) {
+            if let rx = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+               let m = rx.firstMatch(in: html, options: [], range: fullRange),
+               m.numberOfRanges > 1, let rr = Range(m.range(at: 1), in: html) {
+                var url = String(html[rr])
+                url = resolveCandidateURL(url, baseURL: baseURL)
+                if !results.contains(where: { $0.url == url }) {
+                    results.append(ExtractedAudio(url: url, title: "Audio", duration: nil))
+                }
+            }
+        }
+        addMetaAudio(#"<meta[^>]*property=\"og:audio\"[^>]*content=\"([^\"]+)\"[^>]*>"#)
+        addMetaAudio(#"<meta[^>]*name=\"twitter:player:stream\"[^>]*content=\"([^\"]+)\"[^>]*>"#)
+        
+        // Deduplicate by URL
+        var seen: Set<String> = []
+        results = results.filter { a in
+            if seen.contains(a.url) { return false }
+            seen.insert(a.url)
+            return true
+        }
+        
+        return results
+    }
+    
+    private func firstAttr(_ name: String, in tag: String) -> String? {
+        let pattern = "\\b\(name)\\s*=\\s*\"([^\"]*)\"|\\b\(name)\\s*=\\s*'([^']*)'|\\b\(name)\\s*=\\s*([^\\s>]+)"
+        if let rx = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+            if let am = rx.firstMatch(in: tag, options: [], range: NSRange(tag.startIndex..., in: tag)) {
+                for i in 1..<am.numberOfRanges {
+                    if let ar = Range(am.range(at: i), in: tag) {
+                        let val = String(tag[ar])
+                        if !val.isEmpty { return val }
+                    }
+                }
+            }
+        }
+        return nil
+    }
+    
+    private func resolveCandidateURL(_ candidate: String, baseURL: String) -> String {
+        if candidate.lowercased().hasPrefix("data:") { return candidate }
+        return resolveURL(candidate, baseURL: baseURL)
     }
     
     private func extractYouTubeVideo(from src: String) -> ExtractedVideo {

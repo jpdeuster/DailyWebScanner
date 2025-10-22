@@ -25,6 +25,7 @@ final class LinkRecord: Identifiable {
     // Extracted Content (JSON strings for fast access)
     var extractedLinksJSON: String = ""  // JSON of extracted links
     var extractedVideosJSON: String = ""  // JSON of video references (not downloaded)
+    var extractedAudiosJSON: String = ""  // JSON of audio references (not downloaded)
     var extractedMetadataJSON: String = ""  // JSON of metadata
     
     // Images

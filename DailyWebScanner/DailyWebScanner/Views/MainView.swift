@@ -331,6 +331,18 @@ struct MainView: View {
                     linkRecord.extractedLinksJSON = linksJSON
                     linkRecord.extractedVideosJSON = videosJSON
                     linkRecord.extractedMetadataJSON = metadataJSON
+                    // Map metadata to top-level fields
+                    linkRecord.author = extractedContent.metadata.author
+                    linkRecord.publishDate = extractedContent.metadata.publishDate
+                    linkRecord.language = extractedContent.metadata.language
+                    linkRecord.keywords = extractedContent.metadata.tags.joined(separator: ", ")
+                    linkRecord.wordCount = extractedContent.wordCount
+                    linkRecord.readingTime = extractedContent.readingTime
+                    // Generate HTML preview
+                    linkRecord.htmlPreview = HTMLPreviewGenerator.generatePreview(for: linkRecord)
+                    // AI/Analysis placeholders (can be filled later by background tasks)
+                    linkRecord.hasAIOverview = !linkRecord.aiOverviewJSON.isEmpty
+                    linkRecord.hasContentAnalysis = !linkRecord.contentAnalysisJSON.isEmpty
                     var totalImageBytes = 0
                     for image in extractedContent.images {
                         DebugLogger.shared.logWebViewAction("🖼️ MainView: Downloading image: \(image.url)")
@@ -373,9 +385,54 @@ struct MainView: View {
                         linkRecord.images.append(imageRecord)
                         modelContext.insert(imageRecord)
                     }
+                    // Video thumbnails (YouTube only quick pass)
+                    for video in extractedContent.videos {
+                        switch video.platform {
+                        case .youtube:
+                            // Ableitung einer stabilen Thumbnail-URL
+                            let thumbURL = video.thumbnail ?? video.url
+                            if let url = URL(string: thumbURL) {
+                                do {
+                                    let (data, response) = try await URLSession.shared.data(from: url)
+                                    let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                                    let imagesPath = documentsPath.appendingPathComponent("DailyWebScanner/Images")
+                                    try FileManager.default.createDirectory(at: imagesPath, withIntermediateDirectories: true)
+                                    let ext: String = {
+                                        if let mime = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")?.lowercased() {
+                                            if mime.contains("image/png") { return "png" }
+                                            if mime.contains("image/webp") { return "webp" }
+                                            if mime.contains("image/gif") { return "gif" }
+                                        }
+                                        return "jpg"
+                                    }()
+                                    let fileName = "\(linkRecord.id.uuidString)_yt_\(UUID().uuidString).\(ext)"
+                                    let fileURL = imagesPath.appendingPathComponent(fileName)
+                                    try data.write(to: fileURL)
+                                    let imageRecord = ImageRecord(
+                                        linkRecordId: linkRecord.id,
+                                        originalUrl: thumbURL,
+                                        localPath: fileURL.path,
+                                        altText: video.title,
+                                        width: nil,
+                                        height: nil,
+                                        fileSize: data.count,
+                                        downloadedAt: Date()
+                                    )
+                                    linkRecord.images.append(imageRecord)
+                                    modelContext.insert(imageRecord)
+                                    linkRecord.imageCount = linkRecord.images.count
+                                    linkRecord.totalImageSize += data.count
+                                } catch { }
+                            }
+                        default:
+                            break
+                        }
+                    }
                     linkRecord.imageCount = linkRecord.images.count
                     linkRecord.totalImageSize = totalImageBytes
                     modelContext.insert(linkRecord)
+                    // manuelle Suche: Beziehung am Parent pflegen
+                    record.linkRecords.append(linkRecord)
                     do { try modelContext.save() } catch { }
                     await MainActor.run {
                         if total > 0 {

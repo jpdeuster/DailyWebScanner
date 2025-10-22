@@ -19,6 +19,7 @@ struct EnhancedArticleView: View {
         case html = "HTML View"
         case images = "Images"
         case videos = "Videos"
+        case audios = "Audio"
         case links = "Links"
         case metadata = "Info"
     }
@@ -32,7 +33,7 @@ struct EnhancedArticleView: View {
                 wordCount: extractedContent?.wordCount ?? linkRecord.wordCount,
                 readingTime: extractedContent?.readingTime ?? linkRecord.readingTime,
                 publishDate: extractedContent?.metadata.publishDate,
-                author: extractedContent?.metadata.author,
+                author: decodeHTMLEntities(extractedContent?.metadata.author ?? linkRecord.author),
                 searchParameters: createSearchParameters(from: linkRecord)
             )
             
@@ -138,6 +139,7 @@ struct EnhancedArticleView: View {
                                 mainText: extractedContent?.mainText ?? linkRecord.extractedText,
                                 images: mapped,
                                 videos: extractedContent?.videos ?? [],
+                                audios: extractedContent?.audios ?? [],
                                 links: extractedContent?.links ?? [],
                                 metadata: extractedContent?.metadata ?? HTMLContentExtractor.ContentMetadata(author: linkRecord.author, publishDate: linkRecord.publishDate, category: nil, tags: [], language: linkRecord.language, wordCount: linkRecord.wordCount, readingTime: linkRecord.readingTime),
                                 readingTime: extractedContent?.readingTime ?? linkRecord.readingTime,
@@ -173,6 +175,8 @@ struct EnhancedArticleView: View {
             }
         case .videos:
             VideosTabView(videos: extractedContent?.videos ?? [])
+        case .audios:
+            AudioTabView(audios: decodedAudios() ?? (extractedContent?.audios ?? []))
         case .links:
             LinksTabView(links: decodedLinks() ?? (extractedContent?.links ?? []))
                 .onAppear {
@@ -192,7 +196,7 @@ struct EnhancedArticleView: View {
                     isMainImage: false
                 )
             } : (extractedContent?.images ?? [])
-            MetadataTabView(metadata: decodedMetadata() ?? extractedContent?.metadata, images: metaImages)
+            MetadataTabView(metadata: decodedMetadata() ?? extractedContent?.metadata, images: metaImages, linkRecord: linkRecord)
                                 .onAppear {
                                     DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Info tab appeared - metadata available: \(extractedContent?.metadata != nil)")
                                     if let metadata = decodedMetadata() ?? extractedContent?.metadata {
@@ -298,6 +302,7 @@ struct EnhancedArticleView: View {
                         )
                     },
                     videos: [],
+                    audios: [],
                     links: links,
                     metadata: HTMLContentExtractor.ContentMetadata(
                         author: meta?.author,
@@ -342,6 +347,12 @@ struct EnhancedArticleView: View {
                let metadataJSON = String(data: metadataData, encoding: .utf8) {
                 linkRecord.extractedMetadataJSON = metadataJSON
                 DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Saved metadata to database")
+            }
+            
+            if let audiosData = try? JSONEncoder().encode(content.audios),
+               let audiosJSON = String(data: audiosData, encoding: .utf8) {
+                linkRecord.extractedAudiosJSON = audiosJSON
+                DebugLogger.shared.logWebViewAction("🔊 EnhancedArticleView: Saved \(content.audios.count) audio references to database")
             }
             
             // Download and save images to ImageRecord relationships (only if not present yet)
@@ -720,6 +731,31 @@ struct SearchParametersCard: View {
                 Spacer()
             }
             
+            // Highlight Location explicitly when set
+            if !parameters.location.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    Text("Location:")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                    Text(parameters.location)
+                        .font(.caption)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .padding(8)
+                .background(Color.orange.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.orange.opacity(0.25), lineWidth: 1)
+                )
+                .cornerRadius(8)
+            }
+
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible())
@@ -1401,6 +1437,11 @@ extension EnhancedArticleView {
         let description: String
         let isExternal: Bool
     }
+    private struct DecodedAudio: Codable {
+        let url: String
+        let title: String
+        let duration: String?
+    }
     private func decodedLinks() -> [HTMLContentExtractor.ExtractedLink]? {
         guard !linkRecord.extractedLinksJSON.isEmpty,
               let data = linkRecord.extractedLinksJSON.data(using: .utf8),
@@ -1412,6 +1453,14 @@ extension EnhancedArticleView {
                 description: link.description,
                 isExternal: link.isExternal
             )
+        }
+    }
+    private func decodedAudios() -> [HTMLContentExtractor.ExtractedAudio]? {
+        guard !linkRecord.extractedAudiosJSON.isEmpty,
+              let data = linkRecord.extractedAudiosJSON.data(using: .utf8),
+              let simple = try? JSONDecoder().decode([DecodedAudio].self, from: data) else { return nil }
+        return simple.map { a in
+            HTMLContentExtractor.ExtractedAudio(url: a.url, title: a.title, duration: a.duration)
         }
     }
     private func decodedMetadata() -> HTMLContentExtractor.ContentMetadata? {
@@ -1473,37 +1522,31 @@ struct LinkCardView: View {
 struct MetadataTabView: View {
     let metadata: HTMLContentExtractor.ContentMetadata?
     let images: [HTMLContentExtractor.ExtractedImage]
+    let linkRecord: LinkRecord
     
     var body: some View {
         if let metadata = metadata {
             VStack(alignment: .leading, spacing: 16) {
                 MetadataSection(title: "Content Info") {
-                    MetadataRow(label: "Word Count", value: "\(metadata.wordCount)")
-                    MetadataRow(label: "Reading Time", value: "\(metadata.readingTime) minutes")
+                    // Prefer non-zero values; fallback: compute from text
+                    let wc = metadata.wordCount > 0 ? metadata.wordCount : (linkRecord.wordCount > 0 ? linkRecord.wordCount : wordCount(from: linkRecord.extractedText))
+                    let rt = metadata.readingTime > 0 ? metadata.readingTime : (linkRecord.readingTime > 0 ? linkRecord.readingTime : max(1, wc / 200))
+                    MetadataRow(label: "Word Count", value: "\(wc)")
+                    MetadataRow(label: "Reading Time", value: "\(rt) minutes")
                     if let language = metadata.language {
                         MetadataRow(label: "Language", value: language)
                     }
-                }
-                
-                MetadataSection(title: "Images") {
-                    if images.isEmpty {
-                        Text("No pics available")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        LazyVGrid(columns: [
-                            GridItem(.fixed(70)), GridItem(.fixed(70)), GridItem(.fixed(70)), GridItem(.fixed(70))
-                        ], spacing: 8) {
-                            ForEach(Array(images.prefix(8).indices), id: \.self) { idx in
-                                InlineThumbView(image: images[idx])
-                            }
-                        }
+                    MetadataRow(label: "Fetched At", value: linkRecord.fetchedAt.formatted(.dateTime.day().month().year().hour().minute()))
+                    if let kws = linkRecord.keywords, !kws.trimmingCharacters(in: .whitespaces).isEmpty {
+                        MetadataRow(label: "Keywords", value: decodeHTMLEntities(kws) ?? kws)
                     }
+                    let aiStatus = linkRecord.hasAIOverview && !linkRecord.aiOverviewJSON.isEmpty ? "Available" : "None"
+                    MetadataRow(label: "AI Overview", value: aiStatus)
                 }
 
                 if let author = metadata.author {
                     MetadataSection(title: "Author") {
-                        MetadataRow(label: "Name", value: author)
+                        MetadataRow(label: "Name", value: decodeHTMLEntities(author) ?? author)
                     }
                 }
                 
@@ -1546,46 +1589,23 @@ struct MetadataTabView: View {
             )
         }
     }
-}
-
-struct MetadataSection<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            content
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
-        )
+    private func wordCount(from text: String) -> Int {
+        if text.isEmpty { return 0 }
+        return text.split { $0.isWhitespace || $0.isNewline }.count
     }
 }
 
-struct MetadataRow: View {
-    let label: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            Spacer()
-            
-            Text(value)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.primary)
-        }
-    }
+// MARK: - HTML Entity Decoding Helper
+private func decodeHTMLEntities(_ s: String?) -> String? {
+    guard let s = s else { return nil }
+    var r = s
+    r = r.replacingOccurrences(of: "&amp;", with: "&")
+    r = r.replacingOccurrences(of: "&lt;", with: "<")
+    r = r.replacingOccurrences(of: "&gt;", with: ">")
+    r = r.replacingOccurrences(of: "&quot;", with: "\"")
+    r = r.replacingOccurrences(of: "&#39;", with: "'")
+    return r
 }
 
 // MARK: - Supporting Views
@@ -1656,6 +1676,48 @@ struct EmptyStateView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+    }
+}
+
+// Simple metadata helpers
+struct MetadataSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                content
+            }
+            .padding(12)
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
+            .cornerRadius(8)
+        }
+    }
+}
+
+struct MetadataRow: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label + ":")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+                .frame(width: 110, alignment: .leading)
+            Text(value)
+                .font(.caption)
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 
@@ -2011,6 +2073,65 @@ struct InlineThumbView: View {
         let payload = uri[uri.index(after: commaIndex)...]
         if meta.lowercased().contains(";base64") { return Data(base64Encoded: String(payload)) }
         return String(payload).removingPercentEncoding?.data(using: .utf8)
+    }
+}
+
+struct AudioTabView: View {
+    let audios: [HTMLContentExtractor.ExtractedAudio]
+    
+    var body: some View {
+        if audios.isEmpty {
+            EmptyStateView(
+                icon: "waveform",
+                title: "No Audio Found",
+                description: "This article doesn't contain any audio links."
+            )
+        } else {
+            LazyVStack(spacing: 12) {
+                ForEach(Array(audios.enumerated()), id: \.offset) { _, audio in
+                    AudioRow(audio: audio)
+                }
+            }
+        }
+    }
+}
+
+struct AudioRow: View {
+    let audio: HTMLContentExtractor.ExtractedAudio
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "waveform.circle.fill")
+                .font(.title3)
+                .foregroundColor(.orange)
+                .frame(width: 24)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(audio.title.isEmpty ? "Audio" : audio.title)
+                    .font(.headline)
+                    .lineLimit(2)
+                if let duration = audio.duration, !duration.isEmpty {
+                    Text("Duration: \(duration)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Text(audio.url)
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button("Open") {
+                if let url = URL(string: audio.url) { NSWorkspace.shared.open(url) }
+            }
+            .font(.caption)
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
+        )
     }
 }
 

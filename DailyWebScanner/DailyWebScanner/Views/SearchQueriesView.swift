@@ -174,6 +174,32 @@ struct SearchQueriesView: View {
                             .fontWeight(.medium)
                             .foregroundColor(.primary)
                     }
+                    // ManualSearchRecord Count
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.purple)
+                        Text("Manual Searches:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(manualCount())")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    // SearchResult Count
+                    HStack(spacing: 6) {
+                        Image(systemName: "list.bullet.rectangle.portrait.fill")
+                            .font(.caption)
+                            .foregroundColor(.brown)
+                        Text("Results:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(searchResultCount())")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
                     
                     Spacer()
                     
@@ -199,6 +225,13 @@ struct SearchQueriesView: View {
         }
     }
     
+    private func manualCount() -> Int {
+        (try? modelContext.fetch(FetchDescriptor<ManualSearchRecord>())).map { $0.count } ?? 0
+    }
+    private func searchResultCount() -> Int {
+        (try? modelContext.fetch(FetchDescriptor<SearchResult>())).map { $0.count } ?? 0
+    }
+    
     // Calculate database size and image statistics
     private func calculateDatabaseSize() {
         Task {
@@ -208,12 +241,29 @@ struct SearchQueriesView: View {
             // Resolve app support directory and default.store file
             let (appSupportDir, defaultStoreFile) = getDatabasePaths()
             let realDatabaseSizeDir = getFileSize(at: appSupportDir)
-            let realDatabaseSizeFile = getFileSize(at: defaultStoreFile)
+            let fm = FileManager.default
+            let appSupportExists = fm.fileExists(atPath: appSupportDir)
+            DebugLogger.shared.logWebViewAction("📁 SearchQueriesView: AppSupport exists=\(appSupportExists) path=\(appSupportDir)")
+            let defaultStoreExists = fm.fileExists(atPath: defaultStoreFile)
+            if !defaultStoreExists {
+                DebugLogger.shared.logWebViewAction("ℹ️ SearchQueriesView: default.store not found (fresh DB or different backend). path=\(defaultStoreFile)")
+            }
+            let realDatabaseSizeFile: Int64 = defaultStoreExists ? getFileSize(at: defaultStoreFile) : 0
             let realDatabaseSize = realDatabaseSizeDir > 0 ? realDatabaseSizeDir : realDatabaseSizeFile
 
             // Discover actual SwiftData store files (store/sqlite + WAL/SHM) as a robust fallback
             let discoveredFiles = discoverSwiftDataStoreFiles(preferredDirPath: appSupportDir)
             let discoveredSize = sumFileSizes(discoveredFiles)
+            // Log discovered files (limit to first 10 for readability)
+            if !discoveredFiles.isEmpty {
+                let preview = discoveredFiles.prefix(10).map { url -> String in
+                    let size = (try? fm.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
+                    return "\(url.lastPathComponent)=\(formatBytes(Int64(size)))"
+                }.joined(separator: ", ")
+                DebugLogger.shared.logWebViewAction("🔎 SearchQueriesView: Discovered store files (\(discoveredFiles.count)): [\(preview)\(discoveredFiles.count > 10 ? ", …" : "")] ")
+            } else {
+                DebugLogger.shared.logWebViewAction("🔎 SearchQueriesView: No store files discovered in preferred bases (fresh install?)")
+            }
             let effectiveDatabaseSize = max(realDatabaseSize, discoveredSize)
             
             // Calculate LinkRecord sizes (approximation)

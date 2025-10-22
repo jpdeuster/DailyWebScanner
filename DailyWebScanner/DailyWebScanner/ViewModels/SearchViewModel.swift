@@ -53,6 +53,7 @@ final class SearchViewModel: ObservableObject {
         
         // Debug: Log search parameters
         DebugLogger.shared.logSearchParameters(query: query, language: hl, region: gl, count: count)
+        DebugLogger.shared.logSearchParametersExtended(query: query, language: hl, region: gl, count: count, location: location, safe: safe, tbm: tbm, tbs: tbs, as_qdr: as_qdr)
         DebugLogger.shared.logWebViewAction("SerpAPI: Fetching all available results (max 100)")
 
         isSearching = true
@@ -161,6 +162,7 @@ final class SearchViewModel: ObservableObject {
         
         // Debug: Log search parameters
         DebugLogger.shared.logSearchParameters(query: query, language: hl, region: gl, count: count)
+        DebugLogger.shared.logSearchParametersExtended(query: query, language: hl, region: gl, count: count, location: location, safe: safe, tbm: tbm, tbs: tbs, as_qdr: as_qdr)
         DebugLogger.shared.logWebViewAction("SerpAPI: Fetching all available results (max 100)")
 
         isSearching = true

@@ -17,6 +17,9 @@ class ManualSearchRecord {
     var timestamp: Date
     var results: [SearchResult]
     
+    @Relationship(deleteRule: .cascade)
+    var linkRecords: [LinkRecord] = []
+    
     init(
         query: String,
         language: String = "",
