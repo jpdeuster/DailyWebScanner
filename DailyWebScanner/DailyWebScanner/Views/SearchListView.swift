@@ -689,7 +689,7 @@ struct SearchListView: View {
         )
         manualSearchWindow.title = "Manual Search"
         manualSearchWindow.center()
-        manualSearchWindow.contentView = NSHostingView(rootView: ContentView()
+        manualSearchWindow.contentView = NSHostingView(rootView: MainView()
             .environment(\.modelContext, modelContext))
         
         manualSearchWindow.isReleasedWhenClosed = false

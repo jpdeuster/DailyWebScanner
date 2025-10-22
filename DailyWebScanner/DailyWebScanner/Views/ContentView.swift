@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import WebKit
 
-struct ContentView: View {
+struct MainView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ManualSearchRecord.query, order: .forward) private var searchRecords: [ManualSearchRecord]
     @State private var searchText: String = ""
@@ -323,142 +323,11 @@ struct ContentView: View {
             }
             .frame(minWidth: 300)
         } detail: {
-            if let searchRecord = selectedSearchRecord {
-                VStack(spacing: 16) {
-                    // Detail top status bar with Help
-                    HStack {
-                        Spacer()
-                        HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.top, 8)
-                    
-                    // Beautiful Search Query Header (same as Automated Search)
-                    SearchQueryHeaderView(searchRecord: searchRecord)
-                    
-                    // Search Results (non-clickable)
-                    if !searchRecord.results.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("Search Results (\(searchRecord.results.count))")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                            }
-                            
-                            // Results List (non-clickable)
-                            List(searchRecord.results.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }.prefix(10)) { result in
-                                SearchResultRowView(result: result)
-                            }
-                            .listStyle(.plain)
-                        }
-                } else {
-                        VStack(spacing: 20) {
-                            Image(systemName: "magnifyingglass.circle")
-                                .font(.system(size: 48))
-                                .foregroundColor(.gray)
-                            
-                            Text("No Results Yet")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            
-                            Text("This search returned no results.")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
-                .padding()
-                .onAppear {
-                    DebugLogger.shared.logWebViewAction("🔍 DEBUG: Detail View Active")
-                    DebugLogger.shared.logWebViewAction("📱 ContentView: Detail view appeared for SearchRecord '\(searchRecord.query)' (ID: \(searchRecord.id))")
-                    DebugLogger.shared.logWebViewAction("📊 ContentView: SearchRecord has \(searchRecord.results.count) results")
-                }
-                } else {
-                VStack(spacing: 20) {
-                    // Navigation Buttons (top-right)
-                    HStack {
-                        Spacer()
-                        
-                        Button(action: {
-                            showAutomatedSearchWindow()
-                        }) {
-                            HStack {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.caption)
-                                Text("Automated Search")
-                                    .font(.caption)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.green.opacity(0.1))
-                            .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Open Automated Search (⌘A)")
-                        .keyboardShortcut("a", modifiers: .command)
-                        
-                        Button(action: {
-                            showArticlesWindow()
-                        }) {
-                            HStack {
-                                Image(systemName: "doc.text")
-                                    .font(.caption)
-                                Text("Show Saved Articles")
-                                    .font(.caption)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Open Articles List (⌘L)")
-                        .keyboardShortcut("l", modifiers: .command)
-
-                        HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
-                    }
-                    .padding(.horizontal)
-                    
-                    Image(systemName: "magnifyingglass.circle")
-                        .font(.system(size: 64))
-                        .foregroundColor(.blue)
-                    
-                    Text("Welcome to DailyWebScanner")
-                    .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
-                    Text("Select a search from the sidebar to view results")
-                        .font(.body)
-                    .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    
-                    VStack(spacing: 16) {
-                        InfoCard(
-                            icon: "clock.arrow.circlepath",
-                            title: "Search History",
-                            description: "View and manage your past searches"
-                        )
-                        
-                        InfoCard(
-                            icon: "list.bullet",
-                            title: "Detailed Results",
-                            description: "See comprehensive search results with AI summaries"
-                        )
-                        
-                        InfoCard(
-                            icon: "link",
-                            title: "Article Links",
-                            description: "Access saved articles and extracted content"
-                        )
-                    }
-                }
-                .padding(40)
-            }
+            MainDetailView(
+                searchRecord: selectedSearchRecord,
+                onOpenAutomatedSearch: { showAutomatedSearchWindow() },
+                onOpenArticles: { showArticlesWindow() }
+            )
         }
         .onAppear {
             loadAccountInfo()
@@ -1273,7 +1142,7 @@ struct ParameterTag: View {
     }
 }
 
-extension ContentView {
+extension MainView {
     private func showAutomatedSearchWindow() {
         let automatedSearchWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
@@ -1308,23 +1177,23 @@ extension ContentView {
     
     private func fetchHTMLFromURL(_ urlString: String) async -> String {
         guard let url = URL(string: urlString) else {
-            DebugLogger.shared.logWebViewAction("❌ ContentView: Invalid URL: \(urlString)")
+            DebugLogger.shared.logWebViewAction("❌ MainView: Invalid URL: \(urlString)")
             return ""
         }
         
         do {
-            DebugLogger.shared.logWebViewAction("🌐 ContentView: Fetching HTML from \(urlString)")
+            DebugLogger.shared.logWebViewAction("🌐 MainView: Fetching HTML from \(urlString)")
             let (data, response) = try await URLSession.shared.data(from: url)
             
             if let httpResponse = response as? HTTPURLResponse {
-                DebugLogger.shared.logWebViewAction("📡 ContentView: HTTP Status: \(httpResponse.statusCode)")
+                DebugLogger.shared.logWebViewAction("📡 MainView: HTTP Status: \(httpResponse.statusCode)")
             }
             
             let html = String(data: data, encoding: .utf8) ?? ""
-            DebugLogger.shared.logWebViewAction("📄 ContentView: Fetched HTML length: \(html.count) characters")
+            DebugLogger.shared.logWebViewAction("📄 MainView: Fetched HTML length: \(html.count) characters")
             return html
         } catch {
-            DebugLogger.shared.logWebViewAction("❌ ContentView: Failed to fetch HTML - \(error.localizedDescription)")
+            DebugLogger.shared.logWebViewAction("❌ MainView: Failed to fetch HTML - \(error.localizedDescription)")
             return ""
         }
     }
@@ -1366,7 +1235,7 @@ struct InfoCard: View {
     }
 }
 
-extension ContentView {
+extension MainView {
     private func deleteSearchResult(_ result: SearchResult, from searchRecord: SearchRecord) {
         // Remove from the relationship
         if let index = searchRecord.results.firstIndex(where: { $0.id == result.id }) {
