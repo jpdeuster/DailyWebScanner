@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import WebKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -480,12 +479,12 @@ struct ContentView: View {
                     // Convert SearchResults to LinkRecords for the article list
                     for (idx, searchResult) in searchResults.enumerated() {
                         // Fetch HTML content immediately to avoid network requests later
-                        let htmlContent = await fetchHTMLFromURL(searchResult.link)
+                        let _ = await fetchHTMLFromURL(searchResult.link)
                         
                         // Extract ALL content from HTML for fast access
                         DebugLogger.shared.logWebViewAction("🔄 ContentView: Starting content extraction for '\(searchResult.title)'")
                         let extractor = HTMLContentExtractor()
-                        let extractedContent = await extractor.extractContent(from: htmlContent, baseURL: searchResult.link)
+                        let extractedContent = try await extractor.extractContent(from: searchResult.link)
                         
                         DebugLogger.shared.logWebViewAction("📊 ContentView: Extracted content - Text: \(extractedContent.mainText.count) chars, Links: \(extractedContent.links.count), Videos: \(extractedContent.videos.count), Images: \(extractedContent.images.count)")
                         
@@ -494,24 +493,20 @@ struct ContentView: View {
                         let videosJSON = encodeVideosJSON(extractedContent.videos)
                         let metadataJSON = encodeMetadataJSON(extractedContent.metadata)
                         
-                        // Extract CSS: inline + a few small linked stylesheets
-                        let inlineCSS = extractInlineCSS(from: htmlContent)
-                        let linkedCSS = await fetchLinkedCSSResources(fromHTML: htmlContent, baseURL: searchResult.link, maxFiles: 3, maxTotalBytes: 200_000)
-                        let combinedCSS = [inlineCSS, linkedCSS].joined(separator: "\n\n")
-                        
                         let linkRecord = LinkRecord(
                             searchRecordId: record.id,
                             originalUrl: searchResult.link,
                             title: searchResult.title,
                             content: searchResult.snippet,
-                            html: htmlContent,
-                            css: combinedCSS,
                             extractedText: extractedContent.mainText,
                             fetchedAt: Date(),
                             articleDescription: searchResult.snippet,
                             wordCount: searchResult.snippet.split(separator: " ").count,
                             readingTime: max(1, searchResult.snippet.split(separator: " ").count / 200)
                         )
+                        // Speichere Plain-Text-Datei optional ab
+                        let plainText = linkRecord.extractedText.isEmpty ? extractedContent.mainText : linkRecord.extractedText
+                        savePlainTextFile(for: linkRecord, text: plainText)
                         linkRecord.extractedLinksJSON = linksJSON
                         linkRecord.extractedVideosJSON = videosJSON
                         linkRecord.extractedMetadataJSON = metadataJSON
@@ -576,7 +571,7 @@ struct ContentView: View {
                         
                         DebugLogger.shared.logWebViewAction("💾 ContentView: Saved complete content to database for '\(searchResult.title)'")
                         modelContext.insert(linkRecord)
-                        DebugLogger.shared.logWebViewAction("Created LinkRecord with HTML: \(searchResult.title) (HTML length: \(htmlContent.count))")
+                        DebugLogger.shared.logWebViewAction("Created LinkRecord: \(searchResult.title) (Text length: \(extractedContent.mainText.count))")
                         // Save after inserting images and link
                         do { try modelContext.save() } catch { DebugLogger.shared.logWebViewAction("❌ ContentView: modelContext.save() failed: \(error.localizedDescription)") }
 
@@ -736,8 +731,6 @@ struct ContentView: View {
             originalUrl: result.link,
             title: result.title,
             content: result.snippet,
-            html: "", // Will be fetched by EnhancedArticleView
-            css: "",
             fetchedAt: Date(),
             articleDescription: result.snippet,
             wordCount: result.snippet.split(separator: " ").count,
@@ -867,8 +860,12 @@ struct SearchQueryDetailView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 } else if !searchRecord.htmlSummary.isEmpty {
-                    WebView(html: searchRecord.htmlSummary)
-                        .frame(minHeight: 400)
+                    ScrollView {
+                        Text(searchRecord.htmlSummary)
+                            .font(.body)
+                            .padding()
+                    }
+                    .frame(minHeight: 400)
                 } else {
                     VStack(spacing: 20) {
                         Image(systemName: "magnifyingglass.circle")
@@ -1190,10 +1187,10 @@ extension ContentView {
             }
             
             let html = String(data: data, encoding: .utf8) ?? ""
-            DebugLogger.shared.logWebViewAction("📄 MainView: Fetched HTML length: \(html.count) characters")
+            DebugLogger.shared.logWebViewAction("📄 MainView: Fetched content length: \(html.count) characters")
             return html
         } catch {
-            DebugLogger.shared.logWebViewAction("❌ MainView: Failed to fetch HTML - \(error.localizedDescription)")
+            DebugLogger.shared.logWebViewAction("❌ MainView: Failed to fetch content - \(error.localizedDescription)")
             return ""
         }
     }
@@ -1250,6 +1247,21 @@ extension ContentView {
             DebugLogger.shared.logWebViewAction("SearchResult deleted: \(result.title)")
         } catch {
             DebugLogger.shared.logWebViewAction("Failed to delete SearchResult: \(error.localizedDescription)")
+        }
+    }
+    
+    private func savePlainTextFile(for record: LinkRecord, text: String) {
+        guard !text.isEmpty else { return }
+        do {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            let dir = docs.appendingPathComponent("DailyWebScanner/Text", isDirectory: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let fileURL = dir.appendingPathComponent("\(record.id.uuidString).txt")
+            try (text + "\n").write(to: fileURL, atomically: true, encoding: .utf8)
+            record.plainTextFilePath = fileURL.path
+            DebugLogger.shared.logWebViewAction("📝 Saved plain text to \(fileURL.path)")
+        } catch {
+            DebugLogger.shared.logWebViewAction("⚠️ Failed to save plain text: \(error.localizedDescription)")
         }
     }
 }

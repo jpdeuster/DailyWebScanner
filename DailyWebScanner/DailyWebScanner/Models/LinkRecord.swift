@@ -8,8 +8,7 @@ final class LinkRecord: Identifiable {
     var originalUrl: String
     var title: String
     var content: String
-    var html: String
-    var css: String
+    // HTML/CSS-Felder entfernt (nur noch Plain Text)
     var extractedText: String  // ← Extracted main text for fast access
     var fetchedAt: Date
     
@@ -45,25 +44,26 @@ final class LinkRecord: Identifiable {
     var hasContentAnalysis: Bool
     var contentAnalysisJSON: String  // JSON string of ContentAnalysis
     
-    // HTML Preview
-    var htmlPreview: String  // Rendered HTML for preview
+    // HTML Preview entfernt
+    
+    // Plain Text File Path (optional)
+    var plainTextFilePath: String?  // Path to saved .txt file
     
     init(id: UUID = UUID(), searchRecordId: UUID, originalUrl: String, title: String, 
-         content: String, html: String, css: String, extractedText: String = "", fetchedAt: Date = .now,
+         content: String, extractedText: String = "", fetchedAt: Date = .now,
          author: String? = nil, publishDate: Date? = nil, articleDescription: String? = nil,
          keywords: String? = nil, language: String? = nil, wordCount: Int = 0,
          readingTime: Int = 0, imageCount: Int = 0, totalImageSize: Int = 0,
          hasAIOverview: Bool = false, aiOverviewJSON: String = "",
          aiOverviewThumbnail: String? = nil, aiOverviewReferences: String? = nil,
          hasContentAnalysis: Bool = false, contentAnalysisJSON: String = "",
-         htmlPreview: String = "") {
+         plainTextFilePath: String? = nil) {
         self.id = id
         self.searchRecordId = searchRecordId
         self.originalUrl = originalUrl
         self.title = title
         self.content = content
-        self.html = html
-        self.css = css
+        // HTML/CSS entfernt
         self.extractedText = extractedText
         self.fetchedAt = fetchedAt
         self.author = author
@@ -81,7 +81,8 @@ final class LinkRecord: Identifiable {
         self.aiOverviewReferences = aiOverviewReferences
         self.hasContentAnalysis = hasContentAnalysis
         self.contentAnalysisJSON = contentAnalysisJSON
-        self.htmlPreview = htmlPreview
+        // HTML Preview entfernt
+        self.plainTextFilePath = plainTextFilePath
     }
 }
 

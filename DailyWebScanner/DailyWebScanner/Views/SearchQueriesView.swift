@@ -268,7 +268,7 @@ struct SearchQueriesView: View {
             
             // Calculate LinkRecord sizes (approximation)
             for record in linkRecords {
-                totalSize += Int64(record.html.count)
+                // HTML entfernt
                 totalSize += Int64(record.extractedText.count)
                 totalSize += Int64(record.extractedLinksJSON.count)
                 totalSize += Int64(record.extractedVideosJSON.count)
@@ -497,15 +497,12 @@ struct ArticleLinkDetailView: View {
                 .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
                 .cornerRadius(8)
                 
-                // Article Content
-                if !linkRecord.htmlPreview.isEmpty {
-                    WebView(html: linkRecord.htmlPreview)
-                        .frame(minHeight: 400)
-                } else if !linkRecord.content.isEmpty {
-                    Text(linkRecord.content)
-                        .font(.body)
-                        .padding()
-                }
+                // Article Content (Plain Text)
+                let textToShow = linkRecord.extractedText.isEmpty ? linkRecord.content : linkRecord.extractedText
+                Text(textToShow)
+                    .font(.body)
+                    .lineSpacing(6)
+                    .padding()
                 
                 // AI Overview if available
                 if linkRecord.hasAIOverview && !linkRecord.aiOverviewJSON.isEmpty {

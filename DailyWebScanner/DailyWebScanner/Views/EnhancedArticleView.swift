@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
-import WebKit
 
 /// Enhanced article view with powerful content extraction and beautiful display
 struct EnhancedArticleView: View {
@@ -18,7 +17,6 @@ struct EnhancedArticleView: View {
     
     enum ArticleTab: String, CaseIterable {
         case content = "Text View"
-        case html = "HTML View"
         case images = "Images"
         case videos = "Videos"
         case audios = "Audio"
@@ -64,24 +62,7 @@ struct EnhancedArticleView: View {
                     }
                 }
             
-            // Content Area
-            if selectedTab == .html {
-                // Vollflächiger HTML-Renderer ohne ScrollView
-                HTMLTabView(html: linkRecord.html, css: linkRecord.css, linkRecord: linkRecord)
-                    .id(htmlReloadKey)
-                    .onAppear {
-                        DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: HTML tab appeared - HTML length: \(linkRecord.html.count) characters, CSS length: \(linkRecord.css.count) characters, baseURL: \(linkRecord.originalUrl)")
-                        if linkRecord.html.isEmpty {
-                            DebugLogger.shared.logWebViewAction("⚠️ EnhancedArticleView: HTML content is empty!")
-                        } else {
-                            DebugLogger.shared.logWebViewAction("✅ EnhancedArticleView: HTML content available (\(linkRecord.html.count) chars)")
-                        }
-                        if linkRecord.css.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Task { await harvestAndPersistExternalCSSIfNeeded() }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
+            // Content Area (HTML-Rendering entfernt)
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         if isLoading {
@@ -91,7 +72,8 @@ struct EnhancedArticleView: View {
                                 Task { await loadContent() }
                             }
                         } else {
-                            switch selectedTab {
+                            Group {
+                                switch selectedTab {
                             case .content:
                                 ContentTabView(content: extractedContent, linkRecord: linkRecord)
                                     .onAppear {
@@ -99,8 +81,6 @@ struct EnhancedArticleView: View {
                                         DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Text View appeared - text length: \(textLength) characters")
                                         DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Using extractedText: \(!linkRecord.extractedText.isEmpty), content.mainText: \(extractedContent?.mainText.isEmpty == false)")
                                     }
-                            case .html:
-                                EmptyView()
                             case .images:
                                 // Prefer locally saved images; map localPath to file:// URL for offline rendering
                                 var imagesToShow = !linkRecord.images.isEmpty ? linkRecord.images.map { imageRecord in
@@ -214,11 +194,11 @@ struct EnhancedArticleView: View {
                                                 }
                                             }
                             }
+                            }
                         }
                     }
                     .padding()
                 }
-            }
         }
         .task {
             await loadContent()
@@ -261,45 +241,18 @@ struct EnhancedArticleView: View {
         
         DebugLogger.shared.logWebViewAction("🔄 EnhancedArticleView: Starting content loading for '\(linkRecord.title)'")
         DebugLogger.shared.logWebViewAction("🧾 EnhancedArticleView: Article title: '\(linkRecord.title)' URL: \(linkRecord.originalUrl)")
-        DebugLogger.shared.logWebViewAction("📄 EnhancedArticleView: HTML content length: \(linkRecord.html.count) characters")
+        // HTML-Feld entfernt - nur noch Plain Text
         DebugLogger.shared.logWebViewAction("📝 EnhancedArticleView: Extracted text length: \(linkRecord.extractedText.count) characters")
         DebugLogger.shared.logWebViewAction("🔗 EnhancedArticleView: Links JSON length: \(linkRecord.extractedLinksJSON.count) characters")
         DebugLogger.shared.logWebViewAction("🎥 EnhancedArticleView: Videos JSON length: \(linkRecord.extractedVideosJSON.count) characters")
         DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: Metadata JSON length: \(linkRecord.extractedMetadataJSON.count) characters")
         
         do {
-            // If HTML is empty, try to fetch it
-            var htmlContent = linkRecord.html
-            if htmlContent.isEmpty {
-                DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: HTML is empty, attempting to fetch from URL")
-                htmlContent = await fetchHTMLFromURL(linkRecord.originalUrl)
-                
-                // Save the fetched HTML back to the database
-                if !htmlContent.isEmpty {
-                    await MainActor.run {
-                        linkRecord.html = htmlContent
-                        try? linkRecord.modelContext?.save()
-                        DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: HTML saved to database (\(htmlContent.count) characters)")
-                    }
-                }
-            } else {
-                DebugLogger.shared.logWebViewAction("📄 EnhancedArticleView: Using cached HTML from database (\(htmlContent.count) characters)")
-            }
-            
-            if htmlContent.isEmpty {
-                throw NSError(domain: "ContentExtraction", code: 1, userInfo: [NSLocalizedDescriptionKey: "No HTML content available"])
-            }
-            
-            // Proaktiv: Externe Styles beim ersten Mal ernten und speichern
-            if linkRecord.css.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                await harvestAndPersistExternalCSSIfNeeded()
-            }
-            
             // If DB already contains most data, construct content from DB to avoid re-extraction
             if !linkRecord.extractedText.isEmpty || !linkRecord.extractedLinksJSON.isEmpty || !linkRecord.extractedMetadataJSON.isEmpty || !linkRecord.images.isEmpty {
                 let links = decodedLinks() ?? []
                 let meta = decodedMetadata()
-                let words = (linkRecord.extractedText.isEmpty ? linkRecord.html : linkRecord.extractedText).split(separator: " ").count
+                let words = linkRecord.extractedText.split(separator: " ").count
                 let reading = max(1, words / 200)
                 DebugLogger.shared.logWebViewAction("💾 EnhancedArticleView: Constructing content from DB cache - text: \(linkRecord.extractedText.count) chars, links: \(links.count), images: \(linkRecord.images.count)")
                 self.extractedContent = HTMLContentExtractor.ExtractedContent(
@@ -338,10 +291,7 @@ struct EnhancedArticleView: View {
 
             // Otherwise extract now
             let extractor = HTMLContentExtractor()
-            let content = await extractor.extractContent(
-                from: htmlContent,
-                baseURL: linkRecord.originalUrl
-            )
+            let content = try await extractor.extractContent(from: linkRecord.originalUrl)
             
             // Save extracted text for future fast access
             linkRecord.extractedText = content.mainText
@@ -457,7 +407,7 @@ struct EnhancedArticleView: View {
         }
         
         do {
-            DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: Fetching HTML from \(urlString)")
+            DebugLogger.shared.logWebViewAction("🌐 EnhancedArticleView: Fetching content from \(urlString)")
             var request = URLRequest(url: url)
             // Best-effort consent cookies if enabled in settings
             if UserDefaults.standard.bool(forKey: "acceptAllCookies") {
@@ -466,7 +416,7 @@ struct EnhancedArticleView: View {
                     "cookieconsent_status=allow",
                     "cookie_consent=accepted",
                     "borlabs-cookie=all",
-                    "OptanonConsent=isIABGlobal=false&datestamp=now&version=6.33.0&hosts=&consentId=anonymous&interactionCount=1&landingPath=\/",
+                    "OptanonConsent=isIABGlobal=false&datestamp=now&version=6.33.0&hosts=&consentId=anonymous&interactionCount=1&landingPath=/",
                     "CONSENT=YES+1",
                     "euconsent-v2=",
                     "gdprApplies=1"
@@ -480,10 +430,10 @@ struct EnhancedArticleView: View {
             }
             
             let html = String(data: data, encoding: .utf8) ?? ""
-            DebugLogger.shared.logWebViewAction("📄 EnhancedArticleView: Fetched HTML length: \(html.count) characters")
+            DebugLogger.shared.logWebViewAction("📄 EnhancedArticleView: Fetched content length: \(html.count) characters")
             return html
         } catch {
-            DebugLogger.shared.logWebViewAction("❌ EnhancedArticleView: Failed to fetch HTML - \(error.localizedDescription)")
+            DebugLogger.shared.logWebViewAction("❌ EnhancedArticleView: Failed to fetch content - \(error.localizedDescription)")
             return ""
         }
     }
@@ -1965,236 +1915,6 @@ struct FullScreenImageView: View {
     }
 }
 
-// MARK: - HTML Tab View
-
-struct HTMLTabView: View {
-    let html: String
-    let css: String
-    let linkRecord: LinkRecord
-    @State private var showDebug: Bool = false
-    @State private var useOriginalCSS: Bool = true
-    @State private var enableNormalize: Bool = true
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "safari")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                Text("HTML View (Offline Render)")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Spacer()
-                Toggle("Original CSS", isOn: $useOriginalCSS)
-                    .toggleStyle(.switch)
-                    .labelsHidden()
-                    .help("Render mit geharvestetem CSS ein-/ausschalten (offline)")
-                Toggle("Normalize", isOn: $enableNormalize)
-                    .toggleStyle(.switch)
-                    .labelsHidden()
-                    .help("Kleines Normalize-CSS ein-/ausschalten")
-                #if DEBUG
-                Button("Debug") { showDebug = true }
-                    .buttonStyle(.plain)
-                #endif
-                Button("Copy HTML") {
-                    let pb = NSPasteboard.general
-                    pb.clearContents(); pb.setString(html, forType: .string)
-                }.buttonStyle(.plain)
-            }
-            .padding(.horizontal, 2)
-            
-            OfflineHTMLWebView(
-                offlineHTML: makeOfflineHTML(),
-                basePath: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("DailyWebScanner").path ?? ""
-            )
-            .frame(minHeight: 300)
-            .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
-            .cornerRadius(10)
-        }
-        .onAppear {
-            // Falls kein CSS vorhanden: Original CSS Toggle deaktivieren
-            if css.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { useOriginalCSS = false }
-            DebugLogger.shared.logWebViewAction("🎛️ HTMLTabView: Toggles onAppear - originalCSS=\(useOriginalCSS), normalize=\(enableNormalize)")
-        }
-        #if DEBUG
-        .sheet(isPresented: $showDebug) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Render Debug")
-                        .font(.headline)
-                    Spacer()
-                    Button("Close") { showDebug = false }
-                }
-                .padding(.bottom, 4)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Base URL: \(linkRecord.originalUrl)").font(.caption)
-                    Text("HTML length: \(html.count)").font(.caption)
-                    Text("CSS length: \(css.count)").font(.caption)
-                    Text("Original CSS: \(useOriginalCSS ? "ON" : "OFF"), Normalize: \(enableNormalize ? "ON" : "OFF")").font(.caption)
-                }
-
-                Text("HTML (first 1000 chars)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                ScrollView {
-                    Text(String(html.prefix(1000)))
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(height: 180)
-
-                Text("CSS (first 1000 chars)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                ScrollView {
-                    Text(String(sanitizeExternalCSS(css).prefix(1000)))
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(height: 180)
-
-                HStack(spacing: 12) {
-                    Button("Copy CSS") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(sanitizeExternalCSS(css), forType: .string)
-                    }
-                    Button("Copy HTML") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(html, forType: .string)
-                    }
-                }
-            }
-            .padding(16)
-            .frame(minWidth: 720, minHeight: 520)
-        }
-        #endif
-    }
-    
-    private var normalizeCSS: String {
-        """
-        /* Minimal Normalize */
-        html,body,div,span,applet,object,iframe,
-        h1,h2,h3,h4,h5,h6,p,blockquote,pre,
-        a,abbr,acronym,address,big,cite,code,
-        del,dfn,em,img,ins,kbd,q,s,samp,
-        small,strike,strong,sub,sup,tt,var,
-        b,u,i,center,
-        dl,dt,dd,ol,ul,li,
-        fieldset,form,label,legend,
-        table,caption,tbody,tfoot,thead,tr,th,td,
-        article,aside,canvas,details,embed,
-        figure,figcaption,footer,header,menu,nav,output,
-        ruby,section,summary,time,mark,audio,video { margin: 0; padding: 0; border: 0; }
-        article,aside,details,figcaption,figure,footer,header,menu,nav,section { display: block; }
-        body { line-height: 1.5; }
-        ol, ul { list-style: initial; margin-left: 1.25em; }
-        table { border-collapse: collapse; border-spacing: 0; }
-        """
-    }
-
-    private func sanitizeExternalCSS(_ css: String) -> String {
-        var s = css
-        // Remove @import rules entirely (remote cascades)
-        if let re = try? NSRegularExpression(pattern: "@import[\\s\\S]*?;", options: [.caseInsensitive]) {
-            s = re.stringByReplacingMatches(in: s, options: [], range: NSRange(location: 0, length: (s as NSString).length), withTemplate: "")
-        }
-        // Map url(http...) → local file if wir haben das Bild; sonst none
-        if let re2 = try? NSRegularExpression(pattern: "url\\\\(([^)]+)\\\\)", options: [.caseInsensitive]) {
-            let ns = s as NSString
-            let matches = re2.matches(in: s, range: NSRange(location: 0, length: ns.length))
-            var out = s
-            // Build mapping original -> file URL
-            var map: [String: String] = [:]
-            for img in linkRecord.images {
-                if let local = img.localPath {
-                    map[img.originalUrl] = URL(fileURLWithPath: local).absoluteString
-                }
-            }
-            // Replace from the end to keep ranges valid
-            for m in matches.reversed() {
-                if m.numberOfRanges >= 2 {
-                    var raw = ns.substring(with: m.range(at: 1)).trimmingCharacters(in: CharacterSet(charactersIn: "'\" "))
-                    // Only rewrite http(s); leave data: and relative as-is
-                    if raw.lowercased().hasPrefix("http://") || raw.lowercased().hasPrefix("https://") {
-                        if let local = map[raw] {
-                            out = (out as NSString).replacingCharacters(in: m.range, with: "url(\(local))")
-                        } else {
-                            out = (out as NSString).replacingCharacters(in: m.range, with: "url(none)")
-                        }
-                    }
-                }
-            }
-            s = out
-        }
-        return s
-    }
-    
-    private func makeOfflineHTML() -> String {
-        // Prefer generated preview if available
-        let source = linkRecord.htmlPreview.isEmpty ? html : linkRecord.htmlPreview
-        var sanitized = source
-        // Strip scripts and external styles
-        sanitized = sanitized.replacingOccurrences(of: "<script[\\s\\S]*?>[\\s\\S]*?</script>", with: "", options: [.regularExpression, .caseInsensitive])
-        sanitized = sanitized.replacingOccurrences(of: "<link[^>]*rel=\\\"stylesheet\\\"[^>]*>", with: "", options: [.regularExpression, .caseInsensitive])
-        // Promote lazy-loading image attributes to src/srcset
-        sanitized = sanitized.replacingOccurrences(of: #"data-srcset=\"([^"]+)\""#, with: "srcset=\"$1\"", options: .regularExpression)
-        sanitized = sanitized.replacingOccurrences(of: #"data-src=\"([^"]+)\""#, with: "src=\"$1\"", options: .regularExpression)
-        sanitized = sanitized.replacingOccurrences(of: #"data-original=\"([^"]+)\""#, with: "src=\"$1\"", options: .regularExpression)
-        sanitized = sanitized.replacingOccurrences(of: #"data-lazy-src=\"([^"]+)\""#, with: "src=\"$1\"", options: .regularExpression)
-        // Inline our CSS, ensure basic styling + optional normalize + sanitized original CSS
-        let baseCSS = ":root { color-scheme: light dark; }\nbody { font-family: -apple-system, Helvetica, Arial, sans-serif; margin: 0; padding: 0; line-height: 1.5; }\n.dws-container { max-width: 820px; margin: 0 auto; padding: 16px 20px; }\nimg, video, audio, iframe { max-width: 100%; height: auto; }\na { color: #1e6bb8; text-decoration: none; }\na:hover { text-decoration: underline; }\nh1 { font-size: 1.8rem; margin: 0.8em 0 0.4em; }\nh2 { font-size: 1.5rem; margin: 0.8em 0 0.4em; }\nh3 { font-size: 1.2rem; margin: 0.8em 0 0.4em; }\np { margin: 0.6em 0; }\nul, ol { margin: 0.6em 0 0.6em 1.25em; }\nblockquote { margin: 1em 0; padding: 0.5em 0.9em; border-left: 4px solid rgba(0,0,0,0.15); background: rgba(0,0,0,0.04); }\ncode, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }\npre { padding: 10px 12px; background: rgba(0,0,0,0.04); border-radius: 6px; overflow: auto; }\ntable { border-collapse: collapse; width: 100%; margin: 0.8em 0; }\nth, td { border: 1px solid rgba(0,0,0,0.15); padding: 6px 8px; text-align: left; }\nhr { border: none; border-top: 1px solid rgba(0,0,0,0.15); margin: 1.2em 0; }\nfigure { margin: 0.8em 0; }\nfigcaption { color: rgba(0,0,0,0.6); font-size: 0.9em; text-align: center; margin-top: 6px; }\niframe:not([src]), img:not([src]) { display: none; }"
-        let original = useOriginalCSS ? sanitizeExternalCSS(css) : ""
-        let normalize = enableNormalize ? normalizeCSS : ""
-        // Hide common cookie banners/overlays if acceptAllCookies is enabled
-        let cookieHide = UserDefaults.standard.bool(forKey: "acceptAllCookies") ? "[class*=cookie i], [id*=cookie i], [class*=consent i], [id*=consent i], .cc-window, .cookie-banner, .cookie-consent, .consent-banner, .qc-cmp2-container, .qc-cmp-ui-container, #sp_message_container, #notice, #truste-consent-track, #onetrust-banner-sdk { display: none !important; visibility: hidden !important; opacity: 0 !important; } body { overflow: auto !important; }" : ""
-        let inline = "<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<style>\\n\(baseCSS)\\n\\n\(normalize)\\n\\n\(cookieHide)\\n\\n\(original)\\n</style>\\n"
-        sanitized = inline + "<div class=\"dws-container\">" + sanitized + "</div>"
-        // Replace known image URLs with local file paths
-        for img in linkRecord.images {
-            if let local = img.localPath, !local.isEmpty {
-                let fileURL = URL(fileURLWithPath: local).absoluteString
-                let original = img.originalUrl
-                if !original.isEmpty {
-                    sanitized = sanitized.replacingOccurrences(of: original, with: fileURL)
-                }
-            }
-        }
-        // Disable external resources by removing remaining http(s) src attributes
-        sanitized = sanitized.replacingOccurrences(of: "src=\"http[s]?://[^\"]+\"", with: "", options: .regularExpression)
-        return sanitized
-    }
-}
-
-struct OfflineHTMLWebView: NSViewRepresentable {
-    let offlineHTML: String
-    let basePath: String
-    
-    func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.preferences.javaScriptEnabled = false
-        // Block network resources via content rule list
-        let rules = #"[{"trigger":{"url-filter": "https?://.*","resource-type":["image","style-sheet","script","font","media","svg-document","raw"]},"action":{"type":"block"}}]"#
-        WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "blockAllNet", encodedContentRuleList: rules) { list, _ in
-            if let list = list { config.userContentController.add(list) }
-        }
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.allowsBackForwardNavigationGestures = false
-        webView.setValue(false, forKey: "drawsBackground")
-        // Load HTML from string with local base
-        let baseURL = URL(fileURLWithPath: basePath, isDirectory: true)
-        webView.loadHTMLString(offlineHTML, baseURL: baseURL)
-        return webView
-    }
-    
-    func updateNSView(_ nsView: WKWebView, context: Context) {
-        let baseURL = URL(fileURLWithPath: basePath, isDirectory: true)
-        nsView.loadHTMLString(offlineHTML, baseURL: baseURL)
-    }
-}
-
-// Small thumbnail view for inline previews in Info tab
 struct InlineThumbView: View {
     let image: HTMLContentExtractor.ExtractedImage
     @State private var data: Data?
@@ -2304,154 +2024,6 @@ struct AudioRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
         )
-    }
-}
-
-@MainActor
-final class CSSCacheLimiter {
-    static let shared = CSSCacheLimiter()
-    private init() {}
-    var isFetchingForLinkId: Set<String> = []
-}
-
-extension EnhancedArticleView {
-    fileprivate func harvestAndPersistExternalCSSIfNeeded() async {
-        let key = linkRecord.id.uuidString
-        if await MainActor.run(body: { CSSCacheLimiter.shared.isFetchingForLinkId.contains(key) }) { return }
-        await MainActor.run { CSSCacheLimiter.shared.isFetchingForLinkId.insert(key) }
-        defer { Task { await MainActor.run { CSSCacheLimiter.shared.isFetchingForLinkId.remove(key) } } }
-        guard let baseURL = URL(string: linkRecord.originalUrl), !linkRecord.html.isEmpty else { return }
-        do {
-            let result = try await aggregateExternalStyles(html: linkRecord.html, baseURL: baseURL)
-            let sanitized = sanitizeExternalCSS(result.css)
-            guard !sanitized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            await MainActor.run {
-                linkRecord.css = sanitized
-                try? modelContext.save()
-                htmlReloadKey &+= 1
-                DebugLogger.shared.logWebViewAction("🧩 EnhancedArticleView: CSS harvested: external=\(result.externalURLs.count), inlineBlocks=\(result.inlineBlocks), saved=\(sanitized.count) chars")
-            }
-            // Write debug snapshots
-            writeDebugSnapshots(html: linkRecord.html, css: sanitized)
-        } catch {
-            DebugLogger.shared.logWebViewAction("ℹ️ EnhancedArticleView: CSS harvest skipped/failed: \(error.localizedDescription)")
-        }
-    }
-
-    fileprivate struct CSSAggregateResult { let css: String; let externalURLs: [URL]; let inlineBlocks: Int }
-    fileprivate func aggregateExternalStyles(html: String, baseURL: URL) async throws -> CSSAggregateResult {
-        let maxSources = 24
-        let maxBytesPerFile = 250_000
-        let maxBytesTotal = 1_200_000
-        let linkRegex = try NSRegularExpression(pattern: "<link[^>]*rel=\\\"stylesheet\\\"[^>]*href=\\\"([^\\\"]+)\\\"[^>]*>", options: [.caseInsensitive])
-        let ns = html as NSString
-        let matches = linkRegex.matches(in: html, options: [], range: NSRange(location: 0, length: ns.length))
-        var urls: [URL] = []
-        for m in matches {
-            if m.numberOfRanges >= 2 {
-                let href = ns.substring(with: m.range(at: 1))
-                if let resolved = URL(string: href, relativeTo: baseURL)?.absoluteURL { urls.append(resolved) }
-            }
-        }
-        let styleRegex = try NSRegularExpression(pattern: "<style[\\s\\S]*?>[\\s\\S]*?</style>", options: [.caseInsensitive])
-        let styleBlocks = styleRegex.matches(in: html, range: NSRange(location: 0, length: ns.length)).map { ns.substring(with: $0.range) }
-        let importRegex = try NSRegularExpression(pattern: "@import\\s+url\\(([^)]+)\\)", options: [.caseInsensitive])
-        for block in styleBlocks {
-            let sb = block as NSString
-            for im in importRegex.matches(in: block, range: NSRange(location: 0, length: sb.length)) {
-                if im.numberOfRanges >= 2 {
-                    let raw = sb.substring(with: im.range(at: 1)).trimmingCharacters(in: CharacterSet(charactersIn: "'\" "))
-                    if let resolved = URL(string: raw, relativeTo: baseURL)?.absoluteURL { urls.append(resolved) }
-                }
-            }
-        }
-        let uniqueAll = Array(Set(urls))
-        var cssParts: [String] = []
-        var totalBytes = 0
-        var usedURLs: [URL] = []
-        for u in uniqueAll {
-            if usedURLs.count >= maxSources { break }
-            if totalBytes >= maxBytesTotal { break }
-            do {
-                let (data, _) = try await URLSession.shared.data(from: u)
-                if var str = String(data: data, encoding: .utf8) {
-                    if str.utf8.count > maxBytesPerFile {
-                        let keep = str.prefix(maxBytesPerFile)
-                        str = String(keep) + "\n/* ...truncated... */"
-                    }
-                    cssParts.append("/* Source: \(u.absoluteString) */\n" + str)
-                    usedURLs.append(u)
-                    totalBytes += str.utf8.count
-                    DebugLogger.shared.logWebViewAction("🎨 CSS fetch: \(u.absoluteString) (\(str.utf8.count) bytes, total=\(totalBytes))")
-                }
-            } catch { continue }
-        }
-        // Append inline <style> contents (stripped tags)
-        for rawBlock in styleBlocks {
-            var blk = rawBlock
-            blk = blk.replacingOccurrences(of: "<style[\\s\\S]*?>", with: "", options: [.regularExpression, .caseInsensitive])
-            blk = blk.replacingOccurrences(of: "</style>", with: "", options: [.regularExpression, .caseInsensitive])
-            if !blk.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                cssParts.append("/* Inline <style> */\n" + blk)
-            }
-        }
-        return CSSAggregateResult(css: cssParts.joined(separator: "\n\n"), externalURLs: usedURLs, inlineBlocks: styleBlocks.count)
-    }
-
-    fileprivate func sanitizeExternalCSS(_ css: String) -> String {
-        var s = css
-        // Remove @import rules entirely (remote cascades)
-        if let re = try? NSRegularExpression(pattern: "@import[\\s\\S]*?;", options: [.caseInsensitive]) {
-            s = re.stringByReplacingMatches(in: s, options: [], range: NSRange(location: 0, length: (s as NSString).length), withTemplate: "")
-        }
-        // Map url(http...) → local file if wir haben das Bild; sonst none
-        if let re2 = try? NSRegularExpression(pattern: "url\\\\(([^)]+)\\\\)", options: [.caseInsensitive]) {
-            let ns = s as NSString
-            let matches = re2.matches(in: s, range: NSRange(location: 0, length: ns.length))
-            var out = s
-            // Build mapping original -> file URL
-            var map: [String: String] = [:]
-            for img in linkRecord.images {
-                if let local = img.localPath {
-                    map[img.originalUrl] = URL(fileURLWithPath: local).absoluteString
-                }
-            }
-            // Replace from the end to keep ranges valid
-            for m in matches.reversed() {
-                if m.numberOfRanges >= 2 {
-                    var raw = ns.substring(with: m.range(at: 1)).trimmingCharacters(in: CharacterSet(charactersIn: "'\" "))
-                    // Only rewrite http(s); leave data: and relative as-is
-                    if raw.lowercased().hasPrefix("http://") || raw.lowercased().hasPrefix("https://") {
-                        if let local = map[raw] {
-                            out = (out as NSString).replacingCharacters(in: m.range, with: "url(\(local))")
-                        } else {
-                            out = (out as NSString).replacingCharacters(in: m.range, with: "url(none)")
-                        }
-                    }
-                }
-            }
-            s = out
-        }
-        return s
-    }
-
-    fileprivate func writeDebugSnapshots(html: String, css: String) {
-        #if DEBUG
-        do {
-            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let debugDir = docs.appendingPathComponent("DailyWebScanner/Debug", isDirectory: true)
-            try FileManager.default.createDirectory(at: debugDir, withIntermediateDirectories: true)
-            let baseName = linkRecord.id.uuidString
-            let htmlURL = debugDir.appendingPathComponent("\(baseName).html")
-            let cssURL = debugDir.appendingPathComponent("\(baseName).css")
-            try html.write(to: htmlURL, atomically: true, encoding: .utf8)
-            try css.write(to: cssURL, atomically: true, encoding: .utf8)
-            DebugLogger.shared.logWebViewAction("🧾 EnhancedArticleView: Wrote HTML debug to \(htmlURL.path)")
-            DebugLogger.shared.logWebViewAction("🎨 EnhancedArticleView: Wrote CSS debug to \(cssURL.path)")
-        } catch {
-            DebugLogger.shared.logWebViewAction("❌ EnhancedArticleView: Failed writing debug files - \(error.localizedDescription)")
-        }
-        #endif
     }
 }
 

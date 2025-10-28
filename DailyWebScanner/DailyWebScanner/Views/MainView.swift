@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import WebKit
 
 struct MainView: View {
     @Environment(\.modelContext) private var modelContext
@@ -306,22 +305,17 @@ struct MainView: View {
                 )
                 record.results = searchResults
                 for (idx, searchResult) in searchResults.enumerated() {
-                    let htmlContent = await fetchHTMLFromURL(searchResult.link)
+                    let _ = await fetchHTMLFromURL(searchResult.link)
                     let extractor = HTMLContentExtractor()
-                    let extractedContent = await extractor.extractContent(from: htmlContent, baseURL: searchResult.link)
+                    let extractedContent = try await extractor.extractContent(from: searchResult.link)
                     let linksJSON = encodeLinksJSON(extractedContent.links)
                     let videosJSON = encodeVideosJSON(extractedContent.videos)
                     let metadataJSON = encodeMetadataJSON(extractedContent.metadata)
-                    let inlineCSS = extractInlineCSS(from: htmlContent)
-                    let linkedCSS = await fetchLinkedCSSResources(fromHTML: htmlContent, baseURL: searchResult.link, maxFiles: 3, maxTotalBytes: 200_000)
-                    let combinedCSS = [inlineCSS, linkedCSS].joined(separator: "\n\n")
                     let linkRecord = LinkRecord(
                         searchRecordId: record.id,
                         originalUrl: searchResult.link,
                         title: searchResult.title,
                         content: searchResult.snippet,
-                        html: htmlContent,
-                        css: combinedCSS,
                         extractedText: extractedContent.mainText,
                         fetchedAt: Date(),
                         articleDescription: searchResult.snippet,
@@ -338,8 +332,9 @@ struct MainView: View {
                     linkRecord.keywords = extractedContent.metadata.tags.joined(separator: ", ")
                     linkRecord.wordCount = extractedContent.wordCount
                     linkRecord.readingTime = extractedContent.readingTime
-                    // Generate HTML preview
-                    linkRecord.htmlPreview = HTMLPreviewGenerator.generatePreview(for: linkRecord)
+                    // Speichere Plain-Text-Datei optional ab
+                    let plainText = linkRecord.extractedText.isEmpty ? extractedContent.mainText : linkRecord.extractedText
+                    savePlainTextFile(for: linkRecord, text: plainText)
                     // AI/Analysis placeholders (can be filled later by background tasks)
                     linkRecord.hasAIOverview = !linkRecord.aiOverviewJSON.isEmpty
                     linkRecord.hasContentAnalysis = !linkRecord.contentAnalysisJSON.isEmpty
@@ -552,7 +547,7 @@ struct MainView: View {
                     "cookieconsent_status=allow",
                     "cookie_consent=accepted",
                     "borlabs-cookie=all",
-                    "OptanonConsent=isIABGlobal=false&datestamp=now&version=6.33.0&hosts=&consentId=anonymous&interactionCount=1&landingPath=\/",
+                    "OptanonConsent=isIABGlobal=false&datestamp=now&version=6.33.0&hosts=&consentId=anonymous&interactionCount=1&landingPath=/",
                     "CONSENT=YES+1",
                     "euconsent-v2=",
                     "gdprApplies=1"
@@ -594,6 +589,21 @@ struct MainView: View {
             .environment(\.modelContext, modelContext))
         articlesWindow.isReleasedWhenClosed = false
         articlesWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func savePlainTextFile(for record: LinkRecord, text: String) {
+        guard !text.isEmpty else { return }
+        do {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            let dir = docs.appendingPathComponent("DailyWebScanner/Text", isDirectory: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let fileURL = dir.appendingPathComponent("\(record.id.uuidString).txt")
+            try (text + "\n").write(to: fileURL, atomically: true, encoding: .utf8)
+            record.plainTextFilePath = fileURL.path
+            DebugLogger.shared.logWebViewAction("📝 Saved plain text to \(fileURL.path)")
+        } catch {
+            DebugLogger.shared.logWebViewAction("⚠️ Failed to save plain text: \(error.localizedDescription)")
+        }
     }
 }
 

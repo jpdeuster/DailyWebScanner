@@ -68,7 +68,7 @@ open DailyWebScanner.xcodeproj
 - 📱 **Native macOS App**: Built with SwiftUI for modern macOS experience
 - 🔒 **Security First**: Sandbox-compatible with secure Keychain storage
 - 📊 **Search History**: Automatically saves and displays past searches
-- 🎨 **Modern UI**: Responsive design with HTML rendering
+- 📝 **Plain‑text Rendering**: Sauberer Text mit Zeilenumbrüchen (kein HTML‑Rendering)
 - 🌍 **International**: Search parameters support multiple languages and regions
 
 ## 📊 Current Features
@@ -81,13 +81,13 @@ open DailyWebScanner.xcodeproj
 - **Multi-Window Interface** - Separate windows for different views
 - **Search History** - Basic search record storage
 - **API Status Bar** - In ContentView: SerpAPI/OpenAI status + quick test and SerpAPI credits
-- **Auto-Open Articles** - Toggle in App Settings to open Articles window on launch
+- **Plain Text Focus** - HTML entfernt; Fokus auf sauberem Text mit Zeilenumbrüchen
+- **Plain Text Files** - Optionales Speichern als .txt pro Artikel
 - **Robust DB Size** - Detect SwiftData store/sqlite with WAL/SHM and report accurately
 - **Info Tab Images** - Show thumbnails or "No pics available" in article Info tab
 - **JSON Persistence** - Persist extracted links, videos, and metadata as JSON
 
 ### **🔄 Planned Features**
-- **HTML Article Viewer** - Enhanced article display and navigation (v0.6.0)
 - **Automated Search System** - Scheduled searches with timers (v0.7.0)
 - **Smart Categorization** - AI-powered content classification (v0.8.0)
 - **Export Functionality** - Data export in various formats (v0.9.0)
@@ -117,7 +117,7 @@ DailyWebScanner/
 
 - **Current Version**: Beta 0.5.5
 - **Status**: Fully functional with core features
-- **Next Release**: v0.6.0 (Enhanced HTML Viewer for Articles)
+- **Next Release**: v0.6.0 (Automated Search System)
 - **Target**: App Store v1.0.0
 
 ## 📖 Documentation
@@ -131,8 +131,7 @@ DailyWebScanner/
 - [Content Analysis Concept](docs/architecture/INFO_CONTENT_ANALYSIS_CONCEPT.md) - Content analysis system
 
 ### **🚀 Development**
-- [Development Roadmap](docs/development/INFO_DEVELOPMENT_ROADMAP.md) - 5-phase development plan
-- [Legacy Roadmap](docs/development/ROADMAP.md) - Original roadmap
+- [Development Roadmap](docs/development/ROADMAP.md) - Development roadmap
 
 ### **⚖️ Legal**
 - [Disclaimer](docs/legal/DISCLAIMER.md) - Legal disclaimer

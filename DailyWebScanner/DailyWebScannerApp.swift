@@ -59,9 +59,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             // Falls das Fenster minimal verzögert erstellt wird, noch einmal asynchron probieren.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                if let window = NSApp.mainWindow ?? NSApp.keyWindow ?? NSApp.windows.first {
-                    window.center()
-                    DebugLogger.shared.logWindowCreation()
+                DispatchQueue.global(qos: .userInitiated).async {
+                    DispatchQueue.main.async {
+                        if let window = NSApp.mainWindow ?? NSApp.keyWindow ?? NSApp.windows.first {
+                            window.center()
+                            DebugLogger.shared.logWindowCreation()
+                        }
+                    }
                 }
             }
         }
@@ -72,22 +76,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Automatically open the Articles window shortly after launch
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-            let openOnLaunch = (UserDefaults.standard.object(forKey: "openArticlesOnLaunch") as? Bool) ?? true
-            guard openOnLaunch else { return }
-            // Ensure we have a model container for this window
-            if self.modelContainer == nil {
-                let schema = Schema([
-                    SearchRecord.self,
-                    ManualSearchRecord.self,
-                    AutomatedSearchRecord.self,
-                    SearchResult.self,
-                    LinkRecord.self,
-                    ImageRecord.self
-                ])
-                let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-                self.modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
-            }
+        // Disabled to avoid QoS warnings - user can open manually via ⌘R
+        // DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+        //     self.openSearchQueriesWindowIfNeeded()
+        // }
+    }
+    
+    private func logAutomatedSearchStatus() {
+        DebugLogger.shared.logWebViewAction("🚀 APP STARTUP - AUTOMATED SEARCH STATUS")
+        DebugLogger.shared.logWebViewAction("📊 AUTOMATED SEARCH SUMMARY:")
+        DebugLogger.shared.logWebViewAction("   Debug logging will be available when SearchListView loads")
+        DebugLogger.shared.logWebViewAction("   Use ⌘R to open Automated Search window for detailed status")
+    }
+    
+    private func openSearchQueriesWindowIfNeeded() {
+        let openOnLaunch = (UserDefaults.standard.object(forKey: "openArticlesOnLaunch") as? Bool) ?? true
+        guard openOnLaunch else { return }
+        
+        // Ensure we have a model container for this window
+        if self.modelContainer == nil {
+            let schema = Schema([
+                SearchRecord.self,
+                ManualSearchRecord.self,
+                AutomatedSearchRecord.self,
+                SearchResult.self,
+                LinkRecord.self,
+                ImageRecord.self
+            ])
+            let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+            self.modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
+        }
+        
+        // Create window on main thread with proper QoS
+        DispatchQueue.main.async {
             let searchQueriesWindow = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
                 styleMask: [.titled, .closable, .resizable],
@@ -103,15 +124,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 searchQueriesWindow.contentView = NSHostingView(rootView: SearchQueriesView())
             }
             searchQueriesWindow.isReleasedWhenClosed = false
+            
+            // Use proper window management
             searchQueriesWindow.makeKeyAndOrderFront(nil)
         }
-    }
-    
-    private func logAutomatedSearchStatus() {
-        DebugLogger.shared.logWebViewAction("🚀 APP STARTUP - AUTOMATED SEARCH STATUS")
-        DebugLogger.shared.logWebViewAction("📊 AUTOMATED SEARCH SUMMARY:")
-        DebugLogger.shared.logWebViewAction("   Debug logging will be available when SearchListView loads")
-        DebugLogger.shared.logWebViewAction("   Use ⌘R to open Automated Search window for detailed status")
     }
     
     
@@ -140,6 +156,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct DailyWebScannerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    
+    init() {
+        // Disable window restoration to avoid the warning
+        UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
+    }
     
     // Speichere die Delegate-Instanzen, damit sie nicht freigegeben werden
     private let apiWindowDelegate = SettingsWindowDelegate()

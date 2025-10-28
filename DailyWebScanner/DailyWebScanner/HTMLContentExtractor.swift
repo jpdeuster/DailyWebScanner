@@ -1,10 +1,9 @@
 import Foundation
 import SwiftUI
-import WebKit
 import NaturalLanguage
 
 /// Powerful HTML content extractor that captures text, images, videos, and metadata
-class HTMLContentExtractor: NSObject {
+class HTMLContentExtractor {
     
     // MARK: - Content Types
     struct ExtractedContent: Codable {
@@ -95,8 +94,15 @@ class HTMLContentExtractor: NSObject {
     
     // MARK: - Extraction Methods
     
-    /// Extract comprehensive content from HTML with detailed logging
-    func extractContent(from html: String, baseURL: String) async -> ExtractedContent {
+    /// Extract comprehensive content from URL with detailed logging
+    func extractContent(from urlString: String) async throws -> ExtractedContent {
+        guard let url = URL(string: urlString) else {
+            throw NSError(domain: "HTMLContentExtractor", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        }
+        
+        // Fetch HTML content
+        let html = try await fetchHTML(from: url)
+        let baseURL = urlString
         DebugLogger.shared.logWebViewAction("🔍 HTMLContentExtractor: Starting content extraction from \(baseURL)")
         DebugLogger.shared.logWebViewAction("📄 HTMLContentExtractor: HTML length: \(html.count) characters")
         
@@ -194,6 +200,22 @@ class HTMLContentExtractor: NSObject {
         return extractedContent
     }
     
+    // MARK: - HTML Fetching
+    
+    private func fetchHTML(from url: URL) async throws -> String {
+        var request = URLRequest(url: url)
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw NSError(domain: "HTMLContentExtractor", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to fetch HTML"])
+        }
+        
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+    
     // MARK: - Title Extraction
     
     private func extractTitle(from document: HTMLDocument) -> String {
@@ -288,10 +310,20 @@ class HTMLContentExtractor: NSObject {
     }
     
     private func cleanText(_ text: String) -> String {
-        return text
-            .replacingOccurrences(of: "\n+", with: "\n", options: .regularExpression)
-            .replacingOccurrences(of: " +", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // Preserve paragraph structure and newlines while normalizing whitespace
+        var out = text
+        // Normalize CRLF/CR to LF
+        out = out.replacingOccurrences(of: "\r\n", with: "\n")
+                 .replacingOccurrences(of: "\r", with: "\n")
+        // Collapse more than 2 consecutive newlines to exactly 2
+        out = out.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+        // Trim spaces at line ends
+        out = out.replacingOccurrences(of: "[\t ]+\n", with: "\n", options: .regularExpression)
+        // Collapse multiple spaces but keep newlines
+        out = out.replacingOccurrences(of: "[\t ]{2,}", with: " ", options: .regularExpression)
+        // Trim overall
+        out = out.trimmingCharacters(in: .whitespacesAndNewlines)
+        return out
     }
     
     // MARK: - Image Extraction
@@ -970,36 +1002,54 @@ class HTMLElement {
     }
     
     var textContent: String? {
-        // Extract text content from HTML and remove CSS/JS
-        var cleanText = html
+        // Extract text content from HTML and remove CSS/JS, preserving paragraph/newline structure
+        var out = html
         
-        // Remove script and style blocks FIRST (so their contents don't leak when tags are stripped)
-        cleanText = cleanText.replacingOccurrences(of: "<script[^>]*>[\\s\\S]*?</script>", with: "", options: [.regularExpression, .caseInsensitive])
-        cleanText = cleanText.replacingOccurrences(of: "<style[^>]*>[\\s\\S]*?</style>", with: "", options: [.regularExpression, .caseInsensitive])
+        // Remove script and style blocks FIRST
+        out = out.replacingOccurrences(of: "<script[^>]*>[\\s\\S]*?</script>", with: "", options: [.regularExpression, .caseInsensitive])
+        out = out.replacingOccurrences(of: "<style[^>]*>[\\s\\S]*?</style>", with: "", options: [.regularExpression, .caseInsensitive])
+        
+        // Insert newlines for common block-level boundaries before stripping tags
+        let newlineClosingTags = [
+            "</p>", "</div>", "</section>", "</article>", "</header>", "</footer>", "</nav>",
+            "</li>", "</ul>", "</ol>", "</table>", "</tr>", "</h1>", "</h2>", "</h3>", "</h4>", "</h5>", "</h6>"
+        ]
+        for tag in newlineClosingTags {
+            out = out.replacingOccurrences(of: tag, with: "\n", options: [.caseInsensitive])
+        }
+        // Line breaks
+        out = out.replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: [.regularExpression, .caseInsensitive])
         
         // Remove HTML comments
-        cleanText = cleanText.replacingOccurrences(of: "<!--[\\s\\S]*?-->", with: "", options: .regularExpression)
+        out = out.replacingOccurrences(of: "<!--[\\s\\S]*?-->", with: "", options: .regularExpression)
         
-        // Remove HTML tags
-        cleanText = cleanText.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        // Strip remaining tags
+        out = out.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
         
-        // Extra safety: strip leftover CSS blocks and at-rules that might have leaked as plain text
-        cleanText = cleanText.replacingOccurrences(of: "@media[^\\{]*\\{[\\s\\S]*?\\}", with: "", options: .regularExpression)
-        cleanText = cleanText.replacingOccurrences(of: "@keyframes[^\\{]*\\{[\\s\\S]*?\\}", with: "", options: .regularExpression)
-        cleanText = cleanText.replacingOccurrences(of: "/\\*[\\s\\S]*?\\*/", with: "", options: .regularExpression)
+        // Extra safety: strip leftover CSS artifacts
+        out = out.replacingOccurrences(of: "@media[^\\{]*\\{[\\s\\S]*?\\}", with: "", options: .regularExpression)
+        out = out.replacingOccurrences(of: "@keyframes[^\\{]*\\{[\\s\\S]*?\\}", with: "", options: .regularExpression)
+        out = out.replacingOccurrences(of: "/\\*[\\s\\S]*?\\*/", with: "", options: .regularExpression)
+        out = out.replacingOccurrences(of: "\\{[^}]*\\}", with: "", options: .regularExpression)
+        out = out.replacingOccurrences(of: "\\.[a-zA-Z0-9_-]+", with: "", options: .regularExpression)
+        out = out.replacingOccurrences(of: "#[a-zA-Z0-9_-]+", with: "", options: .regularExpression)
         
-        // Remove remaining CSS rule bodies if any
-        cleanText = cleanText.replacingOccurrences(of: "\\{[^}]*\\}", with: "", options: .regularExpression)
+        // Decode a few common HTML entities
+        out = out.replacingOccurrences(of: "&amp;", with: "&")
+                 .replacingOccurrences(of: "&lt;", with: "<")
+                 .replacingOccurrences(of: "&gt;", with: ">")
+                 .replacingOccurrences(of: "&quot;", with: "\"")
+                 .replacingOccurrences(of: "&#39;", with: "'")
         
-        // Remove CSS selectors fragments like .class or #id tokens (best-effort)
-        cleanText = cleanText.replacingOccurrences(of: "\\.[a-zA-Z0-9_-]+", with: "", options: .regularExpression)
-        cleanText = cleanText.replacingOccurrences(of: "#[a-zA-Z0-9_-]+", with: "", options: .regularExpression)
+        // Normalize whitespace but keep newlines
+        out = out.replacingOccurrences(of: "\r\n", with: "\n")
+                 .replacingOccurrences(of: "\r", with: "\n")
+        out = out.replacingOccurrences(of: "[\t ]+\n", with: "\n", options: .regularExpression)
+        out = out.replacingOccurrences(of: "[\t ]{2,}", with: " ", options: .regularExpression)
+        out = out.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+        out = out.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // Clean up multiple spaces and newlines
-        cleanText = cleanText.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-        cleanText = cleanText.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        return cleanText
+        return out
     }
     
     var className: String {

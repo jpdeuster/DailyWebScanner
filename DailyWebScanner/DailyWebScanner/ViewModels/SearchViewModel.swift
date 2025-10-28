@@ -25,7 +25,7 @@ final class SearchViewModel: ObservableObject {
     // Clients read API-Keys dynamically from Keychain
     private lazy var serpClient = SerpAPIClient(apiKeyProvider: { KeychainHelper.get(.serpAPIKey) })
     private lazy var openAIClient = OpenAIClient(apiKeyProvider: { KeychainHelper.get(.openAIAPIKey) })
-    private let renderer = HTMLRenderer()
+    // HTMLRenderer entfernt
 
     func cancelCurrentSearch() {
         currentSearchTask?.cancel()
@@ -261,23 +261,4 @@ final class SearchViewModel: ObservableObject {
         }
     }
 
-    func updateSearchRecordWithLinkContents(_ record: SearchRecord) async {
-        guard let modelContext = modelContext else { return }
-        
-        do {
-            // Update each SearchResult with link content
-            for result in record.results {
-                if URL(string: result.link) != nil {
-                    // Simple content fetching - just set summary to snippet for now
-                    result.summary = result.snippet
-                }
-            }
-            
-            // Save the updated record
-            try modelContext.save()
-            DebugLogger.shared.logWebViewAction("Updated search record with link contents")
-        } catch {
-            DebugLogger.shared.logWebViewAction("Failed to update search record with link contents: \(error)")
-        }
-    }
 }

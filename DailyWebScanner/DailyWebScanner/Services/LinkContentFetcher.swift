@@ -10,8 +10,7 @@ struct LinkContent: Codable {
     let images: [ImageData]
     let metadata: ArticleMetadata
     let fetchedAt: Date
-    let html: String
-    let css: String
+    // HTML/CSS entfernt (nur noch Plain Text)
     let aiOverview: AIOverview?
 }
 
@@ -105,8 +104,6 @@ class LinkContentFetcher {
             images: images,
             metadata: metadata,
             fetchedAt: Date(),
-            html: htmlContent,
-            css: parsedContent.css,
             aiOverview: aiOverview
         )
     }

@@ -1,9 +1,9 @@
 import SwiftUI
-import WebKit
+// HTML-Rendering entfernt
 
 struct LinkDetailView: View {
     let linkRecord: LinkRecord
-    @State private var showingFullArticle = false
+    // HTML-Rendering entfernt
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -66,16 +66,16 @@ struct LinkDetailView: View {
                 AIOverviewSection(linkRecord: linkRecord)
             }
             
-            // Artikel-Inhalt (Vorschau)
+            // Artikel-Inhalt (Vorschau) – Plain Text
             VStack(alignment: .leading, spacing: 12) {
                 Text("Article Preview")
                     .font(.headline)
                     .padding(.horizontal)
                 
                 ScrollView {
-                    Text(linkRecord.content)
+                    Text(linkRecord.extractedText.isEmpty ? linkRecord.content : linkRecord.extractedText)
                         .font(.body)
-                        .lineSpacing(4)
+                        .lineSpacing(6)
                         .padding(.horizontal)
                 }
                 .frame(maxHeight: 300)
@@ -83,11 +83,6 @@ struct LinkDetailView: View {
             
             // Buttons
             HStack {
-                Button("View Full Article") {
-                    showingFullArticle = true
-                }
-                .buttonStyle(.borderedProminent)
-                
                 Button("Open Original") {
                     if let url = URL(string: linkRecord.originalUrl) {
                         NSWorkspace.shared.open(url)
@@ -100,9 +95,7 @@ struct LinkDetailView: View {
             .padding(.horizontal)
         }
         .navigationTitle("Article Details")
-        .sheet(isPresented: $showingFullArticle) {
-            FullArticleView(linkRecord: linkRecord)
-        }
+        // HTML-Ansicht entfernt
     }
 }
 
@@ -140,25 +133,7 @@ struct AIOverviewSection: View {
     }
 }
 
-struct FullArticleView: View {
-    let linkRecord: LinkRecord
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationView {
-            WebView(html: linkRecord.htmlPreview, allowExternalLinks: false)
-                .navigationTitle(linkRecord.title)
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Close") {
-                            dismiss()
-                        }
-                    }
-                }
-        }
-        .frame(minWidth: 800, minHeight: 700)
-    }
-}
+// FullArticleView entfernt (kein HTML-Rendering mehr)
 
 #Preview {
     LinkDetailView(linkRecord: LinkRecord(
@@ -166,8 +141,6 @@ struct FullArticleView: View {
         originalUrl: "https://example.com",
         title: "Sample Article",
         content: "This is a sample article content...",
-        html: "<html><body>Sample HTML</body></html>",
-        css: "body { font-family: Arial; }",
         author: "John Doe",
         publishDate: Date(),
         articleDescription: "A sample article description",
@@ -180,7 +153,6 @@ struct FullArticleView: View {
         hasAIOverview: false,
         aiOverviewJSON: "",
         hasContentAnalysis: false,
-        contentAnalysisJSON: "",
-        htmlPreview: "<html><body>Sample preview</body></html>"
+        contentAnalysisJSON: ""
     ))
 }

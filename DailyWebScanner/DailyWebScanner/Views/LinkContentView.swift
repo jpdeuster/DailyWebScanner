@@ -229,11 +229,6 @@ struct LinkContentDetailView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         
-                        Button("View HTML") {
-                            showingWebView = true
-                        }
-                        .buttonStyle(.bordered)
-                        
                         Spacer()
                         
                         Button("Close") {
@@ -246,9 +241,7 @@ struct LinkContentDetailView: View {
             }
         .frame(minWidth: 600, minHeight: 500)
         .frame(maxWidth: 1000, maxHeight: 800)
-        .sheet(isPresented: $showingWebView) {
-            HTMLViewerView(html: content.html, title: content.title)
-        }
+        // HTML-Viewer entfernt
     }
 }
 
@@ -297,38 +290,7 @@ struct ImageView: View {
     }
 }
 
-struct HTMLViewerView: View {
-    let html: String
-    let title: String
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header with title and close button
-            HStack {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .lineLimit(2)
-                
-                Spacer()
-                
-                Button("Close") {
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-            
-                // WebView with proper sizing (block external links)
-                WebView(html: html, allowExternalLinks: false)
-                    .frame(minWidth: 800, minHeight: 600)
-        }
-        .frame(minWidth: 800, minHeight: 700)
-        .frame(maxWidth: 1200, maxHeight: 900)
-    }
-}
+// HTMLViewerView entfernt (kein HTML-Rendering mehr)
 
 struct AIOverviewView: View {
     let aiOverview: AIOverview
