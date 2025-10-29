@@ -477,11 +477,29 @@ struct ContentView: View {
                     record.results = searchResults
                     
                     // Convert SearchResults to LinkRecords for the article list
+                    DebugLogger.shared.logWebViewAction("🧮 ContentView: Will create LinkRecords for \(searchResults.count) results")
+                    var createdCount = 0
+                    var duplicateCount = 0
+                    var failureCount = 0
                     for (idx, searchResult) in searchResults.enumerated() {
+                        DebugLogger.shared.logWebViewAction("➡️ ContentView: Processing result \(idx+1)/\(searchResults.count) — title='\(searchResult.title)', url=\(searchResult.link)")
+                        // Duplicate check (diagnostic only)
+                        do {
+                            let url = searchResult.link
+                            let dupes = try modelContext.fetch(FetchDescriptor<LinkRecord>(predicate: #Predicate { $0.originalUrl == url }))
+                            if !dupes.isEmpty {
+                                duplicateCount += 1
+                                DebugLogger.shared.logWebViewAction("🟠 ContentView: Skipping duplicate url=\(searchResult.link) (existing=\(dupes.count))")
+                                continue
+                            }
+                        } catch {
+                            DebugLogger.shared.logWebViewAction("⚠️ ContentView: Duplicate check failed for url=\(searchResult.link): \(error.localizedDescription)")
+                        }
                         // Fetch HTML content immediately to avoid network requests later
                         let _ = await fetchHTMLFromURL(searchResult.link)
                         
                         // Extract ALL content from HTML for fast access
+                        do {
                         DebugLogger.shared.logWebViewAction("🔄 ContentView: Starting content extraction for '\(searchResult.title)'")
                         let extractor = HTMLContentExtractor()
                         let extractedContent = try await extractor.extractContent(from: searchResult.link)
@@ -571,11 +589,19 @@ struct ContentView: View {
                         
                         DebugLogger.shared.logWebViewAction("💾 ContentView: Saved complete content to database for '\(searchResult.title)'")
                         modelContext.insert(linkRecord)
+                        createdCount += 1
+                        DebugLogger.shared.logWebViewAction("✅ ContentView: Created LinkRecord id=\(linkRecord.id) for url=\(searchResult.link)")
                         DebugLogger.shared.logWebViewAction("Created LinkRecord: \(searchResult.title) (Text length: \(extractedContent.mainText.count))")
                         // Save after inserting images and link
                         do { try modelContext.save() } catch { DebugLogger.shared.logWebViewAction("❌ ContentView: modelContext.save() failed: \(error.localizedDescription)") }
+                        } catch {
+                            failureCount += 1
+                            DebugLogger.shared.logWebViewAction("❌ ContentView: Failed processing result \(idx+1)/\(searchResults.count) url=\(searchResult.link): \(error.localizedDescription)")
+                            continue
+                        }
 
                         // Update progress
+                    DebugLogger.shared.logWebViewAction("📦 ContentView: Summary — created=\(createdCount) / total=\(searchResults.count), duplicates=\(duplicateCount), failures=\(failureCount)")
                 await MainActor.run {
                             if total > 0 {
                                 let current = idx + 1

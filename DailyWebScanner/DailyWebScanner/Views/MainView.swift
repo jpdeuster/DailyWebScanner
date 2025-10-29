@@ -304,8 +304,26 @@ struct MainView: View {
                     filter: ""
                 )
                 record.results = searchResults
+                DebugLogger.shared.logWebViewAction("🧮 MainView: Will create LinkRecords for \(searchResults.count) results")
+                var createdCount = 0
+                var duplicateCount = 0
+                var failureCount = 0
                 for (idx, searchResult) in searchResults.enumerated() {
+                    DebugLogger.shared.logWebViewAction("➡️ MainView: Processing result \(idx+1)/\(searchResults.count) — title='\(searchResult.title)', url=\(searchResult.link)")
+                    // Duplicate check (diagnostic only)
+                    do {
+                        let url = searchResult.link
+                        let dupes = try modelContext.fetch(FetchDescriptor<LinkRecord>(predicate: #Predicate { $0.originalUrl == url }))
+                        if !dupes.isEmpty {
+                            duplicateCount += 1
+                            DebugLogger.shared.logWebViewAction("🟠 MainView: Skipping duplicate url=\(searchResult.link) (existing=\(dupes.count))")
+                            continue
+                        }
+                    } catch {
+                        DebugLogger.shared.logWebViewAction("⚠️ MainView: Duplicate check failed for url=\(searchResult.link): \(error.localizedDescription)")
+                    }
                     let _ = await fetchHTMLFromURL(searchResult.link)
+                    do {
                     let extractor = HTMLContentExtractor()
                     let extractedContent = try await extractor.extractContent(from: searchResult.link)
                     let linksJSON = encodeLinksJSON(extractedContent.links)
@@ -428,6 +446,13 @@ struct MainView: View {
                     modelContext.insert(linkRecord)
                     // manuelle Suche: Beziehung am Parent pflegen
                     record.linkRecords.append(linkRecord)
+                    createdCount += 1
+                    DebugLogger.shared.logWebViewAction("✅ MainView: Created LinkRecord id=\(linkRecord.id) for url=\(searchResult.link)")
+                    } catch {
+                        failureCount += 1
+                        DebugLogger.shared.logWebViewAction("❌ MainView: Failed processing result \(idx+1)/\(searchResults.count) url=\(searchResult.link): \(error.localizedDescription)")
+                        continue
+                    }
                     do { try modelContext.save() } catch { }
                     await MainActor.run {
                         if total > 0 {
@@ -437,6 +462,7 @@ struct MainView: View {
                         }
                     }
                 }
+                DebugLogger.shared.logWebViewAction("📦 MainView: Summary — created=\(createdCount) / total=\(searchResults.count), duplicates=\(duplicateCount), failures=\(failureCount)")
                 await MainActor.run {
                     modelContext.insert(record)
                     selectedSearchRecord = record
