@@ -68,7 +68,7 @@ open DailyWebScanner.xcodeproj
 - 📱 **Native macOS App**: Built with SwiftUI for modern macOS experience
 - 🔒 **Security First**: Sandbox-compatible with secure Keychain storage
 - 📊 **Search History**: Automatically saves and displays past searches
-- 📝 **Reiner Text**: Sauberer Artikeltext mit Zeilenumbrüchen
+- 📝 **Clean Text**: Clean article text with line breaks
 - 🌍 **International**: Search parameters support multiple languages and regions
 - 🏷️ **Smart Tagging**: Organize articles with custom tags and tag management
 - 🎯 **Quality Control**: Intelligent content filtering with customizable patterns
@@ -83,8 +83,8 @@ open DailyWebScanner.xcodeproj
 - **Multi-Window Interface** - Separate windows for different views
 - **Search History** - Basic search record storage
 - **API Status Bar** - In ContentView: SerpAPI/OpenAI status + quick test and SerpAPI credits
-- **Plain Text Focus** - Fokus auf sauberem Text mit Zeilenumbrüchen
-- **Plain Text Files** - Optionales Speichern als .txt pro Artikel
+- **Plain Text Focus** - Focus on clean text with line breaks
+- **Plain Text Files** - Optional saving as .txt per article
 - **Robust DB Size** - Detect SwiftData store/sqlite with WAL/SHM and report accurately
 - **Info Tab Images** - Show thumbnails or "No pics available" in article Info tab
 - **JSON Persistence** - Persist extracted links, videos, and metadata as JSON

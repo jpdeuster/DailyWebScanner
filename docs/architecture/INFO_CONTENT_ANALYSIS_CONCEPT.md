@@ -13,8 +13,8 @@ DailyWebScanner's current content analysis and search functionality using SwiftD
 - ✅ **IMPLEMENTED:** Full article content extraction with images
 - ✅ **IMPLEMENTED:** JSON persistence of links/videos/metadata
 - ✅ **IMPLEMENTED:** Image thumbnails shown in Info tab (or "No pics available")
-- ✅ **IMPLEMENTED:** Quality Control (content quality assessment, editierbare Muster, mehrsprachig)
-- ✅ **IMPLEMENTED:** Tagging (Many-to-Many zwischen LinkRecord und Tag, Tag-Verwaltung & Tag-Editor)
+- ✅ **IMPLEMENTED:** Quality Control (content quality assessment, editable patterns, multilingual)
+- ✅ **IMPLEMENTED:** Tagging (Many-to-Many between LinkRecord and Tag, Tag Management & Tag Editor)
 
 ## 🔍 Current Implementation
 
@@ -39,7 +39,7 @@ LinkRecord (SwiftData Model):
 
 Tag (SwiftData Model):
 ├── id, name, createdAt (unique name)
-└── (Many-to-Many) zu LinkRecord
+└── (Many-to-Many) to LinkRecord
 ```
 
 ### 2. Current Data Models
@@ -96,7 +96,7 @@ final class Tag {
 - **SearchRecord** model with full search parameters
 - **LinkRecord** model for individual article storage
 - **ImageRecord** model for image management
-- **Tag** model (unique name) mit Many-to-Many zu LinkRecord
+- **Tag** model (unique name) with Many-to-Many to LinkRecord
 - **Relationship management** between models
 
 #### **2. Content Extraction**
@@ -108,7 +108,7 @@ final class Tag {
 #### **3. AI & Quality Integration**
 - **AI Overview** from Google search results
 - **OpenAI API** integration for summaries
-- **Quality Control**: Heuristik (Wortanzahl, Link-Dichte, Struktur), mehrsprachige Muster (bedeutend/leer), editierbar in der App
+- **Quality Control**: Heuristics (word count, link density, structure), multilingual patterns (meaningful/empty), editable in the app
 
 #### **4. Search Parameters**
 - **Per-search configuration** (language, region, location, etc.)
@@ -117,11 +117,11 @@ final class Tag {
 
 #### **5. User Interface**
 - **SearchQueriesView** for article link management
-- **LinkDetailView** mit Tag-Editor (Tags hinzufügen/entfernen)
-- **TagsView** für globale Tag-Verwaltung
-- **QualityControlView** inkl. Statistiken und Link zur **QualityTermsEditorView**
-- **QualityTermsEditorView** zum Bearbeiten der Musterlisten
-- **Dedicated Menu Items** für Tags und Quality Control (eigene Fenster)
+- **LinkDetailView** with Tag Editor (add/remove tags)
+- **TagsView** for global tag management
+- **QualityControlView** including statistics and link to **QualityTermsEditorView**
+- **QualityTermsEditorView** for editing pattern lists
+- **Dedicated Menu Items** for Tags and Quality Control (separate windows)
 
 ## 💾 Current Database Architecture (SwiftData)
 
@@ -190,9 +190,9 @@ final class ImageRecord {
 
 ## 🎨 Current User Interface
 
-- Tags: Verwaltung, Suche, Löschen, Hinzufügen
-- Quality Control: Statistiken (high/medium/low/excluded), Link zum Muster-Editor
-- Muster-Editor: Mehrsprachige Listen bearbeiten (Meaningful/Empty/Indicators/Excluded URLs)
+- Tags: Management, search, delete, add
+- Quality Control: Statistics (high/medium/low/excluded), link to pattern editor
+- Pattern Editor: Edit multilingual lists (Meaningful/Empty/Indicators/Excluded URLs)
 
 ## 🚀 Current Benefits
 
@@ -202,8 +202,8 @@ final class ImageRecord {
 4. **✅ Full Article Storage:** Complete content and images
 5. **✅ Search History:** Complete search and article history
 6. **✅ Modern UI:** SwiftUI-based interface with multiple windows
-7. **✅ Content Analysis & Quality:** Automatische Bewertung + editierbare Regeln
-8. **✅ Tagging:** Flexible Organisation mit benutzerdefinierten Tags
+7. **✅ Content Analysis & Quality:** Automatic assessment + editable rules
+8. **✅ Tagging:** Flexible organization with custom tags
 
 ---
 

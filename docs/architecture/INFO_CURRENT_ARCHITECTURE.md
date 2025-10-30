@@ -226,8 +226,8 @@ var sharedModelContainer: ModelContainer = {
 9. **Data Storage**: SwiftData persistence
 
 ### **Content Extraction & Quality**
-- Readability-ähnliche Extraktion, Link-Dichte, Strukturmerkmale
-- Mehrsprachige Muster (Meaningful/Empty/Indicators), editierbar in der App
+- Readability-like extraction, link density, structural features
+- Multilingual patterns (Meaningful/Empty/Indicators), editable in the app
 
 ## 🎨 User Interface
 
@@ -235,28 +235,28 @@ var sharedModelContainer: ModelContainer = {
 - Search Field, Parameters, History, Results
 
 ### **Search Queries Window (SearchQueriesView)**
-- Article list, details, Qualität-Indicator
+- Article list, details, Quality Indicator
 
 ### **API Settings Window (APISettingsView)**
-- SerpAPI/OpenAI Keys, Test-Buttons
+- SerpAPI/OpenAI Keys, Test Buttons
 
 ### **Tags Window (TagsView)**
-- Tagliste, Suche, Hinzufügen/Löschen, Zähler je Tag
+- Tag list, search, add/delete, counter per tag
 
 ### **Quality Control (QualityControlView)**
-- Kennzahlen (high/medium/low/excluded), Quick Actions, Link zum Editor
+- Metrics (high/medium/low/excluded), Quick Actions, link to editor
 
 ### **Quality Terms Editor (QualityTermsEditorView)**
-- Bearbeiten der Musterlisten (mehrsprachig), inkl. Excluded URL Patterns
+- Edit pattern lists (multilingual), including Excluded URL Patterns
 
 ## 🔒 Security & Privacy
 - Keychain, Local Storage, Sandbox, User Control
 
 ## 📈 Performance Metrics
-- Sub-100ms Queries, effiziente Speicherung
+- Sub-100ms Queries, efficient storage
 
 ## 🎯 Success Metrics
-- Vollständige Datenerfassung, schnelle UI, AI-Ready, konsistente UX
+- Complete data capture, fast UI, AI-Ready, consistent UX
 
 ## 🔮 Future Enhancements
 - Advanced Analytics, Smart Categorization, Export, Cloud Sync, Full-Text Search

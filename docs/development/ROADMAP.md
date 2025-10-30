@@ -30,20 +30,20 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 - **Robust DB Size Detection** - Store/sqlite + WAL/SHM aggregation
 - **Info Tab Thumbnails** - Inline preview or "No pics available"
 - **JSON Persistence** - Links/Videos/Metadata saved in DB
-- **Smart Tagging System** - Custom Tags, Tag-Verwaltung, Tag-Editor pro Artikel
-- **Quality Control** - Inhaltsqualität (high/medium/low/excluded) mit editierbaren Mustern (mehrsprachig)
-- **Dedicated Windows** - Separate Menüs/Fenster für Tags und Quality Control
-- **Modern UI Refresh** - Einheitliches Kartenlayout und macOS-konforme Farben
+- **Smart Tagging System** - Custom Tags, Tag Management, Tag Editor per Article
+- **Quality Control** - Content Quality (high/medium/low/excluded) with editable patterns (multilingual)
+- **Dedicated Windows** - Separate Menus/Windows for Tags and Quality Control
+- **Modern UI Refresh** - Unified card layout and macOS-compliant colors
 
 ---
 
 ## 🚀 **Next Releases**
 
 ### **v0.6.0 - Enhanced Article Viewer & Quality Tools**
-- **Enhanced Article Display** - Bessere Typografie/Lesbarkeit, ruhige Layouts
-- **Quality Insights** - Übersichtskacheln, Gründe/Indikatoren anzeigen
-- **Polish** - Kleine Layout-/Usability-Verbesserungen in Tags/Quality
-- **Search Integration** - Nahtlose Verbindung mit Suchergebnissen
+- **Enhanced Article Display** - Better typography/readability, clean layouts
+- **Quality Insights** - Overview tiles, show reasons/indicators
+- **Polish** - Small layout/usability improvements in Tags/Quality
+- **Search Integration** - Seamless connection with search results
 
 ### **v0.7.0 - Automated Search System**
 - **Enable/Disable Toggle** - Individual control for each automated search
@@ -56,7 +56,7 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 
 ### **v0.8.0 - Smart Categorization**
 - **AI-Powered Classification** - Automatic content categorization
-- **Advanced Tagging** - Hierarchien, Auto-Tagging
+- **Advanced Tagging** - Hierarchies, Auto-Tagging
 - **Content Insights** - Quality scoring, source analysis
 - **Smart Recommendations** - AI-powered suggestions
 
