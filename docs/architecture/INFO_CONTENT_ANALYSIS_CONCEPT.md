@@ -3,35 +3,43 @@
 ## 🎯 Overview
 DailyWebScanner's current content analysis and search functionality using SwiftData for comprehensive search result storage and analysis.
 
-## 📊 Current Status (Updated 2025-10-22)
+## 📊 Current Status (Updated 2025-10-30)
 - ✅ Search functionality works
 - ✅ Results are saved in SwiftData
-- ✅ HTML summary is displayed
+- ✅ Summary is displayed
 - ✅ **IMPLEMENTED:** Complete content analysis with LinkRecord system
 - ✅ **IMPLEMENTED:** Per-search parameter configuration
 - ✅ **IMPLEMENTED:** AI Overview integration
 - ✅ **IMPLEMENTED:** Full article content extraction with images
 - ✅ **IMPLEMENTED:** JSON persistence of links/videos/metadata
 - ✅ **IMPLEMENTED:** Image thumbnails shown in Info tab (or "No pics available")
+- ✅ **IMPLEMENTED:** Quality Control (content quality assessment, editierbare Muster, mehrsprachig)
+- ✅ **IMPLEMENTED:** Tagging (Many-to-Many zwischen LinkRecord und Tag, Tag-Verwaltung & Tag-Editor)
 
 ## 🔍 Current Implementation
 
 ### 1. SwiftData Architecture
 ```
 SearchRecord (SwiftData Model):
-├── query, createdAt, htmlSummary
+├── query, createdAt, summary
 ├── searchParameters (language, region, location, etc.)
 ├── contentAnalysis (JSON string)
 ├── linkContents (JSON string)
 └── linkRecords: [LinkRecord] (Relationship)
 
 LinkRecord (SwiftData Model):
-├── title, content, html, css
+├── title, content
 ├── author, publishDate, language
 ├── wordCount, readingTime
+├── contentQuality (high|medium|low|excluded), qualityReason, isVisible
 ├── images: [ImageRecord]
+├── tags: [Tag] (Many-to-Many)
 ├── aiOverviewJSON
-└── htmlPreview
+└── preview
+
+Tag (SwiftData Model):
+├── id, name, createdAt (unique name)
+└── (Many-to-Many) zu LinkRecord
 ```
 
 ### 2. Current Data Models
@@ -41,7 +49,7 @@ LinkRecord (SwiftData Model):
 final class SearchRecord {
     var query: String
     var createdAt: Date
-    var htmlSummary: String
+    var summary: String
     var language: String
     var region: String
     var location: String
@@ -58,15 +66,25 @@ final class SearchRecord {
 final class LinkRecord {
     var title: String
     var content: String
-    var html: String
-    var css: String
     var author: String?
     var publishDate: Date?
     var wordCount: Int
     var readingTime: Int
+    var contentQuality: String
+    var qualityReason: String
+    var isVisible: Bool
+    var tags: [Tag]
     var aiOverviewJSON: String
-    var htmlPreview: String
+    var preview: String
     var images: [ImageRecord]    // Relationship
+}
+
+// Tag (SwiftData Model)
+@Model
+final class Tag {
+    @Attribute(.unique) var id: UUID
+    @Attribute(.unique) var name: String
+    var createdAt: Date
 }
 ```
 
@@ -78,19 +96,19 @@ final class LinkRecord {
 - **SearchRecord** model with full search parameters
 - **LinkRecord** model for individual article storage
 - **ImageRecord** model for image management
+- **Tag** model (unique name) mit Many-to-Many zu LinkRecord
 - **Relationship management** between models
 
 #### **2. Content Extraction**
-- **Full HTML content** extraction from search results
-- **CSS styling** preservation
+- **Full article content** extraction from search results
 - **Image downloading** and storage
 - **Metadata extraction** (author, publish date, language)
 - **JSON persistence** (links, videos, metadata) for fast UI access
 
-#### **3. AI Integration**
+#### **3. AI & Quality Integration**
 - **AI Overview** from Google search results
 - **OpenAI API** integration for summaries
-- **JSON storage** of AI-generated content
+- **Quality Control**: Heuristik (Wortanzahl, Link-Dichte, Struktur), mehrsprachige Muster (bedeutend/leer), editierbar in der App
 
 #### **4. Search Parameters**
 - **Per-search configuration** (language, region, location, etc.)
@@ -99,9 +117,11 @@ final class LinkRecord {
 
 #### **5. User Interface**
 - **SearchQueriesView** for article link management
-- **ArticleLinkDetailView** for individual article display
-- **SearchParametersView** for per-search configuration
-- **HTML preview** with original styling
+- **LinkDetailView** mit Tag-Editor (Tags hinzufügen/entfernen)
+- **TagsView** für globale Tag-Verwaltung
+- **QualityControlView** inkl. Statistiken und Link zur **QualityTermsEditorView**
+- **QualityTermsEditorView** zum Bearbeiten der Musterlisten
+- **Dedicated Menu Items** für Tags und Quality Control (eigene Fenster)
 
 ## 💾 Current Database Architecture (SwiftData)
 
@@ -113,7 +133,7 @@ final class SearchRecord {
     var id: UUID
     var query: String
     var createdAt: Date
-    var htmlSummary: String
+    var summary: String
     var language: String
     var region: String
     var location: String
@@ -135,15 +155,25 @@ final class LinkRecord {
     var originalUrl: String
     var title: String
     var content: String
-    var html: String
-    var css: String
     var author: String?
     var publishDate: Date?
     var wordCount: Int
     var readingTime: Int
+    var contentQuality: String
+    var qualityReason: String
+    var isVisible: Bool
+    var tags: [Tag]
     var aiOverviewJSON: String
-    var htmlPreview: String
+    var preview: String
     var images: [ImageRecord]        // Relationship
+}
+
+// Tag model
+@Model
+final class Tag {
+    @Attribute(.unique) var id: UUID
+    @Attribute(.unique) var name: String
+    var createdAt: Date
 }
 
 // Image storage model
@@ -160,79 +190,23 @@ final class ImageRecord {
 
 ## 🎨 Current User Interface
 
-### 1. Main Application Window:
-```
-┌─ Search Parameters ─┐
-├─ Search Field ──────┤
-├─ Parameter Settings ─┤
-│  🌐 Language        │
-│  🌍 Region         │
-│  📍 Location       │
-│  🔒 Safe Search     │
-│  ⏰ Time Range      │
-│  🔍 Search Type     │
-└─ Search History ────┘
-```
-
-### 2. Search Queries Window:
-```
-┌─ Article Links ────┐
-├─ Link List ────────┤
-│  📰 Article 1      │
-│  📰 Article 2      │
-│  📰 Article 3      │
-└─ Article Details ──┘
-```
-
-### 3. Article Detail View:
-```
-┌─ Article Header ───┐
-├─ Metadata Tags ────┤
-│  👤 Author         │
-│  📅 Publish Date   │
-│  📊 Word Count     │
-│  ⏱️ Reading Time   │
-│  🖼️ Images         │
-└─ HTML Preview ─────┘
-```
-Additionally, the Info tab shows up to 8 thumbnails or a "No pics available" message.
+- Tags: Verwaltung, Suche, Löschen, Hinzufügen
+- Quality Control: Statistiken (high/medium/low/excluded), Link zum Muster-Editor
+- Muster-Editor: Mehrsprachige Listen bearbeiten (Meaningful/Empty/Indicators/Excluded URLs)
 
 ## 🚀 Current Benefits
 
 1. **✅ Complete Data Capture:** All search results and articles stored in SwiftData
 2. **✅ AI Integration:** OpenAI and Google AI Overview support
 3. **✅ Per-Search Configuration:** Dynamic parameter adjustment
-4. **✅ Full Article Storage:** Complete HTML, CSS, and images
+4. **✅ Full Article Storage:** Complete content and images
 5. **✅ Search History:** Complete search and article history
 6. **✅ Modern UI:** SwiftUI-based interface with multiple windows
-7. **✅ Content Analysis:** Automatic metadata extraction
-
-## 📋 Current Implementation Status
-
-### ✅ **COMPLETED Features:**
-1. **SwiftData Integration** - Full database implementation
-2. **Content Extraction** - Complete article content with images
-3. **AI Integration** - OpenAI and Google AI Overview
-4. **Search Parameters** - Per-search configuration
-5. **User Interface** - Multiple windows and views
-6. **Search History** - Complete search and article tracking
-
-### 🔄 **POTENTIAL FUTURE ENHANCEMENTS:**
-1. **Advanced Analytics** - Search pattern analysis
-2. **Smart Categorization** - AI-powered content classification
-3. **Export Functionality** - Data export in various formats
-4. **Cloud Sync** - iCloud integration for data synchronization
-
-## 🎯 Current Success Metrics
-
-- **✅ Content Coverage:** 100% of search results captured
-- **✅ Article Storage:** Complete HTML content with images
-- **✅ Search Performance:** Fast SwiftData queries
-- **✅ User Experience:** Intuitive multi-window interface
-- **✅ AI Readiness:** Structured data for AI processing
+7. **✅ Content Analysis & Quality:** Automatische Bewertung + editierbare Regeln
+8. **✅ Tagging:** Flexible Organisation mit benutzerdefinierten Tags
 
 ---
 
-*Updated: 2025-10-22*
-*Status: FULLY IMPLEMENTED - SwiftData + LinkRecord System*
-*Architecture: Modern SwiftData with comprehensive content analysis*
+*Updated: 2025-10-30*
+*Status: FULLY IMPLEMENTED - SwiftData + LinkRecord + Tag + Quality Control*
+*Architecture: Modern SwiftData with comprehensive content analysis and quality filtering*

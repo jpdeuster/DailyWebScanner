@@ -19,159 +19,168 @@ struct AppSettingsView: View {
     }
     
     var body: some View {
-        VStack(spacing: 20) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text("App Settings")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                HStack(spacing: 12) {
+                    Image(systemName: "app.badge")
+                        .foregroundColor(.blue)
+                        .font(.title)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("App Settings")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        Text("Allgemeine Einstellungen der Anwendung")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
                 
-                Text("General settings for the DailyWebScanner app")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                HStack { Spacer(); HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme") }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 10)
-            
-            Divider()
-            
-            ScrollView {
-                VStack(spacing: 20) {
-                    // General Settings
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Image(systemName: "gear")
-                                .foregroundColor(.blue)
-                                .font(.title2)
-                            
-                            Text("General")
+                // General Settings Card
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "gear")
+                            .foregroundColor(.blue)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Allgemein")
                                 .font(.headline)
-                            
+                            Text("Darstellung und Verhaltensoptionen")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 12) {
+                            Text("Appearance Mode:")
+                                .fontWeight(.medium)
                             Spacer()
+                            Picker("", selection: $appearanceMode) {
+                                Text("System").tag("system")
+                                Text("Light").tag("light")
+                                Text("Dark").tag("dark")
+                            }
+                            .pickerStyle(.menu)
+                            .frame(width: 140)
+                            .onChange(of: appearanceMode) { _, newValue in
+                                applyAppearanceMode(newValue)
+                            }
                         }
                         
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("Appearance Mode:")
+                        Toggle(isOn: $openArticlesOnLaunch) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Open Articles on Launch")
                                     .fontWeight(.medium)
-                                
-                                Picker("", selection: $appearanceMode) {
-                                    Text("System").tag("system")
-                                    Text("Light").tag("light")
-                                    Text("Dark").tag("dark")
-                                }
-                                .pickerStyle(.menu)
-                                .frame(width: 120)
-                                .onChange(of: appearanceMode) { _, newValue in
-                                    applyAppearanceMode(newValue)
-                                }
+                                Text("Artikel-Fenster nach dem Start automatisch öffnen")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                             }
-                            
-                            Toggle(isOn: $openArticlesOnLaunch) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Open Articles on Launch")
-                                        .fontWeight(.medium)
-                                    Text("Automatically open the Articles window after app start")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .toggleStyle(.switch)
-                            
-                            Toggle(isOn: $acceptAllCookies) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Accept All Cookies (Best‑Effort)")
-                                        .fontWeight(.medium)
-                                    Text("Send generic consent cookies and hide common cookie banners in HTML view")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .toggleStyle(.switch)
-
-                            // History Limit removed as not useful in current UX
                         }
+                        .toggleStyle(.switch)
+                        
+                        Toggle(isOn: $acceptAllCookies) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Accept All Cookies (Best‑Effort)")
+                                    .fontWeight(.medium)
+                                Text("Generische Consent-Cookies senden und Cookie-Banner verstecken")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .toggleStyle(.switch)
                     }
-                    .padding()
-                    .background(Color.blue.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    
-                    // App Info
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Image(systemName: "info.circle")
-                                .foregroundColor(.purple)
-                                .font(.title2)
-                            
+                }
+                .padding(16)
+                .background(Color.gray.opacity(0.08))
+                .cornerRadius(12)
+                .padding(.horizontal, 20)
+                
+                // App Info Card
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.purple)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("App Information")
                                 .font(.headline)
-                            
-                            Spacer()
+                            Text("Version, Build, Entwickler")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Version:")
-                                    .fontWeight(.medium)
-                                Text(appVersion)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            HStack {
-                                Text("Build:")
-                                    .fontWeight(.medium)
-                                Text(appBuild)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            HStack {
-                                Text("Developer:")
-                                    .fontWeight(.medium)
-                                Text("Jörg-Peter Deuster")
-                                    .foregroundColor(.secondary)
-                            }
+                        Spacer()
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Version:")
+                                .fontWeight(.medium)
+                            Text(appVersion)
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Build:")
+                                .fontWeight(.medium)
+                            Text(appBuild)
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Developer:")
+                                .fontWeight(.medium)
+                            Text("Jörg-Peter Deuster")
+                                .foregroundColor(.secondary)
                         }
                     }
-                    .padding()
-                    .background(Color.purple.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // Reset Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundColor(.orange)
-                                .font(.title2)
-                            
+                }
+                .padding(16)
+                .background(Color.gray.opacity(0.08))
+                .cornerRadius(12)
+                .padding(.horizontal, 20)
+                
+                // Reset Card
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.orange)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("Reset")
                                 .font(.headline)
-                            
-                            Spacer()
+                            Text("Einstellungen auf Standard zurücksetzen")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Button("Reset all settings") {
-                                resetAllSettings()
-                            }
-                            .buttonStyle(.bordered)
-                            .foregroundColor(.red)
-                            .help("Resets all settings to default values")
-                            
-                            Text("⚠️ This action cannot be undone")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                        }
+                        Spacer()
                     }
-                    .padding()
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(12)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button("Alle Einstellungen zurücksetzen") {
+                            resetAllSettings()
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.orange)
+                        .help("Setzt alle Einstellungen auf Standardwerte zurück")
+                        
+                        Text("Diese Aktion kann nicht rückgängig gemacht werden.")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
+                .padding(16)
+                .background(Color.gray.opacity(0.08))
+                .cornerRadius(12)
+                .padding(.horizontal, 20)
+                
+                Spacer(minLength: 10)
             }
         }
-        .padding()
-        .frame(minWidth: 500, minHeight: 400)
+        .background(Color(NSColor.controlBackgroundColor))
     }
     
     private func resetAllSettings() {

@@ -1,7 +1,10 @@
 import SwiftUI
+import SwiftData
 // HTML-Rendering entfernt
 
 struct LinkDetailView: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var newTagName: String = ""
     let linkRecord: LinkRecord
     // HTML-Rendering entfernt
     
@@ -79,6 +82,66 @@ struct LinkDetailView: View {
                         .padding(.horizontal)
                 }
                 .frame(maxHeight: 300)
+            }
+            
+            // Tags Editor
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Tags")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                // Current tags
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(linkRecord.tags) { tag in
+                            HStack(spacing: 4) {
+                                Image(systemName: "tag")
+                                Text(tag.name)
+                                Button {
+                                    if let idx = linkRecord.tags.firstIndex(where: { $0.id == tag.id }) {
+                                        linkRecord.tags.remove(at: idx)
+                                        try? modelContext.save()
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.gray.opacity(0.15) as Color)
+                            .cornerRadius(6)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                
+                HStack {
+                    TextField("Add tag (press Return)", text: $newTagName)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            let name = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !name.isEmpty else { return }
+                            let tag = TagManager.getOrCreate(name: name, in: modelContext)
+                            if !linkRecord.tags.contains(where: { $0.id == tag.id }) {
+                                linkRecord.tags.append(tag)
+                                try? modelContext.save()
+                            }
+                            newTagName = ""
+                        }
+                    Button("Add") {
+                        let name = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !name.isEmpty else { return }
+                        let tag = TagManager.getOrCreate(name: name, in: modelContext)
+                        if !linkRecord.tags.contains(where: { $0.id == tag.id }) {
+                            linkRecord.tags.append(tag)
+                            try? modelContext.save()
+                        }
+                        newTagName = ""
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.horizontal)
             }
             
             // Buttons

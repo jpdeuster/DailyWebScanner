@@ -4,11 +4,13 @@
 
 This document describes the current architecture of DailyWebScanner, a macOS application for comprehensive web search, content analysis, and article storage using SwiftData and modern SwiftUI.
 
-## 📊 Current Status (Updated 2025-10-22)
+## 📊 Current Status (Updated 2025-10-30)
 - ✅ **SwiftData Integration** - Fully implemented
 - ✅ **SearchRecord System** - Complete search session management
 - ✅ **LinkRecord System** - Individual article storage and analysis
 - ✅ **ImageRecord System** - Image management and storage
+- ✅ **Tag System** - Global tags with Many-to-Many to LinkRecord
+- ✅ **Quality Control** - Content quality assessment + customizable patterns
 - ✅ **AI Integration** - OpenAI and Google AI Overview
 - ✅ **Per-Search Parameters** - Dynamic search configuration
 - ✅ **Multi-Window UI** - Separate windows for different views
@@ -26,16 +28,23 @@ DailyWebScanner App
 │   ├── SearchRecord (Main search sessions)
 │   ├── LinkRecord (Individual articles)
 │   ├── ImageRecord (Image storage)
-│   └── SearchResult (Search results)
+│   └── Tag (Global tags)
 ├── API Integration
 │   ├── SerpAPIClient (Google search)
 │   ├── OpenAIClient (AI summaries)
-│   └── LinkContentFetcher (Article extraction)
+│   └── LinkContentFetcher (Article extraction + quality assessment)
+├── Quality & Config
+│   ├── ContentQualityFilter (Heuristics + pattern lists)
+│   └── QualityConfig (persisted, user-editable lists)
 ├── User Interface
 │   ├── ContentView (Main search interface)
 │   ├── SearchQueriesView (Article management)
 │   ├── APISettingsView (API configuration)
-│   └── SearchParametersView (Per-search settings)
+│   ├── SearchParametersView (Per-search settings)
+│   ├── TagsView (Global tag management)
+│   ├── LinkDetailView (Per-article tag editor)
+│   ├── QualityControlView (Stats + actions)
+│   └── QualityTermsEditorView (Edit filter terms)
 └── Data Management
     ├── SwiftData Container
     ├── Keychain Integration
@@ -51,7 +60,7 @@ final class SearchRecord: Identifiable {
     @Attribute(.unique) var id: UUID
     var query: String
     var createdAt: Date
-    var htmlSummary: String
+    var summary: String
     
     // Search Parameters
     var language: String = ""
@@ -98,8 +107,6 @@ final class LinkRecord: Identifiable {
     var originalUrl: String
     var title: String
     var content: String
-    var html: String
-    var css: String
     var fetchedAt: Date
     
     // Metadata
@@ -110,12 +117,21 @@ final class LinkRecord: Identifiable {
     var language: String?
     var wordCount: Int
     var readingTime: Int
-    
+
+    // Quality
+    var contentQuality: String   // high|medium|low|excluded
+    var qualityReason: String
+    var isVisible: Bool
+
+    // Tags
+    @Relationship(deleteRule: .nullify)
+    var tags: [Tag]
+
     // Images
     var imageCount: Int
     var totalImageSize: Int
     var images: [ImageRecord] = []
-    
+
     // AI Overview
     var hasAIOverview: Bool
     var aiOverviewJSON: String
@@ -125,13 +141,23 @@ final class LinkRecord: Identifiable {
     // Content Analysis
     var hasContentAnalysis: Bool
     var contentAnalysisJSON: String
-    
-    // HTML Preview
-    var htmlPreview: String
+
+    // Preview
+    var preview: String
 }
 ```
 
-### **3. ImageRecord - Image Storage**
+### **3. Tag - Global Tags**
+```swift
+@Model
+final class Tag: Identifiable {
+    @Attribute(.unique) var id: UUID
+    @Attribute(.unique) var name: String
+    var createdAt: Date
+}
+```
+
+### **4. ImageRecord - Image Storage**
 ```swift
 @Model
 final class ImageRecord: Identifiable {
@@ -175,14 +201,14 @@ var sharedModelContainer: ModelContainer = {
         SearchRecord.self,
         SearchResult.self,
         LinkRecord.self,
-        ImageRecord.self
+        ImageRecord.self,
+        Tag.self
     ])
     let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
     do {
         return try ModelContainer(for: schema, configurations: [modelConfiguration])
     } catch {
-        // In app, a user-friendly alert is shown and the app exits gracefully.
         fatalError("Could not create ModelContainer: \(error)")
     }
 }()
@@ -195,140 +221,49 @@ var sharedModelContainer: ModelContainer = {
 4. **Content Extraction**: Fetch full article content
 5. **LinkRecord Creation**: Store individual articles
 6. **Image Download**: Download and store images
-7. **AI Analysis**: OpenAI integration for summaries
-8. **Data Storage**: SwiftData persistence
+7. **Quality Assessment**: Heuristics + user patterns (QualityControl)
+8. **Tagging**: User assigns tags (LinkDetailView / TagsView)
+9. **Data Storage**: SwiftData persistence
 
-### **Content Extraction Process**
-```swift
-// LinkContentFetcher workflow
-1. Fetch HTML content from URL
-2. Extract CSS styles
-3. Download images
-4. Extract metadata (author, date, etc.)
-5. Calculate word count and reading time
-6. Generate HTML preview
-7. Store in LinkRecord
-```
+### **Content Extraction & Quality**
+- Readability-ähnliche Extraktion, Link-Dichte, Strukturmerkmale
+- Mehrsprachige Muster (Meaningful/Empty/Indicators), editierbar in der App
 
 ## 🎨 User Interface
 
 ### **Main Application Window (ContentView)**
-- **Search Field**: Quick search input
-- **Search Parameters**: Per-search configuration
-- **Search History**: List of previous searches
-- **Search Results**: HTML summary display
+- Search Field, Parameters, History, Results
 
 ### **Search Queries Window (SearchQueriesView)**
-- **Article Links**: List of all stored articles
-- **Article Details**: Individual article display
-- **Metadata Tags**: Author, date, word count, etc.
-- **HTML Preview**: Full article content with styling
+- Article list, details, Qualität-Indicator
 
 ### **API Settings Window (APISettingsView)**
-- **SerpAPI Configuration**: API key and testing
-- **OpenAI Configuration**: API key and testing
-- **Account Information**: Credits and usage
+- SerpAPI/OpenAI Keys, Test-Buttons
 
-### **Search Parameters (SearchParametersView)**
-- **Language**: Search language selection
-- **Region**: Geographic region
-- **Location**: Specific location
-- **Safe Search**: Content filtering
-- **Time Range**: Date filtering
-- **Search Type**: Web, images, news, etc.
+### **Tags Window (TagsView)**
+- Tagliste, Suche, Hinzufügen/Löschen, Zähler je Tag
 
-## 🚀 Key Features
+### **Quality Control (QualityControlView)**
+- Kennzahlen (high/medium/low/excluded), Quick Actions, Link zum Editor
 
-### **✅ Implemented Features:**
-
-#### **1. Comprehensive Search**
-- **Google Search Integration**: Via SerpAPI
-- **Multi-Page Results**: Fetch more than 10 results
-- **Search Parameters**: Per-search configuration
-- **Search History**: Complete search tracking
-
-#### **2. Content Analysis**
-- **Full Article Storage**: Complete HTML content
-- **Image Management**: Download and store images
-- **Metadata Extraction**: Author, date, language, etc.
-- **Content Statistics**: Word count, reading time
-
-#### **3. AI Integration**
-- **OpenAI Summaries**: AI-generated content summaries
-- **Google AI Overview**: Integration with Google's AI
-- **Content Analysis**: Automatic content categorization
-
-#### **4. Data Management**
-- **SwiftData Storage**: Modern database architecture
-- **Relationship Management**: Proper data relationships
-- **Memory Optimization**: Efficient memory usage
-- **Query Performance**: Fast database queries
-
-#### **5. User Experience**
-- **Multi-Window Interface**: Separate windows for different views
-- **Search Parameters**: Dynamic parameter adjustment
-- **Article Management**: Individual article storage and display
-- **HTML Preview**: Original styling preservation
+### **Quality Terms Editor (QualityTermsEditorView)**
+- Bearbeiten der Musterlisten (mehrsprachig), inkl. Excluded URL Patterns
 
 ## 🔒 Security & Privacy
-
-### **Data Security**
-- **Keychain Integration**: Secure API key storage
-- **Local Storage**: All data stored locally
-- **Sandbox Compliance**: macOS sandbox security
-- **User Control**: Complete data ownership
-
-### **Privacy Controls**
-- **Local-Only Storage**: No cloud sync by default
-- **User-Controlled Data**: Complete data control
-- **Secure API Keys**: Keychain-based storage
-- **Data Retention**: User-controlled data management
+- Keychain, Local Storage, Sandbox, User Control
 
 ## 📈 Performance Metrics
-
-### **Current Performance**
-- **SwiftData Queries**: Sub-100ms query times
-- **Memory Usage**: Optimized memory management
-- **Storage Efficiency**: Efficient data storage
-- **Content Extraction**: Fast article processing
-
-### **Scalability**
-- **Large Datasets**: Efficient handling of large search histories
-- **Image Storage**: Optimized image storage and retrieval
-- **Query Performance**: Fast search and filtering
-- **Memory Management**: Automatic memory optimization
+- Sub-100ms Queries, effiziente Speicherung
 
 ## 🎯 Success Metrics
-
-### **✅ Achieved Goals**
-- **Complete Data Capture**: 100% of search results stored
-- **Article Storage**: Complete HTML content with images
-- **Search Performance**: Fast SwiftData queries
-- **User Experience**: Intuitive multi-window interface
-- **AI Integration**: OpenAI and Google AI Overview
-
-### **✅ Technical Achievements**
-- **Modern Architecture**: SwiftData + SwiftUI
-- **Relationship Management**: Proper data relationships
-- **Content Analysis**: Automatic metadata extraction
-- **Multi-Window UI**: Separate windows for different views
-- **Per-Search Configuration**: Dynamic parameter adjustment
+- Vollständige Datenerfassung, schnelle UI, AI-Ready, konsistente UX
 
 ## 🔮 Future Enhancements
-
-### **Potential Improvements**
-- **Advanced Analytics**: Search pattern analysis
-- **Smart Categorization**: AI-powered content classification
-- **Export Functionality**: Data export in various formats
-- **Cloud Sync**: iCloud integration for data synchronization
-- **Advanced Search**: Full-text search across stored content
-
-*For detailed development roadmap, see [INFO_DEVELOPMENT_ROADMAP.md](INFO_DEVELOPMENT_ROADMAP.md)*
+- Advanced Analytics, Smart Categorization, Export, Cloud Sync, Full-Text Search
 
 ---
 
 *Created: 2024-12-19*
-*Status: FULLY IMPLEMENTED - SwiftData Architecture*
-*Architecture: Modern SwiftData with comprehensive content analysis*
-*Version: Beta 0.5*
-*Roadmap: 5-Phase Development Plan*
+*Updated: 2025-10-30*
+*Status: FULLY IMPLEMENTED - SwiftData Architecture (+ Tag & Quality)*
+*Architecture: Modern SwiftData with comprehensive content analysis and quality filtering*

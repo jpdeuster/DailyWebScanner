@@ -432,6 +432,9 @@ struct ArticleLinkRow: View {
                 if record.imageCount > 0 {
                     ParameterTag(label: "Images", value: "\(record.imageCount)")
                 }
+                
+                // Quality Indicator
+                QualityIndicator(quality: record.contentQuality, reason: record.qualityReason)
             }
             }
             
@@ -454,6 +457,88 @@ struct ArticleLinkRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.gray.opacity(0.3) as Color, lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Quality Indicator
+
+struct QualityIndicator: View {
+    let quality: String
+    let reason: String
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: iconName)
+                .font(.caption2)
+            Text(qualityText)
+                .font(.caption2)
+        }
+        .foregroundColor(iconColor)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(backgroundColor)
+        .cornerRadius(4)
+        .help(reason.isEmpty ? qualityText : reason)
+    }
+    
+    private var iconName: String {
+        switch quality {
+        case "high":
+            return "star.fill"
+        case "medium":
+            return "star"
+        case "low":
+            return "exclamationmark.triangle"
+        case "excluded":
+            return "xmark.circle"
+        default:
+            return "questionmark.circle"
+        }
+    }
+    
+    private var qualityText: String {
+        switch quality {
+        case "high":
+            return "High"
+        case "medium":
+            return "Med"
+        case "low":
+            return "Low"
+        case "excluded":
+            return "Hidden"
+        default:
+            return "Unknown"
+        }
+    }
+    
+    private var iconColor: Color {
+        switch quality {
+        case "high":
+            return .green
+        case "medium":
+            return .blue
+        case "low":
+            return .orange
+        case "excluded":
+            return .red
+        default:
+            return .gray
+        }
+    }
+    
+    private var backgroundColor: Color {
+        switch quality {
+        case "high":
+            return .green.opacity(0.1)
+        case "medium":
+            return .blue.opacity(0.1)
+        case "low":
+            return .orange.opacity(0.1)
+        case "excluded":
+            return .red.opacity(0.1)
+        default:
+            return .gray.opacity(0.1)
+        }
     }
 }
 

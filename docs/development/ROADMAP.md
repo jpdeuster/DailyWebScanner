@@ -30,16 +30,20 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 - **Robust DB Size Detection** - Store/sqlite + WAL/SHM aggregation
 - **Info Tab Thumbnails** - Inline preview or "No pics available"
 - **JSON Persistence** - Links/Videos/Metadata saved in DB
+- **Smart Tagging System** - Custom Tags, Tag-Verwaltung, Tag-Editor pro Artikel
+- **Quality Control** - Inhaltsqualität (high/medium/low/excluded) mit editierbaren Mustern (mehrsprachig)
+- **Dedicated Windows** - Separate Menüs/Fenster für Tags und Quality Control
+- **Modern UI Refresh** - Einheitliches Kartenlayout und macOS-konforme Farben
 
 ---
 
 ## 🚀 **Next Releases**
 
-### **v0.6.0 - HTML Viewer for Articles**
-- **Enhanced Article Display** - Better formatting and readability (ongoing)
-- **HTML Viewer polish** - Minor layout/typography refinements
-- **Content Navigation** - Easy browsing through article list
-- **Search Integration** - Seamless connection with search results
+### **v0.6.0 - Enhanced Article Viewer & Quality Tools**
+- **Enhanced Article Display** - Bessere Typografie/Lesbarkeit, ruhige Layouts
+- **Quality Insights** - Übersichtskacheln, Gründe/Indikatoren anzeigen
+- **Polish** - Kleine Layout-/Usability-Verbesserungen in Tags/Quality
+- **Search Integration** - Nahtlose Verbindung mit Suchergebnissen
 
 ### **v0.7.0 - Automated Search System**
 - **Enable/Disable Toggle** - Individual control for each automated search
@@ -52,7 +56,7 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 
 ### **v0.8.0 - Smart Categorization**
 - **AI-Powered Classification** - Automatic content categorization
-- **Advanced Tagging** - Custom tags, hierarchies, auto-tagging
+- **Advanced Tagging** - Hierarchien, Auto-Tagging
 - **Content Insights** - Quality scoring, source analysis
 - **Smart Recommendations** - AI-powered suggestions
 

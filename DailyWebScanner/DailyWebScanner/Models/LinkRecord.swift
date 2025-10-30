@@ -34,6 +34,10 @@ final class LinkRecord: Identifiable {
     @Relationship(deleteRule: .nullify)
     var images: [ImageRecord] = []
     
+    // Tags (many-to-many)
+    @Relationship(deleteRule: .nullify)
+    var tags: [Tag] = []
+    
     // AI Overview
     var hasAIOverview: Bool
     var aiOverviewJSON: String  // JSON string of AIOverview
@@ -43,6 +47,11 @@ final class LinkRecord: Identifiable {
     // Content Analysis
     var hasContentAnalysis: Bool
     var contentAnalysisJSON: String  // JSON string of ContentAnalysis
+    
+    // Content Quality
+    var contentQuality: String = "medium"  // high | medium | low | excluded
+    var qualityReason: String = ""  // Reason for quality assessment
+    var isVisible: Bool = true  // Whether to show in UI
     
     // HTML Preview entfernt
     

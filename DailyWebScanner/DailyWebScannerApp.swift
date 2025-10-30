@@ -101,7 +101,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 AutomatedSearchRecord.self,
                 SearchResult.self,
                 LinkRecord.self,
-                ImageRecord.self
+                ImageRecord.self,
+                Tag.self
             ])
             let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             self.modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
@@ -174,7 +175,8 @@ struct DailyWebScannerApp: App {
             AutomatedSearchRecord.self,
             SearchResult.self,
             LinkRecord.self,
-            ImageRecord.self
+            ImageRecord.self,
+            Tag.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -229,6 +231,18 @@ struct DailyWebScannerApp: App {
                 showAppSettingsWindow()
             }
             .keyboardShortcut("a", modifiers: [.command, .shift])
+        }
+        
+        CommandMenu("Content") {
+            Button("Tags") {
+                showTagsWindow()
+            }
+            .keyboardShortcut("t", modifiers: [.command, .shift])
+            
+            Button("Quality Control") {
+                showQualityControlWindow()
+            }
+            .keyboardShortcut("q", modifiers: [.command, .shift])
         }
         
         CommandMenu("Analysis") {
@@ -478,6 +492,47 @@ struct DailyWebScannerApp: App {
         appWindow.isReleasedWhenClosed = false
         
         appWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showTagsWindow() {
+        let tagsWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        tagsWindow.title = "Tags"
+        tagsWindow.center()
+        tagsWindow.contentView = NSHostingView(rootView: TagsView()
+            .modelContainer(sharedModelContainer))
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        tagsWindow.delegate = appWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        tagsWindow.isReleasedWhenClosed = false
+        
+        tagsWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    private func showQualityControlWindow() {
+        let qualityWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        qualityWindow.title = "Quality Control"
+        qualityWindow.center()
+        qualityWindow.contentView = NSHostingView(rootView: QualityControlView())
+        
+        // Konfiguriere das Fenster so, dass es nur das Fenster schließt, nicht die App
+        qualityWindow.delegate = appWindowDelegate
+        
+        // Wichtig: NICHT freigeben beim Schließen, damit die App nicht beendet wird
+        qualityWindow.isReleasedWhenClosed = false
+        
+        qualityWindow.makeKeyAndOrderFront(nil)
     }
     
     private func showComingSoonWindow() {

@@ -17,184 +17,193 @@ struct APISettingsView: View {
     @State private var openAIResult = ""
     
     var body: some View {
-        VStack(spacing: 16) {
-            
-            // Header
-            HStack {
-                Image(systemName: "gear.circle.fill")
-                    .foregroundColor(.blue)
-                    .font(.title2)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                HStack(spacing: 12) {
+                    Image(systemName: "gear.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.title)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("API Settings")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        Text("Konfiguration der externen Dienste")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
                 
-                Text("API Settings")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                HelpButton(urlString: "https://github.com/jpdeuster/DailyWebScanner#readme")
-            }
-            .padding(.horizontal)
-            
-            ScrollView {
-                VStack(spacing: 16) {
-                    
-                    // SerpAPI Configuration
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "magnifyingglass.circle.fill")
-                                .foregroundColor(.green)
-                            Text("SerpAPI Configuration")
+                // SerpAPI Configuration Card
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("SerpAPI")
                                 .font(.headline)
+                            Text("Google-Suchergebnisse über SerpAPI abrufen")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    
+                    VStack(spacing: 12) {
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("API Key")
+                                    .fontWeight(.medium)
+                                Text("Ihr SerpAPI-Schlüssel für Google-Suche")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            SecureField("SerpAPI Key eingeben", text: $serpKey)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(minWidth: 260, maxWidth: 340)
                         }
                         
-                        VStack(spacing: 12) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("API Key:")
-                                        .fontWeight(.medium)
-                                    Text("Your SerpAPI key for Google search")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                SecureField("Enter SerpAPI key", text: $serpKey)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 300)
-                            }
-                            HStack(spacing: 6) {
-                                Text("No key?")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Link("Create a key here", destination: URL(string: "https://serpapi.com/users/welcome")!)
-                                    .font(.caption)
-                            }
-                            
-                            HStack {
-                                Spacer()
-                                
-                                Button(action: testSerpAPI) {
-                                    HStack {
-                                        if isTestingSerpAPI {
-                                            ProgressView()
-                                                .scaleEffect(0.8)
-                                        } else {
-                                            Image(systemName: "play.circle.fill")
-                                        }
-                                        Text("Test SerpAPI")
-                                    }
-                                }
-                                .disabled(isTestingSerpAPI || serpKey.isEmpty)
-                                .buttonStyle(.borderedProminent)
-                            }
-                            
-                            if !serpAPIResult.isEmpty {
-                                Text(serpAPIResult)
-                                    .font(.caption)
-                                    .foregroundColor(serpAPIResult.contains("Success") ? .green : .red)
-                                    .padding(.top, 4)
-                            }
-                            
-                            HStack(spacing: 6) {
-                                Text("Check usage/credits:")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Link("Open SerpAPI Dashboard", destination: URL(string: "https://serpapi.com/dashboard")!)
-                                    .font(.caption)
-                            }
-                        }
-                    }
-                    .padding(12)
-                    .background(Color.green.opacity(0.07))
-                    .cornerRadius(10)
-                    
-                    // OpenAI Configuration
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "brain.head.profile")
-                                .foregroundColor(.purple)
-                            Text("OpenAI Configuration")
-                                .font(.headline)
+                        HStack(spacing: 6) {
+                            Text("Kein Key?")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Link("Hier Key erstellen", destination: URL(string: "https://serpapi.com/users/welcome")!)
+                                .font(.caption)
                         }
                         
-                        VStack(spacing: 12) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("API Key:")
-                                        .fontWeight(.medium)
-                                    Text("Your OpenAI API key for AI summaries")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                        HStack {
+                            Spacer()
+                            Button(action: testSerpAPI) {
+                                HStack(spacing: 6) {
+                                    if isTestingSerpAPI { ProgressView().scaleEffect(0.8) } else { Image(systemName: "play.circle.fill") }
+                                    Text("SerpAPI testen")
                                 }
-                                
-                                Spacer()
-                                
-                                SecureField("Enter OpenAI key", text: $openAIKey)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 300)
                             }
-                            HStack(spacing: 6) {
-                                Text("No key?")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Link("Create a key here", destination: URL(string: "https://platform.openai.com/api-keys")!)
-                                    .font(.caption)
-                            }
-                            
-                            HStack {
-                                Spacer()
-                                
-                                Button(action: testOpenAI) {
-                                    HStack {
-                                        if isTestingOpenAI {
-                                            ProgressView()
-                                                .scaleEffect(0.8)
-                                        } else {
-                                            Image(systemName: "play.circle.fill")
-                                        }
-                                        Text("Test OpenAI")
-                                    }
-                                }
-                                .disabled(isTestingOpenAI || openAIKey.isEmpty)
-                                .buttonStyle(.borderedProminent)
-                            }
-                            
-                            if !openAIResult.isEmpty {
-                                Text(openAIResult)
-                                    .font(.caption)
-                                    .foregroundColor(openAIResult.contains("Success") ? .green : .red)
-                                    .padding(.top, 4)
-                            }
+                            .disabled(isTestingSerpAPI || serpKey.isEmpty)
+                            .buttonStyle(.borderedProminent)
+                        }
+                        
+                        if !serpAPIResult.isEmpty {
+                            Text(serpAPIResult)
+                                .font(.caption)
+                                .foregroundColor(serpAPIResult.contains("Success") ? .green : .red)
+                        }
+                        
+                        HStack(spacing: 6) {
+                            Text("Nutzung / Credits prüfen:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Link("SerpAPI Dashboard öffnen", destination: URL(string: "https://serpapi.com/dashboard")!)
+                                .font(.caption)
                         }
                     }
-                    .padding(12)
-                    .background(Color.purple.opacity(0.07))
-                    .cornerRadius(10)
+                }
+                .padding(16)
+                .background(Color.gray.opacity(0.08))
+                .cornerRadius(12)
+                .padding(.horizontal, 20)
+                
+                // OpenAI Configuration Card
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "brain.head.profile")
+                            .foregroundColor(.purple)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("OpenAI")
+                                .font(.headline)
+                            Text("KI-Funktionen (z. B. Zusammenfassungen)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
                     
-                    // Info Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundColor(.blue)
+                    VStack(spacing: 12) {
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("API Key")
+                                    .fontWeight(.medium)
+                                Text("Ihr OpenAI-Schlüssel für KI-Funktionen")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            SecureField("OpenAI Key eingeben", text: $openAIKey)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(minWidth: 260, maxWidth: 340)
+                        }
+                        
+                        HStack(spacing: 6) {
+                            Text("Kein Key?")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Link("Hier Key erstellen", destination: URL(string: "https://platform.openai.com/api-keys")!)
+                                .font(.caption)
+                        }
+                        
+                        HStack {
+                            Spacer()
+                            Button(action: testOpenAI) {
+                                HStack(spacing: 6) {
+                                    if isTestingOpenAI { ProgressView().scaleEffect(0.8) } else { Image(systemName: "play.circle.fill") }
+                                    Text("OpenAI testen")
+                                }
+                            }
+                            .disabled(isTestingOpenAI || openAIKey.isEmpty)
+                            .buttonStyle(.borderedProminent)
+                        }
+                        
+                        if !openAIResult.isEmpty {
+                            Text(openAIResult)
+                                .font(.caption)
+                                .foregroundColor(openAIResult.contains("Success") ? .green : .red)
+                        }
+                    }
+                }
+                .padding(16)
+                .background(Color.gray.opacity(0.08))
+                .cornerRadius(12)
+                .padding(.horizontal, 20)
+                
+                // Info Card
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("Information")
                                 .font(.headline)
+                            Text("Suchparameter sind pro Suche konfigurierbar")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Search parameters are now available directly in the main search interface for each individual search.")
-                                .font(.body)
-                            
-                            Text("This allows you to customize your search settings on a per-search basis without having to change global settings.")
-                                .font(.body)
-                        }
+                        Spacer()
                     }
-                    .padding(12)
-                    .background(Color.blue.opacity(0.07))
-                    .cornerRadius(10)
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Die Suchparameter können direkt in der Suchoberfläche für jede Suche angepasst werden.")
+                            .font(.body)
+                        Text("Globale Änderungen sind dadurch seltener nötig und flexibler.")
+                            .font(.body)
+                    }
                 }
-                .padding(.horizontal)
+                .padding(16)
+                .background(Color.gray.opacity(0.08))
+                .cornerRadius(12)
+                .padding(.horizontal, 20)
+                
+                Spacer(minLength: 10)
             }
         }
+        .background(Color(NSColor.controlBackgroundColor))
         .onAppear {
             // Load from Keychain into AppStorage for consistent UI
             if let kc = KeychainHelper.get(.serpAPIKey), !kc.isEmpty { serpKey = kc }
@@ -233,7 +242,6 @@ struct APISettingsView: View {
         
         Task {
             let client = OpenAIClient(apiKeyProvider: { openAIKey })
-            // Simple test - just check if the client can be created
             _ = client
             
             await MainActor.run {

@@ -6,12 +6,22 @@ struct LinkListView: View {
     @State private var selectedLink: LinkRecord?
     @State private var searchText = ""
     @State private var sortOrder: SortOrder = .newest
+    @State private var showQualityFilter = true
+    @State private var qualityFilter: QualityFilter = .all
     
     enum SortOrder: String, CaseIterable {
         case newest = "Newest First"
         case oldest = "Oldest First"
         case title = "Title A-Z"
         case author = "Author"
+    }
+    
+    enum QualityFilter: String, CaseIterable {
+        case all = "All Articles"
+        case high = "High Quality"
+        case medium = "Medium Quality"
+        case visible = "Visible Only"
+        case hidden = "Hidden Only"
     }
     
     var filteredAndSortedLinks: [LinkRecord] {
@@ -23,6 +33,22 @@ struct LinkListView: View {
                 link.title.localizedCaseInsensitiveContains(searchText) ||
                 link.content.localizedCaseInsensitiveContains(searchText) ||
                 (link.author?.localizedCaseInsensitiveContains(searchText) ?? false)
+            }
+        }
+        
+        // Filter by quality
+        if showQualityFilter {
+            switch qualityFilter {
+            case .all:
+                break // Show all
+            case .high:
+                links = links.filter { $0.contentQuality == "high" }
+            case .medium:
+                links = links.filter { $0.contentQuality == "medium" }
+            case .visible:
+                links = links.filter { $0.isVisible }
+            case .hidden:
+                links = links.filter { !$0.isVisible }
             }
         }
         
@@ -70,6 +96,24 @@ struct LinkListView: View {
                         }
                         .pickerStyle(.menu)
                         .frame(maxWidth: 150)
+                        
+                        Spacer()
+                        
+                        // Quality Filter Toggle
+                        Toggle("Quality Filter", isOn: $showQualityFilter)
+                            .font(.caption)
+                            .toggleStyle(.switch)
+                            .frame(maxWidth: 120)
+                        
+                        if showQualityFilter {
+                            Picker("Quality", selection: $qualityFilter) {
+                                ForEach(QualityFilter.allCases, id: \.self) { filter in
+                                    Text(filter.rawValue).tag(filter)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: 150)
+                        }
                         
                         Spacer()
                         

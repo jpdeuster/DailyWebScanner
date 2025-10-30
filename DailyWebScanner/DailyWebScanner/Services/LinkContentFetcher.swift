@@ -1,5 +1,9 @@
 import Foundation
 import SwiftUI
+#if canImport(WebKit)
+import WebKit
+#endif
+import ImageIO
 
 // MARK: - Link Content Models
 
@@ -7,11 +11,17 @@ struct LinkContent: Codable {
     let url: String
     let title: String
     let content: String
+    let blocks: [ContentBlockItem]?
     let images: [ImageData]
     let metadata: ArticleMetadata
     let fetchedAt: Date
     // HTML/CSS entfernt (nur noch Plain Text)
     let aiOverview: AIOverview?
+}
+
+struct ContentBlockItem: Codable {
+    let type: String // paragraph | heading | list
+    let text: String
 }
 
 struct AIOverview: Codable {
@@ -82,52 +92,261 @@ class LinkContentFetcher {
         }
         
         // Fetch HTML content
-        let htmlContent = try await fetchHTML(from: articleURL)
+        var htmlContent = try await fetchHTML(from: articleURL)
         
-        // Parse HTML to extract structured content
-        let parser = HTMLArticleParser(html: htmlContent, baseURL: articleURL)
-        let parsedContent = try parser.parse()
+        // Heuristik: Wenn zu wenig Text oder sehr hohe Link-Dichte, versuche JS-Render-Fallback
+        if shouldRenderWithWebView(htmlContent) {
+            if let rendered = try? await renderHTMLWithWebView(articleURL) {
+                htmlContent = rendered
+            }
+        }
+        
+        // Parse HTML main content with Readability-style extractor
+        let readability = HTMLReadability()
+        let result = readability.extract(from: htmlContent, baseURL: articleURL)
         
         // Download and store images
-        let images = try await downloadImages(parsedContent.images, baseURL: articleURL)
+        let images = try await downloadImages(result.images, baseURL: articleURL)
         
-        // Extract metadata
-        let metadata = extractMetadata(from: parsedContent)
+        // Extract metadata from HTML & computed text
+        let metadata = extractMetadata(fromHTML: htmlContent, title: result.title, mainText: result.mainText)
         
         // Extract AI Overview if available
         let aiOverview = extractAIOverview(from: htmlContent)
         
-        return LinkContent(
-            url: url,
-            title: parsedContent.title,
-            content: parsedContent.mainText,
-            images: images,
-            metadata: metadata,
-            fetchedAt: Date(),
-            aiOverview: aiOverview
+               let linkContent = LinkContent(
+                   url: url,
+                   title: result.title,
+                   content: result.mainText,
+                   blocks: result.blocks.map { ContentBlockItem(type: $0.type, text: $0.text) },
+                   images: images,
+                   metadata: metadata,
+                   fetchedAt: Date(),
+                   aiOverview: aiOverview
+               )
+               
+               return linkContent
+    }
+    
+    // MARK: - Content Quality Assessment
+    
+    /// Bewertet die Content-Qualität für ein LinkContent-Objekt
+    func assessContentQuality(for linkContent: LinkContent) -> (quality: String, reason: String, isVisible: Bool) {
+        let tempRecord = LinkRecord.createForQualityAssessment(
+            url: linkContent.url,
+            title: linkContent.title,
+            content: linkContent.content,
+            wordCount: linkContent.metadata.wordCount,
+            readingTime: linkContent.metadata.readingTime,
+            author: linkContent.metadata.author
         )
+        
+        let quality = ContentQualityFilter.assessQuality(for: tempRecord)
+        
+        switch quality {
+        case .high(let reason):
+            return ("high", reason, true)
+        case .medium(let reason):
+            return ("medium", reason, true)
+        case .low(let reason):
+            return ("low", reason, false)
+        case .excluded(let reason):
+            return ("excluded", reason, false)
+        }
     }
     
     // MARK: - HTML Fetching
     
     private func fetchHTML(from url: URL) async throws -> String {
         var request = URLRequest(url: url)
-        request.setValue("DailyWebScanner/1.0", forHTTPHeaderField: "User-Agent")
+        // Realistischere Header für bessere Server-Akzeptanz
+        request.setValue(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+            forHTTPHeaderField: "User-Agent"
+        )
         request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
+        request.setValue("de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7", forHTTPHeaderField: "Accept-Language")
         request.timeoutInterval = 30
-        
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw LinkContentError.fetchFailed
+
+        // Einfache Retry-Logik bei transienten Fehlern
+        var lastError: Error?
+        for attempt in 0..<3 {
+            do {
+                let (data, response) = try await session.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw LinkContentError.fetchFailed
+                }
+                guard (200..<300).contains(httpResponse.statusCode) else {
+                    // Bei 429/5xx ggf. retry
+                    if httpResponse.statusCode == 429 || (500..<600).contains(httpResponse.statusCode) {
+                        throw LinkContentError.fetchFailed
+                    }
+                    throw LinkContentError.fetchFailed
+                }
+
+                // Robuste Encoding-Erkennung und Decoding
+                let html = try decodeHTMLData(data, response: httpResponse)
+                return html
+            } catch {
+                lastError = error
+                // Exponentielles Backoff (100ms, 300ms)
+                if attempt < 2 {
+                    try? await Task.sleep(nanoseconds: UInt64(100_000_000 * (attempt == 0 ? 1 : 3)))
+                    continue
+                }
+            }
         }
-        
-        guard let html = String(data: data, encoding: .utf8) else {
-            throw LinkContentError.encodingFailed
+
+        throw lastError ?? LinkContentError.fetchFailed
+    }
+
+    // MARK: - JS-Rendering Fallback (WKWebView)
+    private func shouldRenderWithWebView(_ html: String) -> Bool {
+        let text = html.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+        let words = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+        let wordCount = words.count
+        let links = matchesCount(pattern: "<a [^>]*>([\\s\\S]*?)</a>", in: html)
+        let linkDensity = Double(links) / max(1.0, Double(wordCount) / 80.0)
+        return wordCount < 200 || linkDensity > 1.5
+    }
+
+    private func matchesCount(pattern: String, in text: String) -> Int {
+        (try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]))
+            .map { $0.numberOfMatches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)) } ?? 0
+    }
+
+    private func renderHTMLWithWebView(_ url: URL) async throws -> String {
+        #if canImport(WebKit)
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.main.async {
+                let webView = WKWebView(frame: .zero)
+                let request = URLRequest(url: url)
+                webView.load(request)
+                // Warte bis "loaded" und dann JavaScript zum Extrahieren von outerHTML
+                let work = {
+                    webView.evaluateJavaScript("document.documentElement.outerHTML") { result, error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                            return
+                        }
+                        if let html = result as? String {
+                            continuation.resume(returning: html)
+                        } else {
+                            continuation.resume(throwing: LinkContentError.fetchFailed)
+                        }
+                    }
+                }
+                // Kleines Timeout-Fenster (z. B. 3 Sekunden nach load nachfassen)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
+            }
         }
-        
-        return html
+        #else
+        throw LinkContentError.fetchFailed
+        #endif
+    }
+
+    // MARK: - Encoding Detection & Decoding
+
+    private func decodeHTMLData(_ data: Data, response: HTTPURLResponse) throws -> String {
+        // 1) HTTP Header charset auswerten
+        if let contentType = response.value(forHTTPHeaderField: "Content-Type"),
+           let charsetName = parseCharset(from: contentType),
+           let enc = encoding(from: charsetName),
+           let html = String(data: data, encoding: enc) {
+            return html
+        }
+
+        // 2) BOM erkennen
+        if let bomEncoding = detectBOM(data), let html = String(data: data, encoding: bomEncoding) {
+            return html
+        }
+
+        // 3) Grob als ISO-8859-1 decodieren, um <meta charset> heuristisch lesen zu können
+        let latin1 = String(data: data, encoding: .isoLatin1)
+        if let latin1 = latin1 {
+            if let metaCharset = extractMetaCharset(from: latin1),
+               let enc = encoding(from: metaCharset),
+               let html = String(data: data, encoding: enc) {
+                return html
+            }
+        }
+
+        // 4) Häufige Fallbacks
+        if let html = String(data: data, encoding: .utf8) { return html }
+        if let html = String(data: data, encoding: .windowsCP1252) { return html }
+        if let html = String(data: data, encoding: .isoLatin1) { return html }
+
+        throw LinkContentError.encodingFailed
+    }
+
+    private func parseCharset(from contentType: String) -> String? {
+        // Beispiel: text/html; charset=UTF-8
+        let parts = contentType.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }
+        for part in parts {
+            let lower = part.lowercased()
+            if lower.hasPrefix("charset=") {
+                let value = lower.replacingOccurrences(of: "charset=", with: "")
+                return value.replacingOccurrences(of: "\"", with: "")
+            }
+        }
+        return nil
+    }
+
+    private func encoding(from charset: String) -> String.Encoding? {
+        // Versuche IANA-Name -> CFStringEncodings -> String.Encoding
+        let upper = charset.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if upper == "UTF8" { return .utf8 }
+        if upper == "UTF-8" { return .utf8 }
+        if upper == "ISO-8859-1" || upper == "ISO8859-1" || upper == "LATIN1" { return .isoLatin1 }
+        if upper == "WINDOWS-1252" || upper == "CP1252" { return .windowsCP1252 }
+
+        let cfEnc = CFStringConvertIANACharSetNameToEncoding(upper as CFString)
+        if cfEnc != kCFStringEncodingInvalidId {
+            let nsEnc = CFStringConvertEncodingToNSStringEncoding(cfEnc)
+            return String.Encoding(rawValue: nsEnc)
+        }
+        return nil
+    }
+
+    private func detectBOM(_ data: Data) -> String.Encoding? {
+        if data.count >= 3 {
+            // UTF-8 BOM: EF BB BF
+            if data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF { return .utf8 }
+        }
+        if data.count >= 2 {
+            // UTF-16 BE BOM: FE FF
+            if data[0] == 0xFE && data[1] == 0xFF { return .utf16BigEndian }
+            // UTF-16 LE BOM: FF FE
+            if data[0] == 0xFF && data[1] == 0xFE { return .utf16LittleEndian }
+        }
+        if data.count >= 4 {
+            // UTF-32 BE BOM: 00 00 FE FF
+            if data[0] == 0x00 && data[1] == 0x00 && data[2] == 0xFE && data[3] == 0xFF { return .utf32BigEndian }
+            // UTF-32 LE BOM: FF FE 00 00
+            if data[0] == 0xFF && data[1] == 0xFE && data[2] == 0x00 && data[3] == 0x00 { return .utf32LittleEndian }
+        }
+        return nil
+    }
+
+    private func extractMetaCharset(from htmlSnippet: String) -> String? {
+        // Suche nach <meta charset="..."> oder http-equiv
+        // Nur in den ersten ~8 KB suchen
+        let prefix = String(htmlSnippet.prefix(8192))
+        let patterns = [
+            "<meta[^>]*charset=\"?([^\\\"'>\\s]+)\"?[^>]*>",
+            "<meta[^>]*http-equiv=\"content-type\"[^>]*content=\"[^\\\"]*;\\s*charset=([^\\\"'>\\s]+)\"[^>]*>"
+        ]
+        for pat in patterns {
+            if let regex = try? NSRegularExpression(pattern: pat, options: [.caseInsensitive]) {
+                let range = NSRange(location: 0, length: prefix.utf16.count)
+                if let match = regex.firstMatch(in: prefix, options: [], range: range), match.numberOfRanges >= 2 {
+                    if let r = Range(match.range(at: 1), in: prefix) {
+                        return String(prefix[r])
+                    }
+                }
+            }
+        }
+        return nil
     }
     
     // MARK: - Image Downloading
@@ -415,21 +634,147 @@ class LinkContentFetcher {
     
     // MARK: - Metadata Extraction
     
-    private func extractMetadata(from content: ParsedContent) -> ArticleMetadata {
-        let wordCount = content.mainText.components(separatedBy: .whitespacesAndNewlines)
+    private func extractMetadata(fromHTML html: String, title: String, mainText: String) -> ArticleMetadata {
+        let author = extractAuthor(fromHTML: html)
+        let publishDate = extractPublishDate(fromHTML: html)
+        let description = extractDescription(fromHTML: html)
+        let keywords = extractKeywords(fromHTML: html)
+        let language = extractLanguage(fromHTML: html)
+
+        let wordCount = mainText.components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }.count
         
         let readingTime = max(1, wordCount / 200) // Assume 200 words per minute
         
         return ArticleMetadata(
-            author: content.author,
-            publishDate: content.publishDate,
-            description: content.description,
-            keywords: content.keywords,
-            language: content.language,
+            author: author,
+            publishDate: publishDate,
+            description: description,
+            keywords: keywords,
+            language: language,
             wordCount: wordCount,
             readingTime: readingTime
         )
+    }
+
+    // MARK: - Metadata (OG/Twitter/JSON-LD/Meta)
+
+    private func extractAuthor(fromHTML html: String) -> String? {
+        let patterns = [
+            "<meta[^>]*name=\"author\"[^>]*content=\"([^\"]+)\"",
+            "<meta[^>]*property=\"article:author\"[^>]*content=\"([^\"]+)\"",
+            "<meta[^>]*name=\"twitter:creator\"[^>]*content=\"@?([^\"]+)\"",
+            "<span[^>]*class=\"[^\"]*author[^\"]*\"[^>]*>([\\s\\S]*?)</span>"
+        ]
+        if let v = firstMatch(in: html, patterns: patterns) { return stripTags(v).trimmingCharacters(in: .whitespacesAndNewlines) }
+        // JSON-LD
+        if let ld = firstJsonLd(html), let author = jsonLdString(ld, keys: ["author","creator","publisher","creator.name","author.name","publisher.name"]) { return author }
+        return nil
+    }
+
+    private func extractPublishDate(fromHTML html: String) -> Date? {
+        let patterns = [
+            "<meta[^>]*property=\"article:published_time\"[^>]*content=\"([^\"]+)\"",
+            "<time[^>]*datetime=\"([^\"]+)\"",
+            "<meta[^>]*name=\"date\"[^>]*content=\"([^\"]+)\""
+        ]
+        if let s = firstMatch(in: html, patterns: patterns) {
+            if let d = ISO8601DateFormatter().date(from: s) { return d }
+            // try RFC 3339-lite
+            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            if let d = f.date(from: s) { return d }
+        }
+        if let ld = firstJsonLd(html) {
+            if let s = jsonLdString(ld, keys: ["datePublished","dateCreated","uploadDate"]) {
+                if let d = ISO8601DateFormatter().date(from: s) { return d }
+                let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+                if let d = f.date(from: s) { return d }
+            }
+        }
+        return nil
+    }
+
+    private func extractDescription(fromHTML html: String) -> String? {
+        let patterns = [
+            "<meta[^>]*name=\"description\"[^>]*content=\"([^\"]+)\"",
+            "<meta[^>]*property=\"og:description\"[^>]*content=\"([^\"]+)\""
+        ]
+        if let v = firstMatch(in: html, patterns: patterns) { return stripTags(v).trimmingCharacters(in: .whitespacesAndNewlines) }
+        if let ld = firstJsonLd(html), let s = jsonLdString(ld, keys: ["description","headline"]) { return s }
+        return nil
+    }
+
+    private func extractKeywords(fromHTML html: String) -> [String] {
+        if let s = firstMatch(in: html, patterns: ["<meta[^>]*name=\"keywords\"[^>]*content=\"([^\"]+)\""]) {
+            return s.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        }
+        if let ld = firstJsonLd(html), let s = jsonLdString(ld, keys: ["keywords"]) {
+            return s.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        }
+        return []
+    }
+
+    private func extractLanguage(fromHTML html: String) -> String? {
+        if let v = firstMatch(in: html, patterns: ["<html[^>]*lang=\"([^\"]+)\""]) { return v }
+        if let v = firstMatch(in: html, patterns: ["<meta[^>]*http-equiv=\"content-language\"[^>]*content=\"([^\"]+)\""]) { return v }
+        return nil
+    }
+
+    // MARK: - Small helpers
+    private func firstMatch(in text: String, patterns: [String]) -> String? {
+        for p in patterns {
+            if let regex = try? NSRegularExpression(pattern: p, options: [.caseInsensitive, .dotMatchesLineSeparators]) {
+                let range = NSRange(location: 0, length: text.utf16.count)
+                if let m = regex.firstMatch(in: text, options: [], range: range), m.numberOfRanges >= 2, let r = Range(m.range(at: 1), in: text) {
+                    return String(text[r])
+                }
+            }
+        }
+        return nil
+    }
+
+    private func stripTags(_ html: String) -> String {
+        return html.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+    }
+
+    private func firstJsonLd(_ html: String) -> Any? {
+        let pattern = "<script[^>]*type=\"application/ld\\+json\"[^>]*>([\\s\\S]*?)</script>"
+        if let json = firstMatch(in: html, patterns: [pattern]) {
+            if let data = json.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) { return obj }
+        }
+        return nil
+    }
+
+    private func jsonLdString(_ obj: Any, keys: [String]) -> String? {
+        // Unterstützt flache Keys und dotted keys wie "author.name"
+        func value(for dotted: String, in dict: [String: Any]) -> Any? {
+            let parts = dotted.split(separator: ".").map(String.init)
+            var current: Any? = dict
+            for p in parts {
+                if let d = current as? [String: Any] { current = d[p] }
+                else { return nil }
+            }
+            return current
+        }
+
+        if let dict = obj as? [String: Any] {
+            for k in keys {
+                if let v = value(for: k, in: dict) as? String { return v }
+                if let v = dict[k] as? String { return v }
+                if let a = dict[k] as? [[String: Any]] { if let v = a.first?["name"] as? String { return v } }
+                if let d = dict[k] as? [String: Any], let v = d["name"] as? String { return v }
+            }
+        } else if let arr = obj as? [[String: Any]] {
+            for item in arr {
+                if let s = jsonLdString(item, keys: keys) { return s }
+            }
+        }
+        return nil
     }
 }
 
