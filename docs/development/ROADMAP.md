@@ -45,7 +45,22 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 - **Polish** - Small layout/usability improvements in Tags/Quality
 - **Search Integration** - Seamless connection with search results
 
-### **v0.7.0 - Automated Search System**
+### **v0.6.5 - AI Bring-Up (OpenAI Integration)**
+- **OpenAI Client Hardening** - Timeouts, retries/backoff, clean error mapping, cancellations
+- **Key Management & Security** - Keychain handling, validation/test button, graceful fallback without key
+- **Prompting & Templates** - Reusable prompt templates (summary, extraction, classification), multilingual, configurable system prompts in UI
+- **Summaries Pipeline** - Short and extended summaries, optional streaming UI, fallback to original snippets when no key
+- **UI/UX** - Status/quota display, user-friendly errors, per-article AI overview with re-run, batch summaries with progress
+- **Privacy Controls** - Opt-in per article/source, optional redaction (no PII), toggleable local logging
+- **Testing** - Mock AI mode (deterministic stubs), unit tests for prompts, simulated rate limits/errors
+
+### **v0.7.0 - Smart Categorization**
+- **AI-Powered Classification** - Automatic content categorization
+- **Advanced Tagging** - Hierarchies, Auto-Tagging
+- **Content Insights** - Quality scoring, source analysis
+- **Smart Recommendations** - AI-powered suggestions
+
+### **v0.8.0 - Automated Search System**
 - **Enable/Disable Toggle** - Individual control for each automated search
 - **Real-time Timer Display** - Live countdown to next search execution
 - **Automatic Execution** - Searches run automatically at scheduled times
@@ -53,12 +68,6 @@ DailyWebScanner aims to become the ultimate intelligent search companion for mac
 - **Global Timer Management** - Centralized monitoring of all enabled searches
 - **Execution Tracking** - Count and timestamp of search executions
 - **Debug Logging** - Comprehensive logging for automated search operations
-
-### **v0.8.0 - Smart Categorization**
-- **AI-Powered Classification** - Automatic content categorization
-- **Advanced Tagging** - Hierarchies, Auto-Tagging
-- **Content Insights** - Quality scoring, source analysis
-- **Smart Recommendations** - AI-powered suggestions
 
 ### **v0.9.0 - Export & Integration**
 - **Export Functionality** - PDF, HTML, CSV exports
